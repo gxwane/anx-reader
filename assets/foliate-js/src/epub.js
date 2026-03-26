@@ -880,6 +880,7 @@ class Loader {
 const getHTMLFragment = (doc, id) => doc.getElementById(id)
     ?? doc.querySelector(`[name="${CSS.escape(id)}"]`)
 
+
 const getPageSpread = properties => {
     for (const p of properties) {
         if (p === 'page-spread-left' || p === 'rendition:page-spread-left')
@@ -902,6 +903,7 @@ export class EPUB {
     parser = new DOMParser()
     #loader
     #encryption
+    #virtualChaptersMap = new Map() // Maps section id to virtual chapters array
     constructor({ loadText, loadBlob, getSize, sha1 }) {
         this.loadText = loadText
         this.loadBlob = loadBlob
@@ -916,6 +918,109 @@ export class EPUB {
             throw new Error(`XML parsing error: ${uri}
 ${doc.querySelector('parsererror').innerText}`)
         return doc
+    }
+    // Build virtual chapters for sections that contain multiple TOC entries.
+    // Only splits at the shallowest TOC depth that has multiple entries for a section,
+    // so chapter-level boundaries are used rather than fine-grained sub-section ones.
+    #buildVirtualChapters(toc, sections) {
+        if (!toc) return
+
+        // Traverse TOC recording the depth of each item
+        const traverseWithDepth = (items, result = [], depth = 0) => {
+            for (const item of items) {
+                if (item.href) result.push({ item, depth })
+                if (item.subitems) traverseWithDepth(item.subitems, result, depth + 1)
+            }
+            return result
+        }
+        const allTocItems = traverseWithDepth(toc)
+
+        // Group by section path, preserving depth info
+        const tocBySection = new Map()
+        for (const { item, depth } of allTocItems) {
+            const [path, fragment] = item.href.split('#')
+            if (!tocBySection.has(path)) tocBySection.set(path, [])
+            tocBySection.get(path).push({ fragment: fragment || null, tocItem: item, depth })
+        }
+
+        for (const section of sections) {
+            const sectionId = section.id
+            const entries = tocBySection.get(sectionId)
+
+            if (!entries || entries.length <= 1) {
+                section.virtualChapters = null
+                continue
+            }
+
+            // Group entries by their TOC depth, then pick the shallowest depth
+            // that has more than one entry — this gives chapter-level granularity
+            // and avoids splitting at sub-section items.
+            const byDepth = new Map()
+            for (const entry of entries) {
+                if (!byDepth.has(entry.depth)) byDepth.set(entry.depth, [])
+                byDepth.get(entry.depth).push(entry)
+            }
+
+            let useEntries = null
+            for (const depth of [...byDepth.keys()].sort((a, b) => a - b)) {
+                if (byDepth.get(depth).length > 1) {
+                    useEntries = byDepth.get(depth)
+                    break
+                }
+            }
+
+            if (!useEntries || useEntries.length <= 1) {
+                section.virtualChapters = null
+                continue
+            }
+
+            // Deduplicate by fragment value
+            const seen = new Set()
+            const uniqueEntries = []
+            for (const entry of useEntries) {
+                const key = entry.fragment ?? '__root__'
+                if (!seen.has(key)) {
+                    seen.add(key)
+                    uniqueEntries.push(entry)
+                }
+            }
+
+            // Require at least one fragment boundary (otherwise slices are identical)
+            if (uniqueEntries.length <= 1 || !uniqueEntries.some(e => e.fragment !== null)) {
+                section.virtualChapters = null
+                continue
+            }
+
+            const virtualChapters = []
+            for (let i = 0; i < uniqueEntries.length; i++) {
+                const current = uniqueEntries[i]
+                const next = uniqueEntries[i + 1]
+                virtualChapters.push({
+                    fragmentStart: current.fragment,
+                    fragmentEnd: next?.fragment || null,
+                    tocItem: current.tocItem,
+                })
+            }
+
+            section.virtualChapters = virtualChapters
+            this.#virtualChaptersMap.set(sectionId, virtualChapters)
+        }
+    }
+    // Get virtual chapters for a section by its id
+    getVirtualChapters(sectionId) {
+        return this.#virtualChaptersMap.get(sectionId) || null
+    }
+    // Resolve which virtual chapter starts at a given fragment.
+    // Non-boundary anchors must be resolved later against the full document.
+    resolveVirtualChapter(sectionId, fragment) {
+        const virtualChapters = this.#virtualChaptersMap.get(sectionId)
+        if (!virtualChapters || !fragment) return null
+
+        for (let i = 0; i < virtualChapters.length; i++) {
+            if (virtualChapters[i].fragmentStart === fragment) return i
+        }
+
+        return null
     }
     async init() {
         const $container = await this.#loadXML('META-INF/container.xml')
@@ -964,6 +1069,8 @@ ${doc.querySelector('parsererror').innerText}`)
                 resolveHref: href => resolveURL(href, item.href),
                 mediaOverlay: item.mediaOverlay
                     ? this.resources.getItemByID(item.mediaOverlay) : null,
+                // Virtual chapter properties (set by #buildVirtualChapters after init)
+                virtualChapters: null,
             }
         }).filter(s => s)
 
@@ -1045,6 +1152,9 @@ ${doc.querySelector('parsererror').innerText}`)
                 else this.metadata[key] = [value]
             }))
 
+        // Build virtual chapters for large sections with multiple TOC entries
+        this.#buildVirtualChapters(this.toc, this.sections)
+
         return this
     }
     async loadDocument(item) {
@@ -1063,7 +1173,16 @@ ${doc.querySelector('parsererror').innerText}`)
         if (!item) return null
         const index = this.resources.spine.findIndex(({ idref }) => idref === item.id)
         const anchor = hash ? doc => getHTMLFragment(doc, hash) : () => 0
-        return { index, anchor }
+
+        // Resolve virtual chapter index if applicable
+        const section = this.sections?.[index]
+        let chapterIndex
+        if (section?.virtualChapters && hash) {
+            const resolvedChapter = this.resolveVirtualChapter(item.href, hash)
+            if (resolvedChapter != null) chapterIndex = resolvedChapter
+        }
+
+        return { index, anchor, chapterIndex }
     }
     splitTOCHref(href) {
         return href?.split('#') ?? []

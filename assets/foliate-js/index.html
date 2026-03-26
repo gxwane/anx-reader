@@ -40,13 +40,17 @@
     flex-direction: column;
   }
 
+  #footnote-dialog[hidden] {
+    display: none !important;
+  }
+
   #footnote-dialog main {
     overflow: auto;
     width: 100%;
     height: 100%;
   }
 </style>
-<div id="footnote-dialog">
+<div id="footnote-dialog" hidden aria-hidden="true">
   <main></main>
 </div>
 <script>

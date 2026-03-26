@@ -6,6 +6,29 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 
 const minWebviewVersion = 70;
+const _ignoredWebviewConsoleMessages = [
+  'An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing',
+  'JavaScript execution returned a result of an unsupported type',
+];
+const _ignoredWebviewConsoleMessageFragments = [
+  'ResizeObserver loop limit exceeded',
+  'ResizeObserver loop completed with undelivered notifications',
+  'OTS parsing error: invalid version tag',
+  'Failed to decode downloaded font: blob:',
+];
+
+bool shouldIgnoreWebviewConsoleMessage(ConsoleMessage consoleMessage) {
+  final message = consoleMessage.message;
+  if (_ignoredWebviewConsoleMessages.contains(message)) {
+    return true;
+  }
+  return _ignoredWebviewConsoleMessageFragments.any(message.contains);
+}
+
+bool shouldTreatWebviewConsoleMessageAsFatal(ConsoleMessage consoleMessage) {
+  return consoleMessage.messageLevel == ConsoleMessageLevel.ERROR &&
+      !shouldIgnoreWebviewConsoleMessage(consoleMessage);
+}
 void showUnsupportedWebviewDialog(int version) {
   SmartDialog.show(
     animationType: SmartAnimationType.fade,
@@ -60,11 +83,7 @@ void webviewConsoleMessage(
   InAppWebViewController controller,
   ConsoleMessage consoleMessage,
 ) {
-  const ignoreMsg = [
-    'An iframe which has both allow-scripts and allow-same-origin for its sandbox attribute can escape its sandboxing',
-    'JavaScript execution returned a result of an unsupported type'
-  ];
-  if (ignoreMsg.contains(consoleMessage.message)) {
+  if (shouldIgnoreWebviewConsoleMessage(consoleMessage)) {
     return;
   }
 

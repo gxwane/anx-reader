@@ -1,5 +1,128 @@
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 
+// Compute virtual chapter text-length metrics on the *full* document.
+// This is used to map per-virtual-chapter progress back to per-section progress.
+// Note: page/scroll progress is still computed on the sliced DOM; this only
+// affects the fraction reported to the outer progress model.
+const computeVirtualChapterTextMetrics = (doc, virtualChapters) => {
+  const body = doc?.body
+  if (!body || !Array.isArray(virtualChapters) || virtualChapters.length === 0) return null
+
+  const findEl = id => body.querySelector(`#${CSS.escape(id)}`)
+    ?? body.querySelector(`[name="${CSS.escape(id)}"]`)
+
+  // Collect boundary ids and resolve them to elements.
+  const idToEl = new Map()
+  for (const vc of virtualChapters) {
+    if (vc?.fragmentStart) idToEl.set(vc.fragmentStart, findEl(vc.fragmentStart))
+    if (vc?.fragmentEnd) idToEl.set(vc.fragmentEnd, findEl(vc.fragmentEnd))
+  }
+
+  // If any required start boundary is missing, bail out (fallback path will apply).
+  for (const vc of virtualChapters) {
+    if (vc?.fragmentStart && !idToEl.get(vc.fragmentStart)) return null
+  }
+
+  // Record character offsets before each boundary element by walking the DOM once.
+  const boundaryEls = new Set(Array.from(idToEl.values()).filter(Boolean))
+  const elToPos = new Map()
+  let pos = 0
+  const it = doc.createNodeIterator(body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT)
+  for (let node = it.nextNode(); node; node = it.nextNode()) {
+    if (node.nodeType === 1) {
+      if (boundaryEls.has(node) && !elToPos.has(node)) elToPos.set(node, pos)
+    } else if (node.nodeType === 3) {
+      pos += node.nodeValue?.length ?? 0
+    }
+  }
+
+  // Map boundary id -> character offset.
+  const idToPos = new Map()
+  for (const [id, el] of idToEl.entries()) {
+    if (!id) continue
+    if (!el) continue
+    idToPos.set(id, elToPos.get(el) ?? 0)
+  }
+
+  const lens = []
+  const cum = []
+  let sum = 0
+  for (let i = 0; i < virtualChapters.length; i++) {
+    cum[i] = sum
+    const vc = virtualChapters[i]
+    const start = vc?.fragmentStart ? (idToPos.get(vc.fragmentStart) ?? 0) : 0
+    const end = vc?.fragmentEnd ? (idToPos.get(vc.fragmentEnd) ?? pos) : pos
+    const len = Math.max(0, end - start)
+    lens[i] = len
+    sum += len
+  }
+
+  if (!Number.isFinite(sum) || sum <= 0) return null
+  return { lens, cum, total: sum }
+}
+
+const mapVChapterFractionToSectionFraction = (metrics, chapterIndex, localFraction) => {
+  if (!metrics || !Number.isFinite(metrics.total) || metrics.total <= 0) return null
+  const i = Math.max(0, Math.min(chapterIndex ?? 0, (metrics.lens?.length ?? 1) - 1))
+  const before = metrics.cum?.[i] ?? 0
+  const len = metrics.lens?.[i] ?? 0
+  const f = Math.max(0, Math.min(1, localFraction ?? 0))
+  if (len <= 0) return before / metrics.total
+  return (before + f * len) / metrics.total
+}
+
+const mapSectionFractionToVChapter = (metrics, sectionFraction) => {
+  if (!metrics || !Number.isFinite(metrics.total) || metrics.total <= 0) return null
+  const f = Math.max(0, Math.min(1, sectionFraction ?? 0))
+  const target = f * metrics.total
+  const lens = metrics.lens ?? []
+  const cum = metrics.cum ?? []
+  for (let i = 0; i < lens.length; i++) {
+    const start = cum[i] ?? 0
+    const len = lens[i] ?? 0
+    if (len <= 0) continue
+    if (target < start + len || i === lens.length - 1) {
+      const local = (target - start) / len
+      return { chapterIndex: i, localAnchor: Math.max(0, Math.min(1, local)) }
+    }
+  }
+  return { chapterIndex: 0, localAnchor: 0 }
+}
+
+// Apply virtual chapter DOM slicing to a live document.
+// Removes nodes outside [fragmentStart, fragmentEnd) from body,
+// keeping only the content belonging to the current virtual chapter.
+const applyVirtualChapterSlice = (doc, vChapter) => {
+  const { fragmentStart, fragmentEnd } = vChapter
+  const body = doc.body
+  if (!body || (!fragmentStart && !fragmentEnd)) return
+
+  const findEl = id => body.querySelector(`#${CSS.escape(id)}`)
+    ?? body.querySelector(`[name="${CSS.escape(id)}"]`)
+
+  const startEl = fragmentStart ? findEl(fragmentStart) : null
+  const endEl = fragmentEnd ? findEl(fragmentEnd) : null
+
+  if (fragmentStart && !startEl) {
+    console.warn(`[VirtualChapter] Start fragment not found: ${fragmentStart}`)
+    return
+  }
+
+  try {
+    const range = doc.createRange()
+    if (startEl) range.setStartBefore(startEl)
+    else range.setStart(body, 0)
+
+    if (endEl) range.setEndBefore(endEl)
+    else range.setEnd(body, body.childNodes.length)
+
+    const fragment = range.extractContents()
+    body.replaceChildren(fragment)
+  } catch (e) {
+    console.warn('[VirtualChapter] DOM slice failed:', e)
+  }
+}
+
 const lerp = (min, max, x) => x * (max - min) + min
 const easeOutSine = x => Math.sin((x * Math.PI) / 2)
 // const easeOutSine = x => 1 - (1 - x) * (1 - x);
@@ -176,12 +299,35 @@ const setStylesImportant = (el, styles) => {
   for (const [k, v] of Object.entries(styles)) style.setProperty(k, v, 'important')
 }
 
+const interactiveTouchSelector = [
+  'button',
+  'input',
+  'select',
+  'textarea',
+  'summary',
+  'label',
+  '[role="button"]',
+  '[contenteditable="true"]',
+  'audio[controls]',
+  'video[controls]',
+].join(', ')
+
+const getEventTargetElement = target =>
+  target?.nodeType === 1 ? target : target?.parentElement
+
+const getInteractiveTouchTarget = target =>
+  getEventTargetElement(target)?.closest?.(interactiveTouchSelector) ?? null
+
+const isInteractiveTurnSuppressed = () =>
+  Date.now() < (globalThis.__anxSuppressTouchTurnUntil ?? 0)
+
 class View {
-  #observer = new ResizeObserver(() => this.expand())
+  #observer = new ResizeObserver(() => this.#queueExpand())
   #element = document.createElement('div')
   #iframe = document.createElement('iframe')
   #contentRange = document.createRange()
   #overlayer
+  #expandFrame = null
   #vertical = false
   #rtl = false
   #writingMode = 'horizontal-ltr'
@@ -248,11 +394,19 @@ class View {
         // the resize observer above doesn't work in Firefox
         // (see https://bugzilla.mozilla.org/show_bug.cgi?id=1832939)
         // until the bug is fixed we can at least account for font load
-        doc.fonts.ready.then(() => this.expand())
+        doc.fonts.ready.then(() => this.#queueExpand())
 
         resolve()
       }, { once: true })
       this.#iframe.src = src
+    })
+  }
+  #queueExpand() {
+    if (this.#expandFrame != null) return
+    this.#expandFrame = requestAnimationFrame(() => {
+      this.#expandFrame = null
+      if (!this.document?.body?.isConnected) return
+      this.expand()
     })
   }
   render(layout) {
@@ -404,6 +558,10 @@ class View {
   }
   destroy() {
     if (this.document) this.#observer.unobserve(this.document.body)
+    if (this.#expandFrame != null) {
+      cancelAnimationFrame(this.#expandFrame)
+      this.#expandFrame = null
+    }
   }
 }
 
@@ -415,7 +573,7 @@ export class Paginator extends HTMLElement {
     'bgimg-blur', 'bgimg-opacity', 'bgimg-fit',
   ]
   #root = this.attachShadow({ mode: 'open' })
-  #observer = new ResizeObserver(() => this.render())
+  #observer = new ResizeObserver(() => this.#queueRender())
   #top
   #background
   #container
@@ -441,6 +599,12 @@ export class Paginator extends HTMLElement {
   #loadingPrev = false
   #pendingRelocate = null
   #isSnapping = false
+  #currentChapter = 0 // Current virtual chapter index within the section
+  #renderFrame = null
+  #pendingRender = false
+  #pendingAnchorRestore = false
+  #lastContainerWidth = 0
+  #lastContainerHeight = 0
   constructor() {
     super()
     this.#root.innerHTML = `<style>
@@ -585,6 +749,48 @@ export class Paginator extends HTMLElement {
     }
     this.#mediaQuery.addEventListener('change', this.#mediaQueryListener)
   }
+  #isInteracting() {
+    return !!(this.#touchState || this.#isSnapping || this.#locked)
+  }
+  #queueRender(force = false) {
+    if (!this.#view) return
+    if (this.#isInteracting()) {
+      this.#pendingRender = true
+      return
+    }
+    if (this.#renderFrame != null) return
+    this.#renderFrame = requestAnimationFrame(() => {
+      this.#renderFrame = null
+      if (!this.#view) return
+      const { width, height } = this.#container.getBoundingClientRect()
+      const unchanged = Math.abs(width - this.#lastContainerWidth) < 1
+        && Math.abs(height - this.#lastContainerHeight) < 1
+      if (!force && unchanged) return
+      this.render()
+    })
+  }
+  #restoreAnchorAfterLayout() {
+    if (!this.#view) return
+    if (this.#isInteracting()) {
+      this.#pendingAnchorRestore = true
+      return
+    }
+    this.#pendingAnchorRestore = false
+    this.scrollToAnchor(this.#anchor)
+  }
+  #flushDeferredLayout() {
+    if (this.#isInteracting()) return
+    if (this.#pendingRender) {
+      this.#pendingRender = false
+      this.#pendingAnchorRestore = false
+      this.render()
+      return
+    }
+    if (this.#pendingAnchorRestore) {
+      this.#pendingAnchorRestore = false
+      this.scrollToAnchor(this.#anchor)
+    }
+  }
   attributeChangedCallback(name, _, value) {
     switch (name) {
       case 'flow':
@@ -630,7 +836,7 @@ export class Paginator extends HTMLElement {
     }
     this.#view = new View({
       container: this,
-      onExpand: () => this.scrollToAnchor(this.#anchor),
+      onExpand: () => this.#restoreAnchorAfterLayout(),
     })
     this.#container.append(this.#view.element)
     return this.#view
@@ -645,6 +851,8 @@ export class Paginator extends HTMLElement {
     this.#applyBackground()
 
     const { width, height } = this.#container.getBoundingClientRect()
+    this.#lastContainerWidth = width
+    this.#lastContainerHeight = height
     const size = vertical ? height : width
 
     const style = getComputedStyle(this.#top)
@@ -733,7 +941,6 @@ export class Paginator extends HTMLElement {
       vertical: this.#vertical,
       rtl: this.#rtl,
     }))
-    this.scrollToAnchor(this.#anchor)
   }
   get scrolled() {
     return this.getAttribute('flow') === 'scrolled'
@@ -830,10 +1037,10 @@ export class Paginator extends HTMLElement {
       .then(() => {
         // Handle chapter boundaries (keep existing feature)
         const dir = targetPage <= 0 ? -1 : targetPage >= pages - 1 ? 1 : null
-        if (dir) return this.#goTo({
-          index: this.#adjacentIndex(dir),
-          anchor: dir < 0 ? () => 1 : () => 0,
-        })
+        if (dir) {
+          const target = this.#getAdjacentTarget(dir)
+          if (target) return this.#goTo(target)
+        }
       })
       .finally(() => {
         this.#isSnapping = false
@@ -844,6 +1051,7 @@ export class Paginator extends HTMLElement {
   #onTouchStart(e) {
     const touch = e.changedTouches[0]
     const scrollProp = this.scrollProp
+    const interactiveTarget = getInteractiveTouchTarget(e.target)
     this.#touchState = {
       x: touch?.screenX, y: touch?.screenY,
       t: e.timeStamp,
@@ -859,6 +1067,7 @@ export class Paginator extends HTMLElement {
       startPage: this.page,
       lockedOffset: null,
       axis: scrollProp,
+      interactiveTarget,
     }
     this.dispatchEvent(new CustomEvent('doctouchstart', {
       detail: {
@@ -876,14 +1085,22 @@ export class Paginator extends HTMLElement {
     const state = this.#touchState
     if (!state) return
 
+    if (isInteractiveTurnSuppressed()) {
+      e.preventDefault()
+      return
+    }
+
     const deltaX = touch.screenX - state.startTouch.x
     const deltaY = touch.screenY - state.startTouch.y
 
     const absDeltaX = Math.abs(deltaX);
     const absDeltaY = Math.abs(deltaY);
+    const axisProp = this.scrollProp
 
     state.delta.x = deltaX
     state.delta.y = deltaY
+
+    if (state.interactiveTarget) return
 
 
 
@@ -906,7 +1123,6 @@ export class Paginator extends HTMLElement {
       }
     }
 
-    const axisProp = this.scrollProp
     state.axis = axisProp
     const horizontalAxis = axisProp === 'scrollLeft'
     const verticalAxis = axisProp === 'scrollTop'
@@ -965,6 +1181,7 @@ export class Paginator extends HTMLElement {
   }
   #onTouchEnd(e) {
     const state = this.#touchState
+    if (!state) return
     this.dispatchEvent(new CustomEvent('doctouchend', {
       detail: {
         touch: e.changedTouches[0],
@@ -975,8 +1192,24 @@ export class Paginator extends HTMLElement {
     }))
 
     this.#touchScrolled = false
+    if (isInteractiveTurnSuppressed()) {
+      if (state.axis && state.startScroll != null)
+        this.#container[state.axis] = state.startScroll
+      this.#touchState = null
+      this.#flushDeferredLayout()
+      e.preventDefault()
+      return
+    }
+
+    if (state?.interactiveTarget) {
+      this.#touchState = null
+      this.#flushDeferredLayout()
+      return
+    }
+
     if (this.scrolled) {
       this.#touchState = null
+      this.#flushDeferredLayout()
       return
     }
 
@@ -993,6 +1226,7 @@ export class Paginator extends HTMLElement {
         this.#pendingRelocate = null
         this.dispatchEvent(new CustomEvent('relocate', { detail }))
       }
+      this.#flushDeferredLayout()
       return
     }
 
@@ -1003,8 +1237,14 @@ export class Paginator extends HTMLElement {
     requestAnimationFrame(() => {
       if (globalThis.visualViewport.scale === 1 && state)
         Promise.resolve(this.snap(state.vx, state.vy, state))
-          .finally(() => { this.#touchState = null })
-      else this.#touchState = null
+          .finally(() => {
+            this.#touchState = null
+            this.#flushDeferredLayout()
+          })
+      else {
+        this.#touchState = null
+        this.#flushDeferredLayout()
+      }
     })
   }
   // allows one to process rects as if they were LTR and horizontal
@@ -1139,13 +1379,30 @@ export class Paginator extends HTMLElement {
     else this.#justAnchored = true
 
     const index = this.#index
-    const detail = { reason, range, index }
+    const chapterIndex = this.#currentChapter
+    const detail = { reason, range, index, chapterIndex }
     if (this.scrolled) detail.fraction = this.start / this.viewSize
     else if (this.pages > 0) {
       const { page, pages } = this
       // this.#header.style.visibility = page > 1 ? 'visible' : 'hidden'
       detail.fraction = (page - 1) / (pages - 2)
       detail.size = 1 / (pages - 2)
+    }
+
+    // Virtual chapter DOM slicing makes detail.fraction represent chapter-local progress.
+    // Map it back to section-local progress using precomputed text metrics.
+    const section = this.sections?.[index]
+    const metrics = section?.__vcTextMetrics
+    if (section?.virtualChapters && metrics && typeof detail.fraction === 'number') {
+      const mapped = mapVChapterFractionToSectionFraction(metrics, chapterIndex, detail.fraction)
+      if (typeof mapped === 'number') {
+        // Scale size (page fraction) consistently so SectionProgress can compute nextSize.
+        if (typeof detail.size === 'number') {
+          const len = metrics.lens?.[chapterIndex] ?? 0
+          detail.size = detail.size * (len > 0 ? (len / metrics.total) : 0)
+        }
+        detail.fraction = mapped
+      }
     }
     if (!this.scrolled && reason === 'scroll' && (this.#touchState || this.#touchScrolled)) {
       this.#pendingRelocate = detail
@@ -1200,11 +1457,61 @@ export class Paginator extends HTMLElement {
     // }
   }
   async #display(promise) {
-    const { index, src, anchor, onLoad, select } = await promise
+    const { index, src, anchor, onLoad, select, vChapter, autoResolveVChapters } = await promise
     this.#index = index
+    let resolvedAnchorOverride
     if (src) {
       const view = this.#createView()
       const afterLoad = doc => {
+        const section = this.sections?.[index]
+
+        // Compute and cache metrics on the *full* document before any slicing.
+        try {
+          const vcs = autoResolveVChapters ?? section?.virtualChapters
+          if (section && vcs && !section.__vcTextMetrics) {
+            section.__vcTextMetrics = computeVirtualChapterTextMetrics(doc, vcs)
+          }
+        } catch (e) {
+          // Metrics are optional; fall back if anything goes wrong.
+          console.warn('[VirtualChapter] Metrics computation failed:', e)
+        }
+
+        if (autoResolveVChapters && typeof anchor === 'function' && doc.body) {
+          // CFI restoration: resolve the correct virtual chapter from the full doc
+          try {
+            const chapter = this.#resolveChapterFromAnchor(
+              { virtualChapters: autoResolveVChapters }, anchor, doc)
+            this.#currentChapter = chapter
+            applyVirtualChapterSlice(doc, autoResolveVChapters[chapter])
+          } catch (e) {
+            console.warn('[Paginator] Auto-resolve virtual chapter failed:', e)
+            this.#currentChapter = 0
+            try { applyVirtualChapterSlice(doc, autoResolveVChapters[0]) } catch (_) {}
+          }
+        } else if (autoResolveVChapters && typeof anchor === 'number' && doc.body) {
+          // Fraction navigation: resolve chapter using metrics, then slice.
+          try {
+            const metrics = section?.__vcTextMetrics
+            const mapped = metrics ? mapSectionFractionToVChapter(metrics, anchor) : null
+            const chapter = mapped?.chapterIndex ?? 0
+            const localAnchor = mapped?.localAnchor ?? 0
+            this.#currentChapter = chapter
+            resolvedAnchorOverride = localAnchor
+            applyVirtualChapterSlice(doc, autoResolveVChapters[chapter])
+          } catch (e) {
+            console.warn('[Paginator] Auto-resolve virtual chapter (fraction) failed:', e)
+            this.#currentChapter = 0
+            resolvedAnchorOverride = 0
+            try { applyVirtualChapterSlice(doc, autoResolveVChapters[0]) } catch (_) {}
+          }
+        } else if (vChapter) {
+          // Apply virtual chapter DOM slicing before rendering
+          try {
+            applyVirtualChapterSlice(doc, vChapter)
+          } catch (e) {
+            console.warn('[Paginator] Virtual chapter slice failed:', e)
+          }
+        }
         if (doc.head) {
           const $styleBefore = doc.createElement('style')
           doc.head.prepend($styleBefore)
@@ -1224,26 +1531,135 @@ export class Paginator extends HTMLElement {
       }))
       this.#view = view
     }
-    await this.scrollToAnchor((typeof anchor === 'function'
-      ? anchor(this.#view.document) : anchor) ?? 0, select)
+    let resolvedAnchor
+    if (typeof anchor === 'function') {
+      try {
+        resolvedAnchor = anchor(this.#view.document)
+      } catch (e) {
+        // Anchor may reference a node removed by virtual chapter slicing.
+        // Fall back to the start of the loaded chapter.
+        console.warn('[Paginator] Anchor resolution failed (possibly sliced doc):', e)
+        resolvedAnchor = 0
+      }
+    } else {
+      resolvedAnchor = anchor
+    }
+    if (typeof resolvedAnchorOverride === 'number') resolvedAnchor = resolvedAnchorOverride
+    await this.scrollToAnchor(resolvedAnchor ?? 0, select)
   }
   #canGoToIndex(index) {
     return index >= 0 && index <= this.sections.length - 1
   }
-  async #goTo({ index, anchor, select }) {
-    if (index === this.#index) await this.#display({ index, anchor, select })
-    else {
+  // Resolve which virtual chapter an anchor belongs to
+  #resolveChapterFromAnchor(section, anchor, doc) {
+    const virtualChapters = section.virtualChapters
+    if (!virtualChapters || !anchor) return 0
+
+    // If anchor is a function, we need to evaluate it with a doc
+    // If doc is provided, evaluate the anchor
+    if (typeof anchor === 'function' && doc) {
+      const result = anchor(doc)
+      if (result?.startContainer || result?.nodeType === 1) {
+        // Find which virtual chapter contains this element/range
+        for (let i = virtualChapters.length - 1; i >= 0; i--) {
+          const vc = virtualChapters[i]
+          if (!vc.fragmentStart) continue
+          const startEl = doc.getElementById(vc.fragmentStart)
+            ?? doc.querySelector(`[name="${CSS.escape(vc.fragmentStart)}"]`)
+          if (startEl) {
+            const target = result?.startContainer
+              ? result.startContainer
+              : result
+            // Check if target comes after or at startEl
+            const position = startEl.compareDocumentPosition(target)
+            if (position === 0 || position & Node.DOCUMENT_POSITION_FOLLOWING) {
+              return i
+            }
+          }
+        }
+      }
+      return 0
+    }
+
+    // If anchor is a number (fraction), calculate which chapter
+    if (typeof anchor === 'number' && virtualChapters.length > 0) {
+      // Distribute the fraction across virtual chapters
+      return Math.min(
+        Math.floor(anchor * virtualChapters.length),
+        virtualChapters.length - 1
+      )
+    }
+
+    return 0
+  }
+  async #goTo({ index, anchor, select, chapterIndex }) {
+    const section = this.sections[index]
+    const virtualChapters = section?.virtualChapters
+
+    // Determine which virtual chapter to load.
+    // When a CFI-based anchor (function) is used without an explicit chapterIndex,
+    // we cannot determine the chapter without loading the full document. Signal to
+    // #display to resolve it in afterLoad (autoResolveVChapters mode).
+    let targetChapter, autoResolveVChapters
+    let anchor_ = anchor
+
+    if (typeof chapterIndex === 'number') {
+      targetChapter = chapterIndex
+    } else if (virtualChapters && typeof anchor === 'function') {
+      targetChapter = 0 // placeholder; updated in afterLoad by auto-resolve
+      autoResolveVChapters = virtualChapters
+    } else if (virtualChapters && typeof anchor === 'number') {
+      // Fraction navigation: anchor is section-local; map it to a chapter + chapter-local anchor.
+      const metrics = section?.__vcTextMetrics
+      const mapped = metrics ? mapSectionFractionToVChapter(metrics, anchor) : null
+      if (mapped) {
+        targetChapter = mapped.chapterIndex
+        anchor_ = mapped.localAnchor
+      } else {
+        // No metrics yet (section not loaded before); load full doc and resolve in afterLoad.
+        targetChapter = 0
+        autoResolveVChapters = virtualChapters
+      }
+    } else if (virtualChapters) {
+      targetChapter = this.#resolveChapterFromAnchor(section, anchor)
+    } else {
+      targetChapter = 0
+    }
+
+    // Clamp chapter index
+    if (virtualChapters) {
+      targetChapter = Math.max(0, Math.min(targetChapter, virtualChapters.length - 1))
+    }
+
+    const sameSection = index === this.#index
+    const sameChapter = targetChapter === this.#currentChapter
+
+    if (sameSection && (!virtualChapters || (sameChapter && !autoResolveVChapters))) {
+      // Same section and same chapter - just scroll to anchor
+      await this.#display({ index, anchor: anchor_, select })
+    } else {
       const oldIndex = this.#index
+      const oldChapter = this.#currentChapter
+      this.#currentChapter = targetChapter
+      const shouldUnloadOldSection = this.#canGoToIndex(oldIndex)
+        && (oldIndex !== index || oldChapter !== targetChapter || !!autoResolveVChapters)
+
       const onLoad = detail => {
-        this.sections[oldIndex]?.unload?.()
+        if (shouldUnloadOldSection) {
+          this.sections[oldIndex]?.unload?.()
+        }
         this.setStyles(this.#styles)
         this.dispatchEvent(new CustomEvent('load', { detail }))
       }
-      await this.#display(Promise.resolve(this.sections[index].load())
-        .then(src => ({ index, src, anchor, onLoad, select }))
+
+      // vChapter is null when autoResolveVChapters is set (full doc loaded, sliced in afterLoad)
+      const vChapter = autoResolveVChapters ? null : virtualChapters?.[targetChapter]
+
+      await this.#display(Promise.resolve(section.load())
+        .then(src => ({ index, src, anchor: anchor_, onLoad, select, vChapter, autoResolveVChapters }))
         .catch(e => {
           console.warn(e)
-          console.warn(new Error(`Failed to load section ${index}`))
+          console.warn(new Error(`Failed to load section ${index}${virtualChapters ? ` chapter ${targetChapter}` : ''}`))
           return {}
         }))
     }
@@ -1277,25 +1693,72 @@ export class Paginator extends HTMLElement {
     return this.#scrollToPage(page, 'page', { animate: true }).then(() => page >= pages - 1)
   }
   get atStart() {
-    return this.#adjacentIndex(-1) == null && this.page <= 1
+    const section = this.sections[this.#index]
+    const canGoPrevChapter = section?.virtualChapters && this.#currentChapter > 0
+    return !canGoPrevChapter && this.#adjacentIndex(-1) == null && this.page <= 1
   }
   get atEnd() {
-    return this.#adjacentIndex(1) == null && this.page >= this.pages - 2
+    const section = this.sections[this.#index]
+    const canGoNextChapter = section?.virtualChapters &&
+      this.#currentChapter < section.virtualChapters.length - 1
+    return !canGoNextChapter && this.#adjacentIndex(1) == null && this.page >= this.pages - 2
   }
   #adjacentIndex(dir) {
     for (let index = this.#index + dir; this.#canGoToIndex(index); index += dir)
       if (this.sections[index]?.linear !== 'no') return index
+  }
+  // Get the next target (section/chapter) for navigation
+  #getAdjacentTarget(dir) {
+    const section = this.sections[this.#index]
+    const virtualChapters = section?.virtualChapters
+
+    // Check if we can move within virtual chapters first
+    if (virtualChapters) {
+      const nextChapter = this.#currentChapter + dir
+      if (nextChapter >= 0 && nextChapter < virtualChapters.length) {
+        // Stay in same section, move to adjacent chapter
+        return {
+          index: this.#index,
+          chapterIndex: nextChapter,
+          anchor: dir < 0 ? () => 1 : () => 0
+        }
+      }
+    }
+
+    // Move to adjacent section
+    const adjacentIndex = this.#adjacentIndex(dir)
+    if (adjacentIndex != null) {
+      const adjacentSection = this.sections[adjacentIndex]
+      const adjVirtualChapters = adjacentSection?.virtualChapters
+
+      // Determine starting chapter in adjacent section
+      let chapterIndex = 0
+      if (adjVirtualChapters && dir < 0) {
+        // Going backward: start at last chapter
+        chapterIndex = adjVirtualChapters.length - 1
+      }
+
+      return {
+        index: adjacentIndex,
+        chapterIndex,
+        anchor: dir < 0 ? () => 1 : () => 0
+      }
+    }
+
+    return null
   }
   async #turnPage(dir, distance) {
     // if (this.#locked) return
     this.#locked = true
     const prev = dir === -1
     const shouldGo = await (prev ? this.#scrollPrev(distance) : this.#scrollNext(distance))
-    
-    if (shouldGo) await this.#goTo({
-      index: this.#adjacentIndex(dir),
-      anchor: prev ? () => 1 : () => 0,
-    })
+
+    if (shouldGo) {
+      const target = this.#getAdjacentTarget(dir)
+      if (target) {
+        await this.#goTo(target)
+      }
+    }
     if (shouldGo || !this.hasAttribute('animated')) await wait(100)
     this.#locked = false
   }
@@ -1322,10 +1785,14 @@ export class Paginator extends HTMLElement {
   getContents() {
     if (this.#view) return [{
       index: this.#index,
+      chapterIndex: this.#currentChapter,
       overlayer: this.#view.overlayer,
       doc: this.#view.document,
     }]
     return []
+  }
+  get currentChapter() {
+    return this.#currentChapter
   }
   setStyles(styles) {
     this.#styles = styles
@@ -1347,11 +1814,15 @@ export class Paginator extends HTMLElement {
     return this.#view?.writingMode
   }
   destroy() {
-    this.#observer.unobserve(this)
+    this.#observer.unobserve(this.#container)
     this.#view.destroy()
     this.#view = null
     this.sections[this.#index]?.unload?.()
     this.#mediaQuery.removeEventListener('change', this.#mediaQueryListener)
+    if (this.#renderFrame != null) {
+      cancelAnimationFrame(this.#renderFrame)
+      this.#renderFrame = null
+    }
     if (this.#pendingScrollFrame) {
       cancelAnimationFrame(this.#pendingScrollFrame)
       this.#pendingScrollFrame = null

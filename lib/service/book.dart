@@ -608,7 +608,7 @@ Future<void> getBookMetadata(
           });
     },
     onConsoleMessage: (controller, consoleMessage) {
-      if (consoleMessage.messageLevel == ConsoleMessageLevel.ERROR) {
+      if (shouldTreatWebviewConsoleMessageAsFatal(consoleMessage)) {
         headlessInAppWebView?.dispose();
         headlessInAppWebView = null;
         throw Exception('Webview: ${consoleMessage.message}');

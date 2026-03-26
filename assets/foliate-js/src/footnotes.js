@@ -1,23 +1,7 @@
+import { isExplicitNoteRef, isHeuristicNoteRef } from './noteref.js'
+
 const getTypes = el => new Set(el?.getAttributeNS?.('http://www.idpf.org/2007/ops', 'type')?.split(' '))
 const getRoles = el => new Set(el?.getAttribute?.('role')?.split(' '))
-
-const isSuper = el => {
-    const { verticalAlign } = getComputedStyle(el)
-    return verticalAlign === 'super' || /^\d/.test(verticalAlign)
-}
-
-const refTypes = ['biblioref', 'glossref', 'noteref']
-const refRoles = ['doc-biblioref', 'doc-glossref', 'doc-noteref']
-const isFootnoteReference = a => {
-    const types = getTypes(a)
-    const roles = getRoles(a)
-    return {
-        yes: refRoles.some(r => roles.has(r)) || refTypes.some(t => types.has(t)),
-        maybe: () => !types.has('backlink') && !roles.has('doc-backlink')
-            && (isSuper(a) || a.children.length === 1 && isSuper(a.children[0])
-                || isSuper(a.parentElement)),
-    }
-}
 
 const getReferencedType = el => {
     const types = getTypes(el)
@@ -82,18 +66,19 @@ export class FootnoteHandler extends EventTarget {
     }
     handle(book, e) {
         const { a, href } = e.detail
-        const { yes, maybe } = isFootnoteReference(a)
-        if (yes) {
-            e.preventDefault()
+        const isExplicit = isExplicitNoteRef(a)
+        const isHeuristic = this.detectFootnotes && isHeuristicNoteRef(a)
+        if (!isExplicit && !isHeuristic) return
+
+        e.preventDefault()
+        if (isExplicit) {
             return Promise.resolve(book.resolveHref(href)).then(target =>
                 this.#showFragment(book, target, href))
         }
-        else if (this.detectFootnotes && maybe()) {
-            e.preventDefault()
-            return Promise.resolve(book.resolveHref(href)).then(({ index, anchor }) => {
-                const target = { index, anchor: doc => extractFootnote(doc, anchor) }
-                return this.#showFragment(book, target, href)
-            })
-        }
+
+        return Promise.resolve(book.resolveHref(href)).then(({ index, anchor }) => {
+            const target = { index, anchor: doc => extractFootnote(doc, anchor) }
+            return this.#showFragment(book, target, href)
+        })
     }
 }

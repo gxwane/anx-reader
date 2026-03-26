@@ -3,9 +3,57 @@ import { TOCProgress, SectionProgress } from './progress.js'
 import { Overlayer } from './overlayer.js'
 import { textWalker } from './text-walker.js'
 import { Translator, TranslationMode } from './translator.js'
+import { isExplicitNoteRef } from './noteref.js'
 const { TTS } = await import('./tts.js')
 
 const SEARCH_PREFIX = 'foliate-search:'
+const interactiveViewClickCooldownMs = 900
+const noteRefTouchAttr = 'data-anx-note-ref'
+const interactiveClickSelector = [
+  'a[href]',
+  'button',
+  'input',
+  'select',
+  'textarea',
+  'summary',
+  'label',
+  '[role="button"]',
+  '[contenteditable="true"]',
+  'audio[controls]',
+  'video[controls]',
+].join(', ')
+
+const getEventTargetElement = target =>
+  target?.nodeType === 1 ? target : target?.parentElement
+
+const suppressInteractiveTurn = doc => {
+  if (!doc) return 0
+  const suppressUntil = Date.now() + interactiveViewClickCooldownMs
+  globalThis.__anxSuppressTouchTurnUntil = Math.max(
+    globalThis.__anxSuppressTouchTurnUntil ?? 0,
+    suppressUntil,
+  )
+  return suppressUntil
+}
+
+const suppressInteractiveClick = doc => {
+  if (!doc) return
+  const now = Date.now()
+  const suppressUntil = suppressInteractiveTurn(doc)
+  doc.__anxSuppressClick = true
+  doc.__anxInteractiveClickAt = now
+  doc.__anxSuppressViewClickUntil = suppressUntil
+  globalThis.__anxInteractiveClickAt = now
+  globalThis.__anxSuppressViewClickUntil = Math.max(
+    globalThis.__anxSuppressViewClickUntil ?? 0,
+    suppressUntil,
+  )
+  if (doc.__anxSuppressClickTimer) clearTimeout(doc.__anxSuppressClickTimer)
+  doc.__anxSuppressClickTimer = setTimeout(() => {
+    doc.__anxSuppressClick = false
+    doc.__anxSuppressClickTimer = null
+  }, interactiveViewClickCooldownMs)
+}
 
 class History extends EventTarget {
   #arr = []
@@ -172,10 +220,14 @@ export class View extends HTMLElement {
   #emit(name, detail, cancelable) {
     return this.dispatchEvent(new CustomEvent(name, { detail, cancelable }))
   }
-  #onRelocate({ reason, range, index, fraction, size }) {
+  #onRelocate({ reason, range, index, chapterIndex, fraction, size }) {
     this.#index = index
     const progress = this.#sectionProgress?.getProgress(index, fraction, size) ?? {}
-    const tocItem = this.#tocProgress?.getProgress(index, range)
+
+    // For virtual chapter sections the DOM is sliced, so most fragment anchors used
+    // by TOCProgress are absent. Use the virtual chapter's tocItem directly instead.
+    const vcTocItem = this.book?.sections?.[index]?.virtualChapters?.[chapterIndex]?.tocItem
+    const tocItem = vcTocItem ?? this.#tocProgress?.getProgress(index, range)
     const pageItem = this.#pageProgress?.getProgress(index, range)
     const cfi = this.getCFI(index, range)
     const totalPages = this.renderer.pages ? this.renderer.pages - 2 : progress.section.total
@@ -185,9 +237,14 @@ export class View extends HTMLElement {
       total: totalPages
     }
 
-    this.lastLocation = { ...progress, tocItem, pageItem, cfi, range, chapterLocation }
-    if (reason === 'snap' || reason === 'page' || reason === 'scroll')
-      this.history.replaceState(cfi)
+    this.lastLocation = { ...progress, tocItem, pageItem, cfi, chapterIndex, range, chapterLocation }
+    if (reason === 'snap' || reason === 'page' || reason === 'scroll') {
+      // Store chapterIndex alongside CFI for virtual chapter sections
+      const state = chapterIndex != null && chapterIndex > 0
+        ? { cfi, chapterIndex }
+        : cfi
+      this.history.replaceState(state)
+    }
 
     if (cfi && (!this.#lastCfi || cfi !== this.#lastCfi)) {
       this.#lastCfi = cfi
@@ -213,20 +270,121 @@ export class View extends HTMLElement {
   #handleLinks(doc, index) {
     const { book } = this
     const section = book.sections[index]
-    for (const a of doc.querySelectorAll('a[href]'))
-      a.addEventListener('click', e => {
-        e.preventDefault()
-        e.stopPropagation()
-        const href_ = a.getAttribute('href')
-        const href = section?.resolveHref?.(href_) ?? href_
-        if (book?.isExternal?.(href))
-          Promise.resolve(this.#emit('external-link', { a, href }, true))
-            .then(x => x ? globalThis.open(href, '_blank') : null)
-            .catch(e => console.error(e))
-        else Promise.resolve(this.#emit('link', { a, href }, true))
+    let touchLink = null
+    let touchMoved = false
+    let touchStartX = 0
+    let touchStartY = 0
+    let ignoreClickUntil = 0
+
+    const activateLink = (a, e) => {
+      if (!a?.isConnected) return
+      ignoreClickUntil = Date.now() + 500
+      touchLink = null
+      touchMoved = false
+      suppressInteractiveClick(doc)
+      e?.preventDefault?.()
+      e?.stopPropagation?.()
+      const href_ = a.getAttribute('href')
+      const href = section?.resolveHref?.(href_) ?? href_
+      if (book?.isExternal?.(href)) {
+        Promise.resolve(this.#emit('external-link', { a, href }, true))
+          .then(x => x ? globalThis.open(href, '_blank') : null)
+          .catch(e => console.error(e))
+      } else {
+        Promise.resolve(this.#emit('link', { a, href }, true))
           .then(x => x ? this.goTo(href) : null)
           .catch(e => console.error(e))
+      }
+    }
+
+    doc.__anxActivateLink = (a, e) => activateLink(a, e)
+
+    if (!doc.getElementById('anx-note-ref-touch-style')) {
+      const style = doc.createElement('style')
+      style.id = 'anx-note-ref-touch-style'
+      style.textContent = `
+a[${noteRefTouchAttr}] {
+  position: relative;
+  z-index: 1;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+`
+      doc.head?.append(style)
+    }
+
+    for (const a of doc.querySelectorAll('a[href]')) {
+      if (isExplicitNoteRef(a)) a.setAttribute(noteRefTouchAttr, '')
+      a.addEventListener('click', e => {
+        if (Date.now() < ignoreClickUntil) {
+          e.preventDefault()
+          e.stopPropagation()
+          return
+        }
+        activateLink(a, e)
       })
+    }
+
+    const resolveLink = target => {
+      const a = target instanceof Element
+        ? target.closest('a[href]')
+        : target?.parentElement?.closest?.('a[href]')
+      if (!a) return null
+      return {
+        a,
+        forceActivate: a.hasAttribute(noteRefTouchAttr),
+      }
+    }
+
+    doc.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1) return
+      const touch = e.touches[0]
+      const link = resolveLink(e.target)
+      if (!link) return
+      suppressInteractiveTurn(doc)
+      touchLink = link
+      touchMoved = false
+      touchStartX = touch?.screenX ?? 0
+      touchStartY = touch?.screenY ?? 0
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      e.stopPropagation()
+    }, { capture: true, passive: false })
+
+    doc.addEventListener('touchmove', e => {
+      if (!touchLink) return
+      const touch = e.touches?.[0] ?? e.changedTouches?.[0]
+      if (touch && !touchLink.forceActivate) {
+        const dx = Math.abs((touch.screenX ?? 0) - touchStartX)
+        const dy = Math.abs((touch.screenY ?? 0) - touchStartY)
+        if (dx > 12 || dy > 12) touchMoved = true
+      }
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      e.stopPropagation()
+    }, { capture: true, passive: false })
+
+    doc.addEventListener('touchend', e => {
+      if (!touchLink) return
+      const { a, forceActivate } = touchLink
+      touchLink = null
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      e.stopPropagation()
+      if (forceActivate || !touchMoved) activateLink(a, e)
+      else {
+        touchMoved = false
+      }
+    }, { capture: true, passive: false })
+
+    doc.addEventListener('touchcancel', e => {
+      if (!touchLink) return
+      touchLink = null
+      touchMoved = false
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      e.stopPropagation()
+    }, { capture: true, passive: false })
   }
 
   #handleImage(doc) {
@@ -298,6 +456,12 @@ export class View extends HTMLElement {
       if (doc.getSelection().type === "Range")
         return
 
+      const target = getEventTargetElement(e.target)
+      if (target?.closest?.(interactiveClickSelector)) {
+        suppressInteractiveClick(doc)
+        return
+      }
+
       const position = doc.position
       const scale = doc.scale
       let { clientX, clientY } = e
@@ -325,7 +489,11 @@ export class View extends HTMLElement {
       this.#emit('click-view', { x: clientX, y: clientY })
     })
     this.renderer.addEventListener('click', e => {
-      const { clientX, clientY } = e
+      const target = getEventTargetElement(e.composedPath?.()[0])
+      if (target?.tagName === 'IFRAME') return
+      if (target?.closest?.(interactiveClickSelector)) return
+
+      let { clientX, clientY } = e
       while (clientX > window.innerWidth) {
         clientX -= window.innerWidth
       }
@@ -415,12 +583,22 @@ export class View extends HTMLElement {
   resolveNavigation(target) {
     try {
       if (typeof target === 'number') return { index: target }
-      if (typeof target.fraction === 'number') {
-        const [index, anchor] = this.#sectionProgress.getSection(target.fraction)
-        return { index, anchor }
+      if (typeof target === 'object' && target !== null) {
+        if (typeof target.fraction === 'number') {
+          const [index, anchor] = this.#sectionProgress.getSection(target.fraction)
+          return { index, anchor }
+        }
+        // { cfi, chapterIndex } format for virtual chapter sections
+        if (target.cfi) {
+          const resolved = this.resolveCFI(target.cfi)
+          if (target.chapterIndex != null) resolved.chapterIndex = target.chapterIndex
+          return resolved
+        }
       }
-      if (CFI.isCFI.test(target)) return this.resolveCFI(target)
-      return this.book.resolveHref(target)
+      if (typeof target === 'string') {
+        if (CFI.isCFI.test(target)) return this.resolveCFI(target)
+        return this.book.resolveHref(target)
+      }
     } catch (e) {
       console.error(e)
       console.error(`Could not resolve target ${target}`)

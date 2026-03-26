@@ -73,6 +73,85 @@ const getSelectionRange = (selection) => {
 
 const CONTEXT_WINDOW_CHARS = 120;
 const MAX_CONTEXT_CHARS = 600;
+const CROSS_PAGE_TURN_DELAY_MS = 500;
+const CROSS_PAGE_CORNER_RATIO = 0.2;
+
+const getBoundaryLeafNode = (node, direction) => {
+  let current = node;
+  while (current?.nodeType === Node.ELEMENT_NODE && current.childNodes?.length) {
+    current = direction === 'prev' ? current.firstChild : current.lastChild;
+  }
+  return current ?? node;
+};
+
+const makeTextBoundaryRange = (doc, node, direction, offset = null) => {
+  const length = node?.nodeValue?.length ?? 0;
+  if (!length) return node?.parentNode ?? node;
+
+  let start = 0;
+  let end = 1;
+
+  if (offset == null) {
+    if (direction === 'next') {
+      end = length;
+      start = Math.max(0, end - 1);
+    }
+  } else if (direction === 'prev') {
+    start = Math.max(0, Math.min(offset, length - 1));
+    end = Math.min(length, start + 1);
+  } else {
+    end = Math.max(1, Math.min(offset, length));
+    start = Math.max(0, end - 1);
+  }
+
+  if (start === end) {
+    start = Math.max(0, end - 1);
+    end = Math.min(length, start + 1);
+  }
+
+  const probe = doc.createRange();
+  probe.setStart(node, start);
+  probe.setEnd(node, end);
+  return probe;
+};
+
+const getBoundaryProbeTarget = (range, direction) => {
+  if (!range) return null;
+
+  const container = direction === 'prev' ? range.startContainer : range.endContainer;
+  const offset = direction === 'prev' ? range.startOffset : range.endOffset;
+  const doc = container?.ownerDocument ?? range.commonAncestorContainer?.ownerDocument;
+  if (!doc || !container) return null;
+
+  if (container.nodeType === Node.TEXT_NODE || container.nodeType === Node.CDATA_SECTION_NODE) {
+    return makeTextBoundaryRange(doc, container, direction, offset);
+  }
+
+  if (container.nodeType === Node.ELEMENT_NODE) {
+    const childCount = container.childNodes?.length ?? 0;
+    if (childCount > 0) {
+      const childIndex = direction === 'prev'
+        ? Math.min(offset, childCount - 1)
+        : Math.max(0, Math.min(offset - 1, childCount - 1));
+      const child = container.childNodes[childIndex];
+      if (child) {
+        const leaf = getBoundaryLeafNode(child, direction);
+        if (leaf?.nodeType === Node.TEXT_NODE || leaf?.nodeType === Node.CDATA_SECTION_NODE) {
+          return makeTextBoundaryRange(doc, leaf, direction);
+        }
+        return leaf ?? child;
+      }
+    }
+    return container;
+  }
+
+  return container.parentNode ?? container;
+};
+
+const getBoundaryPosition = (range, direction) => {
+  const target = getBoundaryProbeTarget(range, direction);
+  return target ? getPosition(target) : null;
+};
 
 const _collapseWhitespace = (text) =>
   typeof text === 'string'
@@ -176,6 +255,280 @@ const setSelectionHandler = (view, doc, index) => {
   let lastPointerUpRange = null;
   doc.__anxSelectionClearedAt = 0;
   doc.__anxSuppressClick = false;
+  doc.__anxInteractiveClickAt = 0;
+  doc.__anxSuppressViewClickUntil = 0;
+  doc.__anxSuppressClickTimer = null;
+
+  const crossPageState = {
+    activeBoundary: null,
+    lastStartBoundary: null,
+    lastEndBoundary: null,
+    hotspotDirection: null,
+    timerId: null,
+    timerDirection: null,
+    turnInFlight: false,
+    turnLock: null,
+    scrollContainer: null,
+    scrollListener: null,
+    scrollProp: null,
+    scrollOffset: null
+  };
+
+  const clearCrossPageTimer = () => {
+    if (!crossPageState.timerId) return;
+    clearTimeout(crossPageState.timerId);
+    crossPageState.timerId = null;
+    crossPageState.timerDirection = null;
+  };
+
+  const clearCrossPageLock = () => {
+    crossPageState.turnLock = null;
+  };
+
+  const clearScrollLock = () => {
+    if (crossPageState.scrollContainer && crossPageState.scrollListener) {
+      crossPageState.scrollContainer.removeEventListener('scroll', crossPageState.scrollListener);
+    }
+    crossPageState.scrollContainer = null;
+    crossPageState.scrollListener = null;
+    crossPageState.scrollProp = null;
+    crossPageState.scrollOffset = null;
+  };
+
+  const resetCrossPageTracking = () => {
+    clearCrossPageTimer();
+    clearCrossPageLock();
+    clearScrollLock();
+    crossPageState.activeBoundary = null;
+    crossPageState.lastStartBoundary = null;
+    crossPageState.lastEndBoundary = null;
+    crossPageState.hotspotDirection = null;
+    crossPageState.turnInFlight = false;
+  };
+
+  const getPaginatorContainer = () =>
+    view.shadowRoot
+      ?.querySelector('foliate-paginator')
+      ?.shadowRoot
+      ?.querySelector('#container')
+    ?? null;
+
+  const captureBoundary = (range, direction) => {
+    if (!range) return null;
+    return direction === 'prev'
+      ? {
+        container: range.startContainer,
+        offset: range.startOffset
+      }
+      : {
+        container: range.endContainer,
+        offset: range.endOffset
+      };
+  };
+
+  const boundaryEquals = (a, b) =>
+    a?.container === b?.container && a?.offset === b?.offset;
+
+  const getBoundaryForDirection = direction =>
+    direction === 'prev' ? 'start' : direction === 'next' ? 'end' : null;
+
+  const getDirectionForBoundary = boundary =>
+    boundary === 'start' ? 'prev' : boundary === 'end' ? 'next' : null;
+
+  const updateActiveBoundary = range => {
+    const startBoundary = captureBoundary(range, 'prev');
+    const endBoundary = captureBoundary(range, 'next');
+    const startChanged = !boundaryEquals(startBoundary, crossPageState.lastStartBoundary);
+    const endChanged = !boundaryEquals(endBoundary, crossPageState.lastEndBoundary);
+
+    if (startChanged && !endChanged) crossPageState.activeBoundary = 'start';
+    else if (endChanged && !startChanged) crossPageState.activeBoundary = 'end';
+
+    crossPageState.lastStartBoundary = startBoundary;
+    crossPageState.lastEndBoundary = endBoundary;
+  };
+
+  const lockPaginatorScroll = (container = getPaginatorContainer()) => {
+    if (!container) return;
+
+    const scrollProp = view.renderer?.scrollProp ?? 'scrollLeft';
+    const needsNewListener =
+      crossPageState.scrollContainer !== container
+      || crossPageState.scrollProp !== scrollProp;
+
+    if (needsNewListener) {
+      clearScrollLock();
+      crossPageState.scrollContainer = container;
+      crossPageState.scrollProp = scrollProp;
+      crossPageState.scrollListener = () => {
+        if (crossPageState.turnInFlight || crossPageState.scrollOffset == null) return;
+        if (container[scrollProp] !== crossPageState.scrollOffset) {
+          container[scrollProp] = crossPageState.scrollOffset;
+        }
+      };
+      container.addEventListener('scroll', crossPageState.scrollListener);
+    }
+
+    crossPageState.scrollOffset = container[scrollProp];
+  };
+
+  const syncScrollLock = () => {
+    if (crossPageState.turnLock) {
+      lockPaginatorScroll();
+      return;
+    }
+    clearScrollLock();
+  };
+
+  const getCrossPageCorner = direction => {
+    const writingMode = `${view.renderer?.writingMode ?? ''}`.toLowerCase();
+    const vertical = Boolean(view.renderer?.vertical)
+      || writingMode.startsWith('vertical')
+      || writingMode.startsWith('sideways');
+
+    if (vertical) {
+      const leftToRightColumns = writingMode.endsWith('-lr');
+      return direction === 'prev'
+        ? {
+          horizontal: leftToRightColumns ? 'left' : 'right',
+          vertical: 'top'
+        }
+        : {
+          horizontal: leftToRightColumns ? 'right' : 'left',
+          vertical: 'bottom'
+        };
+    }
+
+    const rtl = `${view.renderer?.getAttribute?.('dir') ?? view.book?.dir ?? ''}`.toLowerCase() === 'rtl';
+    return direction === 'prev'
+      ? {
+        horizontal: rtl ? 'right' : 'left',
+        vertical: 'top'
+      }
+      : {
+        horizontal: rtl ? 'left' : 'right',
+        vertical: 'bottom'
+      };
+  };
+
+  const isCrossPageCornerHit = (direction, position) => {
+    if (!position) return false;
+    const corner = getCrossPageCorner(direction);
+    if (!corner) return false;
+
+    const horizontalHit = corner.horizontal === 'left'
+      ? position.left <= CROSS_PAGE_CORNER_RATIO
+      : position.right >= 1 - CROSS_PAGE_CORNER_RATIO;
+    const verticalHit = corner.vertical === 'top'
+      ? position.top <= CROSS_PAGE_CORNER_RATIO
+      : position.bottom >= 1 - CROSS_PAGE_CORNER_RATIO;
+
+    return horizontalHit && verticalHit;
+  };
+
+  const isBoundaryInHotspot = (range, visibleRange, boundary) => {
+    if (boundary === 'start') {
+      return range.compareBoundaryPoints(Range.START_TO_START, visibleRange) <= 0
+        && isCrossPageCornerHit('prev', getBoundaryPosition(range, 'prev'));
+    }
+    if (boundary === 'end') {
+      return range.compareBoundaryPoints(Range.END_TO_END, visibleRange) >= 0
+        && isCrossPageCornerHit('next', getBoundaryPosition(range, 'next'));
+    }
+    return false;
+  };
+
+  const updateTurnLock = (range, visibleRange) => {
+    const lock = crossPageState.turnLock;
+    if (!lock) return;
+
+    if (crossPageState.activeBoundary && crossPageState.activeBoundary !== lock.boundary) {
+      clearCrossPageLock();
+      crossPageState.hotspotDirection = null;
+      return;
+    }
+
+    if (lock.requiresExit && !isBoundaryInHotspot(range, visibleRange, lock.boundary)) {
+      clearCrossPageLock();
+      crossPageState.hotspotDirection = null;
+    }
+  };
+
+  const getCrossPageDirection = (range, visibleRange) => {
+    const boundary = crossPageState.activeBoundary;
+    if (!boundary) return null;
+    return isBoundaryInHotspot(range, visibleRange, boundary)
+      ? getDirectionForBoundary(boundary)
+      : null;
+  };
+
+  const scheduleCrossPageTurn = direction => {
+    if (!direction) return;
+    if (crossPageState.turnInFlight) return;
+    if (crossPageState.turnLock) return;
+    if (crossPageState.timerId && crossPageState.timerDirection === direction) return;
+
+    clearCrossPageTimer();
+    crossPageState.timerDirection = direction;
+    crossPageState.timerId = setTimeout(async () => {
+      crossPageState.timerId = null;
+      crossPageState.timerDirection = null;
+
+      if (view.renderer.getAttribute('flow') !== 'paginated') return;
+
+      const selectionRange = getSelectionRange(doc.getSelection());
+      const visibleRange = view.lastLocation?.range;
+      if (!selectionRange || !visibleRange) return;
+
+      updateActiveBoundary(selectionRange);
+      updateTurnLock(selectionRange, visibleRange);
+
+      if (crossPageState.turnInFlight) return;
+      if (crossPageState.turnLock) return;
+      if (getCrossPageDirection(selectionRange, visibleRange) !== direction) return;
+
+      clearScrollLock();
+      crossPageState.turnInFlight = true;
+
+      try {
+        await (direction === 'next' ? view.next() : view.prev());
+      } catch (error) {
+        console.error(error);
+      } finally {
+        crossPageState.turnInFlight = false;
+
+        const currentRange = getSelectionRange(doc.getSelection());
+        if (!currentRange) {
+          clearCrossPageLock();
+          clearScrollLock();
+          return;
+        }
+
+        const boundary = getBoundaryForDirection(direction);
+        crossPageState.activeBoundary = boundary;
+        crossPageState.lastStartBoundary = captureBoundary(currentRange, 'prev');
+        crossPageState.lastEndBoundary = captureBoundary(currentRange, 'next');
+        crossPageState.hotspotDirection = direction;
+        crossPageState.turnLock = {
+          direction,
+          boundary,
+          requiresExit: true,
+        };
+        lockPaginatorScroll();
+      }
+    }, CROSS_PAGE_TURN_DELAY_MS);
+  };
+
+  const emitSelection = () => {
+    clearCrossPageTimer();
+    clearScrollLock();
+    handleSelection(view, doc, index);
+  };
+
+  const cleanupCrossPageIfSelectionMissing = () => {
+    if (getSelectionRange(doc.getSelection())) return;
+    resetCrossPageTracking();
+  };
 
   // Notify Flutter when the selection collapses so it can hide the context menu.
   const handleSelectionStateChange = () => {
@@ -187,15 +540,18 @@ const setSelectionHandler = (view, doc, index) => {
       return;
     }
 
+    lastPointerUpRange = null;
+    resetCrossPageTracking();
     if (!hasActiveSelection) return;
     hasActiveSelection = false;
-    lastPointerUpRange = null;
     doc.__anxSelectionClearedAt = Date.now();
     doc.__anxSuppressClick = true;
     callFlutter('onSelectionCleared');
   };
 
   doc.addEventListener('selectionchange', handleSelectionStateChange);
+  doc.addEventListener('pointerup', cleanupCrossPageIfSelectionMissing);
+  doc.addEventListener('pointercancel', cleanupCrossPageIfSelectionMissing);
 
   const rangesEqual = (a, b) => (
     a.startContainer === b.startContainer
@@ -224,7 +580,7 @@ const setSelectionHandler = (view, doc, index) => {
   ) {
     doc.addEventListener('pointerup', () => {
       if (shouldSkipPointerUp()) return;
-      handleSelection(view, doc, index);
+      emitSelection();
     });
   }
   else if (navigator.platform.includes('Win')) {
@@ -249,7 +605,7 @@ const setSelectionHandler = (view, doc, index) => {
       doc.addEventListener('pointerup', (e) => {
         if (e.pointerType === 'touch') return;
         if (shouldSkipPointerUp()) return;
-        handleSelection(view, doc, index);
+        emitSelection();
       });
 
       // filter out selectionchange event cause by mouse
@@ -273,14 +629,14 @@ const setSelectionHandler = (view, doc, index) => {
         clearTimeout(debounceTimerId);
         let delay = 500;
         debounceTimerId = setTimeout(() => {
-          handleSelection(view, doc, index);
+          emitSelection();
         }, delay);
       });
 
     } else {
       doc.addEventListener('pointerup', () => {
         if (shouldSkipPointerUp()) return;
-        handleSelection(view, doc, index);
+        emitSelection();
       });
     }
   }
@@ -299,7 +655,7 @@ const setSelectionHandler = (view, doc, index) => {
       // Wait for selection to settle (e.g. 600ms after last change)
       // This handles the case where pointerup/touchend is swallowed by native handles
       debounceTimerId = setTimeout(() => {
-        handleSelection(view, doc, index);
+        emitSelection();
       }, 600);
     });
   } else { // Android
@@ -318,7 +674,7 @@ const setSelectionHandler = (view, doc, index) => {
     doc.addEventListener('contextmenu', e => {
       // Allow mouse context menu (if any)
       if (e.pointerType === 'mouse') {
-        handleSelection(view, doc, index);
+        emitSelection();
         return;
       }
 
@@ -333,60 +689,54 @@ const setSelectionHandler = (view, doc, index) => {
       // If we have entered native selection mode (pointercancel happened),
       // this contextmenu event is likely triggered by the system or user interaction
       // after the selection phase (e.g. on release). We handle it.
-      handleSelection(view, doc, index);
+      emitSelection();
     });
   }
   // doc.addEventListener('selectionchange', () => handleSelection(view, doc, index));
 
   if (!view.isFixedLayout) {
-    // go to the next page when selecting to the end of a page
-    // this makes it possible to select across pages
-
     doc.addEventListener('selectstart', () => {
-      const container = view.shadowRoot.querySelector('foliate-paginator').shadowRoot.querySelector("#container");
-      if (!container) return;
-      globalThis.originalScrollLeft = container.scrollLeft;
+      if (view.renderer.getAttribute('flow') !== 'paginated') return;
+      clearCrossPageTimer();
+      clearCrossPageLock();
+      clearScrollLock();
+      crossPageState.activeBoundary = null;
+      crossPageState.lastStartBoundary = null;
+      crossPageState.lastEndBoundary = null;
+      crossPageState.hotspotDirection = null;
     });
-
 
     doc.addEventListener('selectionchange', () => {
       if (view.renderer.getAttribute('flow') !== 'paginated') return
       const { lastLocation } = view
-      if (!lastLocation) return
+      if (!lastLocation?.range) return
 
       const selRange = getSelectionRange(doc.getSelection())
       if (!selRange) return
 
-      if (globalThis.pageDebounceTimer) {
-        clearTimeout(globalThis.pageDebounceTimer);
-        globalThis.pageDebounceTimer = null;
+      updateActiveBoundary(selRange);
+      updateTurnLock(selRange, lastLocation.range);
+
+      if (crossPageState.turnInFlight) return;
+      syncScrollLock();
+
+      const direction = getCrossPageDirection(selRange, lastLocation.range);
+      if (!direction) {
+        clearCrossPageTimer();
+        crossPageState.hotspotDirection = null;
+        syncScrollLock();
+        return;
       }
 
-      const container = view.shadowRoot.querySelector('foliate-paginator').shadowRoot.querySelector("#container");
-
-      if (selRange.compareBoundaryPoints(Range.END_TO_END, lastLocation.range) >= 0) {
-        globalThis.pageDebounceTimer = setTimeout(async () => {
-          await view.next();
-          globalThis.originalScrollLeft = container.scrollLeft;
-          globalThis.pageDebounceTimer = null;
-        }, 1000);
-        return
+      if (crossPageState.turnLock) {
+        clearCrossPageTimer();
+        crossPageState.hotspotDirection = direction;
+        return;
       }
 
-      const preventScroll = () => {
-        const selRange = getSelectionRange(doc.getSelection());
-        if (!selRange || !view.lastLocation || !view.lastLocation.range) return;
-
-        if (view.lastLocation.range.startContainer === selRange.endContainer) {
-          container.scrollLeft = globalThis.originalScrollLeft;
-        }
-      };
-
-      container.addEventListener('scroll', preventScroll);
-
-      doc.addEventListener('pointerup', () => {
-        container.removeEventListener('scroll', preventScroll);
-      }, { once: true });
+      if (direction === crossPageState.hotspotDirection) return;
+      crossPageState.hotspotDirection = direction;
+      scheduleCrossPageTurn(direction);
     })
 
   }
@@ -516,6 +866,10 @@ const getCSS = ({ fontSize,
   headingFontSize,
   codeHighlightTheme
 }) => {
+  const shouldInjectCustomFontFace = !!fontPath
+    && fontName !== 'book'
+    && fontName !== 'system'
+    && /^https?:\/\//i.test(fontPath)
 
   const fontFamily = fontName === 'book' ? '' :
     fontName === 'system' ? 'font-family: system-ui !important;' :
@@ -531,11 +885,11 @@ const getCSS = ({ fontSize,
   // Some CSS selectors are inspired by https://github.com/readest/foliate-js
   return `
     @namespace epub "http://www.idpf.org/2007/ops";
-    @font-face {
+    ${shouldInjectCustomFontFace ? `@font-face {
       font-family: ${fontName};
       src: url('${fontPath}');
       font-display: swap;
-    }
+    }` : ''}
 
     html {
         ${writingModeCSS}
@@ -824,15 +1178,23 @@ const readingFeaturesDocHandler = (doc) => {
 
 
 const footnoteDialog = document.getElementById('footnote-dialog')
-footnoteDialog.style.display = 'none'
-footnoteDialog.addEventListener('click', () => {
-  // display none
-  footnoteDialog.style.display = 'none'
+const setFootnoteDialogVisible = visible => {
+  footnoteDialog.hidden = !visible
+  footnoteDialog.setAttribute('aria-hidden', visible ? 'false' : 'true')
+}
+const closeFootnoteDialog = () => {
+  if (footnoteDialog.hidden) return
+  setFootnoteDialogVisible(false)
   callFlutter("onFootnoteClose")
+}
+setFootnoteDialogVisible(false)
+footnoteDialog.addEventListener('click', e => {
+  if (e.target === footnoteDialog) closeFootnoteDialog()
 })
 
 const replaceFootnote = (view) => {
   clearSelection()
+  setFootnoteDialogVisible(false)
   footnoteDialog.querySelector('main').replaceChildren(view)
 
   view.addEventListener('load', (e) => {
@@ -843,35 +1205,11 @@ const replaceFootnote = (view) => {
     readingFeaturesDocHandler(doc)
     doc.__isFootNote = true
 
-
-    setTimeout(() => {
-      const dialog = document.getElementById('footnote-dialog')
-      const content = document.querySelector("#footnote-dialog > main > foliate-view")
-        .shadowRoot.querySelector("foliate-paginator")
-        .shadowRoot.querySelector("#container > div > iframe")
-
-      dialog.style.display = 'block'
-
-      // dialog.style.width = 'auto'
-      // dialog.style.height = 'auto'
-
-      // const contentWidth = content.clientWidth
-      // const contentHeight = content.clientHeight
-
-      // const squareSize = contentWidth * contentHeight
-
-      // dialog.style.height = 100 + 'px'
-      // dialog.style.width = squareSize / 100 + 'px'
-
-      // if (squareSize > window.innerWidth * 100 * 0.8) {
-      //   dialog.style.width = window.innerWidth * 0.8 + 'px'
-      //   dialog.style.height = squareSize / (window.innerWidth * 3.0) + 'px'
-      // }
-
-      //dialog.style.width = `${Math.min(Math.max(contentWidth, 200), window.innerWidth * 0.8)}px`
-      //dialog.style.height = `${Math.min(Math.max(contentHeight, 100), window.innerHeight * 0.8)}px`
-    }, 0)
-  })
+    requestAnimationFrame(() => {
+      if (!view.isConnected) return
+      setFootnoteDialogVisible(true)
+    })
+  }, { once: true })
 
   const { renderer } = view
   renderer.setAttribute('flow', 'scrolled')
@@ -901,9 +1239,6 @@ const replaceFootnote = (view) => {
   // if #rrggbbaa, replace aa to ee
   footnoteDialog.style.backgroundColor = style.backgroundColor.slice(0, 7) + '33'
 }
-footnoteDialog.addEventListener('click', e =>
-  e.target === footnoteDialog ? footnoteDialog.close() : null)
-
 class Reader {
   annotations = new Map()
   annotationsByValue = new Map()
@@ -924,10 +1259,6 @@ class Reader {
       const { view } = e.detail
       this.setView(view)
       replaceFootnote(view)
-    })
-    this.#footnoteHandler.addEventListener('render', e => {
-      const { view } = e.detail
-      footnoteDialog.showModal()
     })
     this.#originalContent = null
   }
@@ -1174,20 +1505,28 @@ class Reader {
 
   #onClickView({ detail: { x, y } }) {
     const selection = this.#doc?.getSelection?.()
-    if (selection && getSelectionRange(selection)) {
-      return
-    }
+    if (selection && getSelectionRange(selection)) return
+
+    const suppressViewClickUntil = Math.max(
+      this.#doc?.__anxSuppressViewClickUntil ?? 0,
+      globalThis.__anxSuppressViewClickUntil ?? 0,
+    )
+    if (suppressViewClickUntil && Date.now() < suppressViewClickUntil) return
 
     if (this.#doc?.__anxSuppressClick) {
       this.#doc.__anxSuppressClick = false;
       return
     }
 
+    const lastInteractiveClickAt = Math.max(
+      this.#doc?.__anxInteractiveClickAt ?? 0,
+      globalThis.__anxInteractiveClickAt ?? 0,
+    )
+    if (lastInteractiveClickAt && Date.now() - lastInteractiveClickAt < 900) return
+
     // debounce for 200ms after selection cleared
     const lastClearedAt = this.#doc?.__anxSelectionClearedAt ?? 0
-    if (lastClearedAt && Date.now() - lastClearedAt < 200) {
-      return
-    }
+    if (lastClearedAt && Date.now() - lastClearedAt < 200) return
 
     const coordinatesX = x / window.innerWidth
     const coordinatesY = y / window.innerHeight
@@ -1820,12 +2159,10 @@ window.getChapterContentByHref = async (href, opts) =>
 
 // window.bionicReading = (enable) => reader.bionicReading(enable)
 
-window.isFootNoteOpen = () => footnoteDialog.getAttribute('style').includes('display: block')
+window.isFootNoteOpen = () => !footnoteDialog.hidden
 
 window.closeFootNote = () => {
-  // set zindex to 0
-  footnoteDialog.style.display = 'none'
-  callFlutter("onFootnoteClose")
+  closeFootnoteDialog()
 }
 
 window.readingFeatures = (rules) => {
