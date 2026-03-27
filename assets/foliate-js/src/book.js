@@ -876,6 +876,30 @@ const getCSS = ({ fontSize,
       `font-family: ${fontName} !important;`
 
   const writingModeCSS = writingMode === 'auto' ? '' : `writing-mode: ${writingMode} !important;`
+  const androidQuoteCompatCSS = (!navigator.platform.includes('Mac')
+    && !navigator.platform.includes('iPhone')
+    && !navigator.platform.includes('iPad')
+    && !navigator.platform.includes('Win')
+    && !navigator.userAgent.includes('Phone; OpenHarmony'))
+    ? `
+    /* Allow long quote blocks to split across pages in Android WebView */
+    blockquote,
+    blockquote > p {
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+        -webkit-column-break-inside: auto !important;
+        overflow: visible !important;
+        max-height: none !important;
+        height: auto !important;
+        display: block !important;
+    }
+
+    blockquote > p {
+        orphans: 1 !important;
+        widows: 1 !important;
+    }
+    `
+    : ''
 
   // Background images are rendered by the paginator layer so blur/opacity
   // controls apply consistently across the whole reading surface.
@@ -1080,6 +1104,8 @@ const getCSS = ({ fontSize,
     aside[epub|type~="rearnote"] {
         display: none;
     }
+
+    ${androidQuoteCompatCSS}
     
     ${customCSSEnabled && customCSS ? customCSS : ''}
 `}
