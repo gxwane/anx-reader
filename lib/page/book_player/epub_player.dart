@@ -16,6 +16,7 @@ import 'package:anx_reader/models/book_style.dart';
 import 'package:anx_reader/models/bookmark.dart';
 import 'package:anx_reader/models/font_model.dart';
 import 'package:anx_reader/models/read_theme.dart';
+import 'package:anx_reader/models/reading_info.dart';
 import 'package:anx_reader/models/reading_rules.dart';
 import 'package:anx_reader/models/search_result_model.dart';
 import 'package:anx_reader/models/toc_item.dart';
@@ -1116,25 +1117,66 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     final readingInfoColor = Color(int.parse('0x$textColor')).withAlpha(150);
     final iconColor = Color(int.parse('0x$textColor'));
 
-    Widget getWidget(ReadingInfoEnum readingInfoEnum, TextStyle textStyle) {
+    Widget buildTextWidget(
+      String value,
+      TextStyle textStyle,
+      TextAlign textAlign,
+    ) {
+      return Text(
+        value,
+        style: textStyle,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.ellipsis,
+        textAlign: textAlign,
+      );
+    }
+
+    int getSlotFlex(ReadingInfoEnum readingInfoEnum) {
+      switch (readingInfoEnum) {
+        case ReadingInfoEnum.chapterTitle:
+          return 5;
+        case ReadingInfoEnum.chapterProgress:
+        case ReadingInfoEnum.bookProgress:
+          return 3;
+        case ReadingInfoEnum.batteryAndTime:
+          return 3;
+        case ReadingInfoEnum.battery:
+        case ReadingInfoEnum.time:
+          return 2;
+        case ReadingInfoEnum.none:
+          return 1;
+      }
+    }
+
+    Widget getWidget(
+      ReadingInfoEnum readingInfoEnum,
+      TextStyle textStyle,
+      TextAlign textAlign,
+    ) {
       final batteryTextStyle = TextStyle(
         color: iconColor,
         fontSize: (textStyle.fontSize ?? 10) - 1,
       );
       final batteryIconSize = (textStyle.fontSize ?? 10) * 2.7;
 
-      final chapterTitleWidget = Text(
+      final chapterTitleWidget = buildTextWidget(
         (chapterCurrentPage == 1 ? widget.book.title : chapterTitle),
-        style: textStyle,
+        textStyle,
+        textAlign,
       );
 
-      final chapterProgressWidget = Text(
+      final chapterProgressWidget = buildTextWidget(
         '$chapterCurrentPage/$chapterTotalPages',
-        style: textStyle,
+        textStyle,
+        textAlign,
       );
 
-      final bookProgressWidget =
-          Text('${(percentage * 100).toStringAsFixed(2)}%', style: textStyle);
+      final bookProgressWidget = buildTextWidget(
+        '${(percentage * 100).toStringAsFixed(2)}%',
+        textStyle,
+        textAlign,
+      );
 
       final timeWidget = MinuteClock(textStyle: textStyle);
 
@@ -1185,8 +1227,52 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
         case ReadingInfoEnum.batteryAndTime:
           return batteryAndTimeWidget();
         case ReadingInfoEnum.none:
-          return const SizedBox(width: 30);
+          return const SizedBox.shrink();
       }
+    }
+
+    Widget buildSlot(
+      ReadingInfoEnum readingInfoEnum,
+      TextStyle textStyle,
+      Alignment alignment,
+      TextAlign textAlign,
+    ) {
+      return Flexible(
+        flex: getSlotFlex(readingInfoEnum),
+        fit: FlexFit.tight,
+        child: Align(
+          alignment: alignment,
+          child: getWidget(readingInfoEnum, textStyle, textAlign),
+        ),
+      );
+    }
+
+    Widget buildReadingInfoRow(
+      ReadingInfoSectionModel section,
+      TextStyle textStyle,
+    ) {
+      return Row(
+        children: [
+          buildSlot(
+            section.left,
+            textStyle,
+            Alignment.centerLeft,
+            TextAlign.start,
+          ),
+          buildSlot(
+            section.center,
+            textStyle,
+            Alignment.center,
+            TextAlign.center,
+          ),
+          buildSlot(
+            section.right,
+            textStyle,
+            Alignment.centerRight,
+            TextAlign.end,
+          ),
+        ],
+      );
     }
 
     final readingInfo = Prefs().readingInfo;
@@ -1200,18 +1286,6 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
       fontSize: readingInfo.footer.fontSize,
     );
 
-    List<Widget> headerWidgets = [
-      getWidget(readingInfo.header.left, headerTextStyle),
-      getWidget(readingInfo.header.center, headerTextStyle),
-      getWidget(readingInfo.header.right, headerTextStyle),
-    ];
-
-    List<Widget> footerWidgets = [
-      getWidget(readingInfo.footer.left, footerTextStyle),
-      getWidget(readingInfo.footer.center, footerTextStyle),
-      getWidget(readingInfo.footer.right, footerTextStyle),
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1221,10 +1295,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
             left: readingInfo.header.leftMargin,
             right: readingInfo.header.rightMargin,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: headerWidgets,
-          ),
+          child: buildReadingInfoRow(readingInfo.header, headerTextStyle),
         ),
         const Spacer(),
         Padding(
@@ -1233,10 +1304,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
             left: readingInfo.footer.leftMargin,
             right: readingInfo.footer.rightMargin,
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: footerWidgets,
-          ),
+          child: buildReadingInfoRow(readingInfo.footer, footerTextStyle),
         ),
       ],
     );
