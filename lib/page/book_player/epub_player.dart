@@ -37,6 +37,7 @@ import 'package:anx_reader/utils/js/convert_dart_color_to_js.dart';
 import 'package:anx_reader/utils/platform_utils.dart';
 import 'package:anx_reader/models/book_note.dart';
 import 'package:anx_reader/utils/log/common.dart';
+import 'package:anx_reader/utils/reading_restore_target.dart';
 import 'package:anx_reader/utils/webView/gererate_url.dart';
 import 'package:anx_reader/utils/webView/webview_console_message.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
@@ -83,6 +84,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   late ContextMenu contextMenu;
   String cfi = '';
   double percentage = 0.0;
+  double resumePercentage = 0.0;
   String chapterTitle = '';
   String chapterHref = '';
   int chapterCurrentPage = 0;
@@ -142,8 +144,9 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   }
 
   Future<void> goToPercentage(double value) async {
+    final clampedValue = clampReadingProgress(value);
     await webViewController.evaluateJavascript(source: '''
-      goToPercent($value); 
+      goToPercent($clampedValue);
       ''');
   }
 
@@ -634,14 +637,28 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
         handlerName: 'onRelocated',
         callback: (args) {
           Map<String, dynamic> location = args[0];
-          if (cfi == location['cfi']) return;
+          final clampedPercentage = clampReadingProgress(
+            double.tryParse(location['percentage'].toString()) ?? 0.0,
+          );
+          final clampedResumePercentage = clampReadingProgress(
+            double.tryParse(
+                  (location['resumeFraction'] ?? location['percentage'])
+                      .toString(),
+                ) ??
+                clampedPercentage,
+          );
+          if (cfi == location['cfi'] &&
+              percentage == clampedPercentage &&
+              resumePercentage == clampedResumePercentage) {
+            return;
+          }
           // if (chapterHref != location['chapterHref']) {
           //   refreshToc();
           // }
           setState(() {
             cfi = location['cfi'] ?? '';
-            percentage =
-                double.tryParse(location['percentage'].toString()) ?? 0.0;
+            percentage = clampedPercentage;
+            resumePercentage = clampedResumePercentage;
             chapterTitle = location['chapterTitle'] ?? '';
             chapterHref = location['chapterHref'] ?? '';
             chapterCurrentPage = location['chapterCurrentPage'] ?? 0;
@@ -961,13 +978,30 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
 
   Future<void> saveReadingProgress() async {
     if (cfi == '' || widget.cfi != null) return;
+    final clampedPercentage = clampReadingProgress(percentage);
+    final clampedResumePercentage = clampReadingProgress(
+      resumePercentage > 0 ? resumePercentage : clampedPercentage,
+    );
     Book book = widget.book;
-    book.lastReadPosition = cfi;
-    book.readingPercentage = percentage;
+    book.lastReadPosition =
+        encodeReadingRestoreTargetFromFraction(clampedResumePercentage);
+    book.readingPercentage = clampedPercentage;
+    percentage = clampedPercentage;
+    resumePercentage = clampedResumePercentage;
     await bookDao.updateBook(book);
     if (mounted) {
       ref.read(bookListProvider.notifier).refresh();
     }
+  }
+
+  Object? _resolveInitialLocation() {
+    if (widget.cfi != null && widget.cfi!.isNotEmpty) {
+      return widget.cfi!;
+    }
+    return decodeReadingRestoreTarget(
+      widget.book.lastReadPosition,
+      fallbackFraction: widget.book.readingPercentage,
+    );
   }
 
   @override
@@ -1209,14 +1243,14 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   }
 
   Widget buildWebviewWithIOSWorkaround(
-      BuildContext context, String url, String initialCfi) {
+      BuildContext context, String url, Object? initialLocation) {
     final webView = InAppWebView(
       webViewEnvironment: webViewEnvironment,
       initialUrlRequest: URLRequest(
         url: WebUri(
           generateUrl(
             url,
-            initialCfi,
+            initialLocation,
             backgroundColor: backgroundColor,
             textColor: textColor,
             isDarkMode: Theme.of(context).brightness == Brightness.dark,
@@ -1253,7 +1287,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   Widget build(BuildContext context) {
     String uri = Uri.encodeComponent(widget.book.fileFullPath);
     String url = 'http://127.0.0.1:${Server().port}/book/$uri';
-    String initialCfi = widget.cfi ?? widget.book.lastReadPosition;
+    final initialLocation = _resolveInitialLocation();
 
     return Listener(
       onPointerSignal: (event) {
@@ -1263,7 +1297,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
         resizeToAvoidBottomInset: false,
         body: Stack(
           children: [
-            buildWebviewWithIOSWorkaround(context, url, initialCfi),
+            buildWebviewWithIOSWorkaround(context, url, initialLocation),
             readingInfoWidget(),
             if (showHistory) _buildHistoryCapsule(),
             if (Prefs().openBookAnimation)

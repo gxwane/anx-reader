@@ -8,7 +8,7 @@ import 'package:anx_reader/utils/js/convert_dart_color_to_js.dart';
 
 String generateUrl(
   String url,
-  String cfi, {
+  Object? initialLocation, {
   BookStyle? bookStyle,
   int? textIndent,
   String? textColor,
@@ -106,7 +106,7 @@ String generateUrl(
   Map<String, dynamic> params = {
     'importing': importing,
     'url': url,
-    'initialCfi': cfi,
+    'initialCfi': initialLocation ?? '',
     'style': style,
     'readingRules': readingRules,
   };

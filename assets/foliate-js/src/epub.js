@@ -209,20 +209,181 @@ const getMetadata = opf => {
     return { metadata, rendition, media }
 }
 
+const hasTOCPath = href => {
+    if (!href) return false
+    const [path] = href.split('#')
+    return !!path
+}
+
+const resolveTOCHref = (href, resolve, baseHref = null) =>
+    href ? decodeURI(resolve(href, hasTOCPath(href) ? null : baseHref)) : null
+
+const resolveInternalTOCHref = (href, resolve, baseHref = null) => {
+    const resolved = resolveTOCHref(href, resolve, baseHref)
+    return resolved && !isExternal(resolved) ? resolved : null
+}
+
+const getTOCHrefPath = href => href?.split('#')?.[0] ?? ''
+
+const buildTOCTree = entries => {
+    const roots = []
+    const stack = []
+    for (const entry of entries) {
+        const level = Math.max(1, Math.min(entry.level ?? 1, stack.length + 1))
+        stack.length = level - 1
+        const item = { label: entry.label, href: entry.href, subitems: null }
+        const parent = stack[level - 2]
+        if (parent) {
+            parent.subitems ??= []
+            parent.subitems.push(item)
+        } else roots.push(item)
+        stack[level - 1] = item
+    }
+    return roots
+}
+
+const flattenTOC = (items, result = [], depth = 1) => {
+    for (const item of items ?? []) {
+        result.push({ item, depth })
+        if (item.subitems?.length) flattenTOC(item.subitems, result, depth + 1)
+    }
+    return result
+}
+
+const getTOCMetrics = toc => {
+    const flat = flattenTOC(toc)
+    const hrefs = flat.map(({ item }) => item.href).filter(Boolean)
+    const uniqueHrefs = new Set(hrefs)
+    const uniquePaths = new Set(hrefs.map(getTOCHrefPath).filter(Boolean))
+    const maxDepth = flat.reduce((max, { depth }) => Math.max(max, depth), 0)
+    return {
+        itemCount: flat.length,
+        linkedItemCount: hrefs.length,
+        uniqueHrefCount: uniqueHrefs.size,
+        uniquePathCount: uniquePaths.size,
+        duplicateHrefCount: hrefs.length - uniqueHrefs.size,
+        maxDepth,
+    }
+}
+
+const shouldPreferTOCCandidate = (current, candidate) => {
+    if (!candidate?.length) return false
+    if (!current?.length) return true
+
+    const currentMetrics = getTOCMetrics(current)
+    const candidateMetrics = getTOCMetrics(candidate)
+
+    if (currentMetrics.maxDepth <= 1 && candidateMetrics.maxDepth > currentMetrics.maxDepth)
+        return true
+
+    if (candidateMetrics.uniqueHrefCount > currentMetrics.uniqueHrefCount
+        && candidateMetrics.duplicateHrefCount < currentMetrics.duplicateHrefCount)
+        return true
+
+    if (candidateMetrics.uniquePathCount > currentMetrics.uniquePathCount
+        && candidateMetrics.uniqueHrefCount >= currentMetrics.uniqueHrefCount)
+        return true
+
+    if (candidateMetrics.maxDepth > currentMetrics.maxDepth
+        && candidateMetrics.uniqueHrefCount >= currentMetrics.uniqueHrefCount)
+        return true
+
+    return false
+}
+
+const tocLevelRegex = /\btoc-level-(\d+)\b/i
+
+const parseClassBasedHTMLTOC = (doc, resolve, baseHref = null) => {
+    const entries = Array.from(doc.querySelectorAll('[class*="toc-level-"]'))
+        .map(el => {
+            const match = el.getAttribute('class')?.match(tocLevelRegex)
+            const $a = el.querySelector('a[href]')
+            const href = resolveInternalTOCHref($a?.getAttribute('href'), resolve, baseHref)
+            const label = getElementText($a) || getElementText(el)
+            if (!match || !href || !label) return null
+            return {
+                level: Number(match[1]),
+                label,
+                href,
+            }
+        })
+        .filter(Boolean)
+
+    if (entries.length < 3) return null
+    return buildTOCTree(entries)
+}
+
+const getElementDepth = el => {
+    let depth = 0
+    while (el?.parentElement) {
+        depth += 1
+        el = el.parentElement
+    }
+    return depth
+}
+
+const getBreakSeparatedTOCEntries = (el, resolve, baseHref = null) => {
+    const children = Array.from(el.children)
+    const entries = []
+    let brCount = 0
+    let hasUnexpectedChildren = false
+
+    for (const child of children) {
+        const name = child.localName?.toLowerCase()
+        if (name === 'a') {
+            const href = resolveInternalTOCHref(child.getAttribute('href'), resolve, baseHref)
+            const label = getElementText(child) || child.getAttribute('title')
+            if (href && label) entries.push({ level: 1, label, href })
+            else hasUnexpectedChildren = true
+        } else if (name === 'br') brCount += 1
+        else if (name !== 'script' && name !== 'style') hasUnexpectedChildren = true
+    }
+
+    if (hasUnexpectedChildren) return null
+    if (entries.length < 3) return null
+    if (brCount < Math.max(1, entries.length - 2)) return null
+    return entries
+}
+
+const parseBreakSeparatedHTMLTOC = (doc, resolve, baseHref = null) => {
+    const root = doc.body ?? doc.querySelector('body') ?? doc.documentElement
+    const candidates = Array.from(root?.querySelectorAll('*') ?? [])
+        .map(el => {
+            const entries = getBreakSeparatedTOCEntries(el, resolve, baseHref)
+            if (!entries) return null
+            return {
+                entries,
+                depth: getElementDepth(el),
+            }
+        })
+        .filter(Boolean)
+        .sort((a, b) =>
+            b.entries.length - a.entries.length
+            || b.depth - a.depth)
+
+    if (!candidates.length) return null
+    return buildTOCTree(candidates[0].entries)
+}
+
+const parseHTMLTOC = (doc, resolve, baseHref = null) =>
+    parseClassBasedHTMLTOC(doc, resolve, baseHref)
+    ?? parseBreakSeparatedHTMLTOC(doc, resolve, baseHref)
+
 const parseNav = (doc, resolve = f => f) => {
     const { $, $$, $$$ } = childGetter(doc, NS.XHTML)
-    const resolveHref = href => href ? decodeURI(resolve(href)) : null
-    const parseLI = getType => $li => {
+    const parseLI = (getType, inheritedBaseHref = null) => $li => {
         const $a = $($li, 'a') ?? $($li, 'span')
         const $ol = $($li, 'ol')
-        const href = resolveHref($a?.getAttribute('href'))
+        const href = resolveTOCHref($a?.getAttribute('href'), resolve, inheritedBaseHref)
         const label = getElementText($a) || $a?.getAttribute('title')
+        const baseHref = href ?? inheritedBaseHref
         // TODO: get and concat alt/title texts in content
-        const result = { label, href, subitems: parseOL($ol) }
+        const result = { label, href, subitems: parseOL($ol, getType, baseHref) }
         if (getType) result.type = $a?.getAttributeNS(NS.EPUB, 'type')?.split(/\s/)
         return result
     }
-    const parseOL = ($ol, getType) => $ol ? $$($ol, 'li').map(parseLI(getType)) : null
+    const parseOL = ($ol, getType, inheritedBaseHref = null) =>
+        $ol ? $$($ol, 'li').map(parseLI(getType, inheritedBaseHref)) : null
     const parseNav = ($nav, getType) => parseOL($($nav, 'ol'), getType)
 
     const $$nav = $$$(doc, 'nav')
@@ -242,15 +403,19 @@ const parseNav = (doc, resolve = f => f) => {
 
 const parseNCX = (doc, resolve = f => f) => {
     const { $, $$ } = childGetter(doc, NS.NCX)
-    const resolveHref = href => href ? decodeURI(resolve(href)) : null
-    const parseItem = el => {
+    const parseItem = (el, inheritedBaseHref = null) => {
         const $label = $(el, 'navLabel')
         const $content = $(el, 'content')
         const label = getElementText($label)
-        const href = resolveHref($content.getAttribute('src'))
+        const href = resolveTOCHref($content.getAttribute('src'), resolve, inheritedBaseHref)
+        const baseHref = href ?? inheritedBaseHref
         if (el.localName === 'navPoint') {
             const els = $$(el, 'navPoint')
-            return { label, href, subitems: els.length ? els.map(parseItem) : null }
+            return {
+                label,
+                href,
+                subitems: els.length ? els.map(el => parseItem(el, baseHref)) : null,
+            }
         }
         return { label, href }
     }
@@ -919,6 +1084,64 @@ export class EPUB {
 ${doc.querySelector('parsererror').innerText}`)
         return doc
     }
+    async #loadHTML(uri) {
+        const str = await this.loadText(uri)
+        if (!str) return null
+        const doc = this.parser.parseFromString(str, MIME.XHTML)
+        if (!doc.querySelector('parsererror')) return doc
+        return this.parser.parseFromString(str, MIME.HTML)
+    }
+    #getGuideTOCHref() {
+        const guideTOC = this.resources.guide?.find(ref => ref.type?.includes('toc'))?.href
+        if (guideTOC) return guideTOC
+        return this.landmarks?.find(ref => ref.type?.includes('toc'))?.href ?? null
+    }
+    #getInlineTOCHrefCandidate(toc = this.toc) {
+        const metrics = getTOCMetrics(toc)
+        if (metrics.linkedItemCount < 3 || metrics.uniquePathCount !== 1) return null
+        return flattenTOC(toc)
+            .map(({ item }) => getTOCHrefPath(item.href))
+            .find(Boolean) ?? null
+    }
+    async #loadHTMLTOCFromHref(href) {
+        const path = getTOCHrefPath(href)
+        if (!path || isExternal(path)) return null
+        const item = this.resources.getItemByHref(path)
+        if (item && ![MIME.XHTML, MIME.HTML].includes(item.mediaType)) return null
+
+        const doc = await this.#loadHTML(path)
+        if (!doc) return null
+
+        const resolve = (url, baseHref = null) => resolveURL(url, baseHref ?? path)
+        const toc = parseHTMLTOC(doc, resolve, path)
+        return toc?.length ? toc : null
+    }
+    async #resolveHTMLTOC() {
+        const hrefs = [
+            this.#getGuideTOCHref(),
+            this.#getInlineTOCHrefCandidate(),
+        ].filter(Boolean)
+
+        if (!hrefs.length) return
+
+        const seen = new Set()
+        let toc = this.toc
+        for (const href of hrefs) {
+            const path = getTOCHrefPath(href)
+            if (!path || seen.has(path)) continue
+            seen.add(path)
+            try {
+                const candidate = await this.#loadHTMLTOCFromHref(path)
+                if (shouldPreferTOCCandidate(toc, candidate)) {
+                    toc = candidate
+                    console.info(`Using HTML TOC fallback from ${path}`)
+                }
+            } catch (e) {
+                console.warn(e)
+            }
+        }
+        if (toc?.length && toc !== this.toc) this.toc = toc
+    }
     // Build virtual chapters for sections that contain multiple TOC entries.
     // Only splits at the shallowest TOC depth that has multiple entries for a section,
     // so chapter-level boundaries are used rather than fine-grained sub-section ones.
@@ -1076,7 +1299,7 @@ ${doc.querySelector('parsererror').innerText}`)
 
         const { navPath, ncxPath } = this.resources
         if (navPath) try {
-            const resolve = url => resolveURL(url, navPath)
+            const resolve = (url, baseHref = null) => resolveURL(url, baseHref ?? navPath)
             const nav = parseNav(await this.#loadXML(navPath), resolve)
             this.toc = nav.toc
             this.pageList = nav.pageList
@@ -1085,7 +1308,7 @@ ${doc.querySelector('parsererror').innerText}`)
             console.warn(e)
         }
         if (!this.toc && ncxPath) try {
-            const resolve = url => resolveURL(url, ncxPath)
+            const resolve = (url, baseHref = null) => resolveURL(url, baseHref ?? ncxPath)
             const ncx = parseNCX(await this.#loadXML(ncxPath), resolve)
             this.toc = ncx.toc
             this.pageList = ncx.pageList
@@ -1093,6 +1316,7 @@ ${doc.querySelector('parsererror').innerText}`)
             console.warn(e)
         }
         this.landmarks ??= this.resources.guide
+        await this.#resolveHTMLTOC()
 
         const { metadata, rendition, media } = getMetadata(opf)
         this.rendition = rendition

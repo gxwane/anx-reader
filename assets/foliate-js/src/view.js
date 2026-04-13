@@ -230,8 +230,13 @@ export class View extends HTMLElement {
     const tocItem = vcTocItem ?? this.#tocProgress?.getProgress(index, range)
     const pageItem = this.#pageProgress?.getProgress(index, range)
     const cfi = this.getCFI(index, range)
-    const totalPages = this.renderer.pages ? this.renderer.pages - 2 : progress.section.total
-    const currentPage = this.renderer.page ?? progress.section.current
+    const totalPages = this.renderer.pages
+      ? Math.max(1, this.renderer.pages - 2)
+      : progress.section.total
+    const rawCurrentPage = this.renderer.page ?? progress.section.current
+    const currentPage = this.renderer.pages
+      ? Math.max(1, Math.min(totalPages, rawCurrentPage))
+      : rawCurrentPage
     const chapterLocation = {
       current: currentPage,
       total: totalPages

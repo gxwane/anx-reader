@@ -8,6 +8,7 @@ import 'package:anx_reader/service/ai/tools/input/book_content_search_input.dart
 import 'package:anx_reader/service/ai/tools/repository/books_repository.dart';
 import 'package:anx_reader/service/book_player/book_player_server.dart';
 import 'package:anx_reader/utils/log/common.dart';
+import 'package:anx_reader/utils/reading_restore_target.dart';
 import 'package:anx_reader/utils/webView/gererate_url.dart';
 import 'package:anx_reader/utils/webView/webview_console_message.dart';
 import 'package:anx_reader/utils/webView/anx_headless_webview.dart';
@@ -388,10 +389,13 @@ class _HeadlessSearchSession {
   String _buildBookUrl() {
     final encodedPath = Uri.encodeComponent(book.fileFullPath);
     final url = 'http://127.0.0.1:${Server().port}/book/$encodedPath';
-    final initialCfi = book.lastReadPosition;
+    final initialLocation = decodeReadingRestoreTarget(
+      book.lastReadPosition,
+      fallbackFraction: book.readingPercentage,
+    );
     return generateUrl(
       url,
-      initialCfi,
+      initialLocation,
       importing: false,
     );
   }

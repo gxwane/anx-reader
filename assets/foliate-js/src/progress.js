@@ -81,6 +81,7 @@ export class SectionProgress {
         const remainingSection = (1 - fractionInSection) * sizeInSection
         return {
             fraction: nextSize / sizeTotal,
+            resumeFraction: size / sizeTotal,
             section: {
                 current: index,
                 total: sizes.length,

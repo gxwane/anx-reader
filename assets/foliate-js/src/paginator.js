@@ -1,4 +1,5 @@
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
+const clamp01 = value => Math.max(0, Math.min(1, value ?? 0))
 
 // Compute virtual chapter text-length metrics on the *full* document.
 // This is used to map per-virtual-chapter progress back to per-section progress.
@@ -976,6 +977,20 @@ export class Paginator extends HTMLElement {
   get pages() {
     return Math.round(this.viewSize / this.size)
   }
+  get firstContentPage() {
+    if (this.scrolled) return 0
+    return this.pages > 0 ? Math.min(1, Math.max(0, this.pages - 1)) : 0
+  }
+  get lastContentPage() {
+    if (this.scrolled) return 0
+    const pages = this.pages
+    if (!pages) return 0
+    return Math.max(this.firstContentPage, pages - 2)
+  }
+  get textPageCount() {
+    if (this.scrolled) return 0
+    return Math.max(1, this.lastContentPage - this.firstContentPage + 1)
+  }
   scrollBy(dx, dy) {
     const element = this.#container
     const prop = this.scrollProp
@@ -1006,6 +1021,8 @@ export class Paginator extends HTMLElement {
     // Calculate current position and target page
     const currentOffset = Math.abs(currentScrollPos)
     const currentPage = Math.round(currentOffset / size)
+    const minPage = this.firstContentPage
+    const maxPage = this.lastContentPage
     
     // Determine target page based on velocity
     const velocityThreshold = 0.3  // Higher threshold to reduce accidental triggers
@@ -1022,8 +1039,9 @@ export class Paginator extends HTMLElement {
       else if (delta < -1) targetPage = originPage - 1
     }
     
-    // Boundary limits
-    targetPage = Math.max(0, Math.min(pages - 1, targetPage))
+    const wantsPrev = targetPage < minPage
+    const wantsNext = targetPage > maxPage
+    targetPage = Math.max(minPage, Math.min(maxPage, targetPage))
     
     // Calculate animation duration based on distance
     const targetOffset = targetPage * size
@@ -1036,7 +1054,7 @@ export class Paginator extends HTMLElement {
     return this.#scrollToPage(pageArg, 'snap', { animate: true, duration })
       .then(() => {
         // Handle chapter boundaries (keep existing feature)
-        const dir = targetPage <= 0 ? -1 : targetPage >= pages - 1 ? 1 : null
+        const dir = wantsPrev ? -1 : wantsNext ? 1 : null
         if (dir) {
           const target = this.#getAdjacentTarget(dir)
           if (target) return this.#goTo(target)
@@ -1351,11 +1369,11 @@ export class Paginator extends HTMLElement {
       await this.#scrollTo(anchor * this.viewSize, 'anchor')
       return
     }
-    const { pages } = this
-    if (!pages) return
-    const textPages = pages - 2
-    const newPage = Math.round(anchor * (textPages - 1))
-    await this.#scrollToPage(newPage + 1, 'anchor')
+    if (!this.pages) return
+    const newPage = this.textPageCount <= 1
+      ? this.firstContentPage
+      : Math.round(clamp01(anchor) * (this.textPageCount - 1)) + this.firstContentPage
+    await this.#scrollToPage(newPage, 'anchor')
   }
   #selectAnchor() {
     const { defaultView } = this.#view.document
@@ -1383,10 +1401,9 @@ export class Paginator extends HTMLElement {
     const detail = { reason, range, index, chapterIndex }
     if (this.scrolled) detail.fraction = this.start / this.viewSize
     else if (this.pages > 0) {
-      const { page, pages } = this
-      // this.#header.style.visibility = page > 1 ? 'visible' : 'hidden'
-      detail.fraction = (page - 1) / (pages - 2)
-      detail.size = 1 / (pages - 2)
+      const currentPage = Math.max(this.firstContentPage, Math.min(this.lastContentPage, this.page))
+      detail.fraction = (currentPage - this.firstContentPage) / this.textPageCount
+      detail.size = 1 / this.textPageCount
     }
 
     // Virtual chapter DOM slicing makes detail.fraction represent chapter-local progress.
@@ -1404,6 +1421,8 @@ export class Paginator extends HTMLElement {
         detail.fraction = mapped
       }
     }
+    if (typeof detail.fraction === 'number') detail.fraction = clamp01(detail.fraction)
+    if (typeof detail.size === 'number') detail.size = clamp01(detail.size)
     if (!this.scrolled && reason === 'scroll' && (this.#touchState || this.#touchScrolled)) {
       this.#pendingRelocate = detail
       return
@@ -1676,9 +1695,9 @@ export class Paginator extends HTMLElement {
         Math.max(0, this.start - (distance ?? this.size)), null, { animate: true })
       return true
     }
-    if (this.atStart) return
     const page = this.page - 1
-    return this.#scrollToPage(page, 'page', { animate: true }).then(() => page <= 0)
+    if (page < this.firstContentPage) return true
+    return this.#scrollToPage(page, 'page', { animate: true }).then(() => false)
   }
   #scrollNext(distance) {
     if (!this.#view) return true
@@ -1687,21 +1706,20 @@ export class Paginator extends HTMLElement {
         Math.min(this.viewSize, distance ? this.start + distance : this.end), null, { animate: true })
       return true
     }
-    if (this.atEnd) return
     const page = this.page + 1
-    const pages = this.pages
-    return this.#scrollToPage(page, 'page', { animate: true }).then(() => page >= pages - 1)
+    if (page > this.lastContentPage) return true
+    return this.#scrollToPage(page, 'page', { animate: true }).then(() => false)
   }
   get atStart() {
     const section = this.sections[this.#index]
     const canGoPrevChapter = section?.virtualChapters && this.#currentChapter > 0
-    return !canGoPrevChapter && this.#adjacentIndex(-1) == null && this.page <= 1
+    return !canGoPrevChapter && this.#adjacentIndex(-1) == null && this.page <= this.firstContentPage
   }
   get atEnd() {
     const section = this.sections[this.#index]
     const canGoNextChapter = section?.virtualChapters &&
       this.#currentChapter < section.virtualChapters.length - 1
-    return !canGoNextChapter && this.#adjacentIndex(1) == null && this.page >= this.pages - 2
+    return !canGoNextChapter && this.#adjacentIndex(1) == null && this.page >= this.lastContentPage
   }
   #adjacentIndex(dir) {
     for (let index = this.#index + dir; this.#canGoToIndex(index); index += dir)

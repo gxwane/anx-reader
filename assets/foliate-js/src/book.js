@@ -11,8 +11,9 @@ const { EPUB } = await import('./epub.js')
 
 var isPdf = false;
 
+const clamp01 = value => Math.min(Math.max(value ?? 0, 0), 1)
+
 const getPosition = (target) => {
-  const clamp01 = value => Math.min(Math.max(value, 0), 1);
 
   const frameRect = (framePos, elementRect, scaleX = 1, scaleY = 1) => {
     return {
@@ -218,6 +219,36 @@ const buildRangeContextText = (range) => {
 
   return contextText;
 };
+
+const getRangeStartFraction = (doc, anchor) => {
+  const body = doc?.body
+  if (!body) return 0
+  if (typeof anchor === 'number') return clamp01(anchor)
+
+  let range = null
+  if (anchor instanceof Range) {
+    range = anchor
+  } else if (anchor?.nodeType) {
+    range = doc.createRange()
+    range.selectNodeContents(anchor)
+    range.collapse(true)
+  }
+
+  if (!range) return 0
+
+  const totalTextLength = body.textContent?.length ?? 0
+  if (totalTextLength <= 0) return 0
+
+  try {
+    const prefix = doc.createRange()
+    prefix.selectNodeContents(body)
+    prefix.setEnd(range.startContainer, range.startOffset)
+    return clamp01(prefix.toString().length / totalTextLength)
+  } catch (e) {
+    console.warn('[TOC] Failed to measure anchor fraction:', e)
+    return 0
+  }
+}
 
 const handleSelection = (view, doc, index) => {
   const selection = doc.getSelection();
@@ -1512,7 +1543,7 @@ class Reader {
   }
 
   #onRelocate({ detail }) {
-    const { cfi, fraction, location, tocItem, pageItem, chapterLocation } = detail
+    const { cfi, fraction, resumeFraction, location, tocItem, pageItem, chapterLocation } = detail
     const loc = pageItem
       ? `Page ${pageItem.label}`
       : `Loc ${location.current}`
@@ -1520,6 +1551,7 @@ class Reader {
     onRelocated({
       cfi,
       fraction,
+      resumeFraction,
       loc,
       tocItem,
       pageItem,
@@ -1803,37 +1835,76 @@ class Reader {
     })
   }
 
-  get toc() {
+  async getTOC() {
     const sectionFractions = this.view.getSectionFractions()
     const currentHref = this.view.lastLocation?.tocItem?.href.split('#')[0] ?? 'Not Found'
     let currentChapterIndex = sectionFractions.findIndex(s => s.href === currentHref)
     if (currentChapterIndex === -1) {
-      currentChapterIndex = 0;
+      currentChapterIndex = 0
     }
     const currentSectionStart = sectionFractions[currentChapterIndex]?.fraction || 0
     const nextSectionStart = sectionFractions[currentChapterIndex + 1]?.fraction || 1
     const currentSectionPages = this.view.lastLocation?.chapterLocation.total || 1
+    const sectionSpan = Math.max(nextSectionStart - currentSectionStart, Number.EPSILON)
+    const totalPages = currentSectionPages / sectionSpan
+    const fractionCache = new Map()
+    const docCache = new Map()
 
-    const totalPages = currentSectionPages / (nextSectionStart - currentSectionStart)
-
-    const getFractionByHref = (href) => {
-      if (!href) return 0;
-      href = href.split('#')[0]
-      const section = sectionFractions.find(s => s.href === href)
-      return section ? section.fraction : 0
+    const getDoc = async index => {
+      if (!docCache.has(index)) {
+        docCache.set(index, this.view.book.sections[index].createDocument())
+      }
+      return docCache.get(index)
     }
 
-    const buildItems = (item, level) => {
-      return item?.map(item => ({
+    const getFractionByHref = async href => {
+      if (!href) return 0
+      if (fractionCache.has(href)) return fractionCache.get(href)
+
+      let fraction = 0
+      try {
+        const resolved = this.view.resolveNavigation(href)
+        const index = resolved?.index
+        if (index == null) {
+          fractionCache.set(href, fraction)
+          return fraction
+        }
+
+        const start = sectionFractions[index]?.fraction ?? 0
+        const end = sectionFractions[index + 1]?.fraction ?? 1
+        const span = Math.max(0, end - start)
+        fraction = start
+
+        if (span > 0) {
+          if (typeof resolved.anchor === 'number') {
+            fraction = start + span * clamp01(resolved.anchor)
+          } else if (typeof resolved.anchor === 'function') {
+            const doc = await getDoc(index)
+            const anchor = resolved.anchor(doc)
+            fraction = start + span * getRangeStartFraction(doc, anchor)
+          }
+        }
+      } catch (e) {
+        console.warn(`[TOC] Failed to resolve progress for ${href}:`, e)
+      }
+
+      fraction = clamp01(fraction)
+      fractionCache.set(href, fraction)
+      return fraction
+    }
+
+    const buildItems = async (items, level) => Promise.all((items ?? []).map(async item => {
+      const startPercentage = await getFractionByHref(item.href)
+      return {
         label: item.label,
         href: item.href,
         id: item.id,
         level,
-        startPercentage: getFractionByHref(item.href),
-        startPage: Math.ceil(getFractionByHref(item.href) * totalPages),
-        subitems: buildItems(item.subitems, level + 1)
-      })) || [];
-    }
+        startPercentage,
+        startPage: Math.ceil(startPercentage * totalPages),
+        subitems: await buildItems(item.subitems, level + 1)
+      }
+    }))
     return buildItems(this.view.book.toc, 1)
   }
 }
@@ -1851,7 +1922,7 @@ const open = async (file, cfi) => {
   
   if (!importing) {
     callFlutter('onLoadEnd')
-    onSetToc()
+    await onSetToc()
     callFlutter('renderAnnotations')
   }
   else { getMetadata() }
@@ -1959,6 +2030,7 @@ const onRelocated = (currentInfo) => {
   const bookCurrentPage = currentInfo.location.current
   const cfi = currentInfo.cfi
   const percentage = currentInfo.fraction
+  const resumeFraction = currentInfo.resumeFraction ?? currentInfo.fraction
 
   callFlutter('onRelocated', {
     chapterTitle,
@@ -1969,6 +2041,7 @@ const onRelocated = (currentInfo) => {
     bookCurrentPage,
     cfi,
     percentage,
+    resumeFraction,
     bookmark: currentInfo.bookmark,
     writingMode: reader.view.renderer.writingMode,
   })
@@ -1980,7 +2053,7 @@ const onClickView = (x, y) => callFlutter('onClick', { x, y })
 
 const onExternalLink = (link) => callFlutter('onExternalLink', link)
 
-const onSetToc = () => callFlutter('onSetToc', reader.toc)
+const onSetToc = async () => callFlutter('onSetToc', await reader.getTOC())
 
 const getMetadata = async () => {
   const cover = await reader.view.book.getCover()
