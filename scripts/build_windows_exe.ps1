@@ -1,3 +1,8 @@
+param(
+    [Parameter(Mandatory = $true)]
+    [string] $Version
+)
+
 $innoSetupDir = "C:\Program Files (x86)\Inno Setup 6"
 
 # Inno Setup should already be installed by the CI workflow
@@ -15,10 +20,12 @@ Expand-Archive -Path "build\windows\app.zip" -DestinationPath "D:\inno"
 Remove-Item "D:\inno-result" -Force  -Recurse -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path "D:\inno-result"
 
-# copy language file
-Copy-Item "scripts\ChineseSimplified.isl" "$innoSetupDir\Languages\"
-Copy-Item "scripts\ChineseTraditional.isl" "$innoSetupDir\Languages\"
-& "$innoSetupDir\ISCC.exe" ".\scripts\compile_windows_setup-inno.iss"
+# Chinese language files are vendored in repo and referenced by the .iss.
+& "$innoSetupDir\ISCC.exe" `
+  "/DMyAppVersion=""$Version""" `
+  "/DStagingDir=""D:\inno""" `
+  "/DInstallerOutputDir=""D:\inno-result""" `
+  ".\scripts\compile_windows_setup-inno.iss"
 
 Copy-Item "D:\inno-result\app.exe" "build\windows\unsigned\app.exe"
 

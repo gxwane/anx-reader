@@ -42,7 +42,6 @@ jobs:
         shell: bash
         run: |
           flutter config --enable-windows-desktop
-          sed -i "1i #define MyAppVersion \"${{ inputs.version }}\"" scripts/compile_windows_setup-inno.iss
 
       - name: Install Inno Setup
         run: |
@@ -88,7 +87,7 @@ jobs:
 
       - name: Build unsigned Windows exe
         shell: pwsh
-        run: ./scripts/build_windows_exe.ps1
+        run: ./scripts/build_windows_exe.ps1 -Version "${{ inputs.version }}"
 
       - name: Upload unsigned Windows exe
         uses: actions/upload-artifact@v4
