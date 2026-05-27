@@ -119,6 +119,9 @@ const applyVirtualChapterSlice = (doc, vChapter) => {
 
     const fragment = range.extractContents()
     body.replaceChildren(fragment)
+    if (fragmentStart) {
+      body.id = 'vcs_' + fragmentStart
+    }
   } catch (e) {
     console.warn('[VirtualChapter] DOM slice failed:', e)
   }

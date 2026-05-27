@@ -564,10 +564,13 @@ a[${noteRefTouchAttr}] {
     const { value } = annotation
     const resolved = await this.goTo(value)
     if (resolved) {
-      const { index, anchor } = resolved
-      const { doc } = this.#getOverlayer(index)
-      const range = anchor(doc)
-      this.#emit('show-annotation', { value, index, range })
+      const { index, anchor, chapterIndex } = resolved
+      const obj = this.#getOverlayer(index, chapterIndex)
+      if (obj) {
+        const { doc } = obj
+        const range = anchor(doc)
+        this.#emit('show-annotation', { value, index, range })
+      }
     }
   }
   getCFI(index, range) {
@@ -576,14 +579,27 @@ a[${noteRefTouchAttr}] {
     return CFI.joinIndir(baseCFI, CFI.fromRange(range))
   }
   resolveCFI(cfi) {
-    if (this.book.resolveCFI)
-      return this.book.resolveCFI(cfi)
-    else {
+    let resolved;
+    if (this.book.resolveCFI) {
+      resolved = this.book.resolveCFI(cfi)
+    } else {
       const parts = CFI.parse(cfi)
       const index = CFI.fake.toIndex((parts.parent ?? parts).shift())
       const anchor = doc => CFI.toRange(doc, parts)
-      return { index, anchor }
+      resolved = { index, anchor }
     }
+    
+    // Extract vcs_ from cfi to find chapterIndex
+    const match = cfi.match(/\[vcs_([^\];]+)[\];]/)
+    if (match && resolved) {
+      const id = match[1]
+      const section = this.book.sections?.[resolved.index]
+      if (section?.virtualChapters) {
+         const idx = section.virtualChapters.findIndex(vc => vc.fragmentStart === id)
+         if (idx !== -1) resolved.chapterIndex = idx
+      }
+    }
+    return resolved;
   }
   resolveNavigation(target) {
     try {

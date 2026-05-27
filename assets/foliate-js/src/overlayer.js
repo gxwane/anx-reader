@@ -49,7 +49,20 @@ export class Overlayer {
         const zoom = this.#zoom
         let rects = []
         this.#splitRangeByParagraph(range).forEach((pRange) => {
-            const pRects = Array.from(pRange.getClientRects()).map(rect => ({
+            const p = pRange.commonAncestorContainer.nodeType === 1 
+                ? pRange.commonAncestorContainer 
+                : pRange.commonAncestorContainer.parentElement;
+            const parentRect = p.getBoundingClientRect();
+
+            const pRects = Array.from(pRange.getClientRects())
+                .filter(rect => {
+                    // Filter Chromium phantom rects in CSS multi-column layout
+                    return rect.left >= parentRect.left - 20 &&
+                           rect.right <= parentRect.right + 20 &&
+                           rect.top >= parentRect.top - 20 &&
+                           rect.bottom <= parentRect.bottom + 20;
+                })
+                .map(rect => ({
                 left: rect.left * zoom,
                 top: rect.top * zoom,
                 right: rect.right * zoom,
@@ -75,14 +88,26 @@ export class Overlayer {
             const zoom = this.#zoom
             let rects = []
             this.#splitRangeByParagraph(range).forEach((pRange) => {
-                const pRects = Array.from(pRange.getClientRects()).map(rect => ({
-                    left: rect.left * zoom,
-                    top: rect.top * zoom,
-                    right: rect.right * zoom,
-                    bottom: rect.bottom * zoom,
-                    width: rect.width * zoom,
-                    height: rect.height * zoom,
-                }))
+                const p = pRange.commonAncestorContainer.nodeType === 1 
+                    ? pRange.commonAncestorContainer 
+                    : pRange.commonAncestorContainer.parentElement;
+                const parentRect = p.getBoundingClientRect();
+
+                const pRects = Array.from(pRange.getClientRects())
+                    .filter(rect => {
+                        return rect.left >= parentRect.left - 20 &&
+                               rect.right <= parentRect.right + 20 &&
+                               rect.top >= parentRect.top - 20 &&
+                               rect.bottom <= parentRect.bottom + 20;
+                    })
+                    .map(rect => ({
+                        left: rect.left * zoom,
+                        top: rect.top * zoom,
+                        right: rect.right * zoom,
+                        bottom: rect.bottom * zoom,
+                        width: rect.width * zoom,
+                        height: rect.height * zoom,
+                    }))
                 rects = rects.concat(pRects)
             })
             const el = draw(rects, options)

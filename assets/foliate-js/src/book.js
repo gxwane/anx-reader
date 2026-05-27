@@ -1405,6 +1405,8 @@ class Reader {
   }
 
   renderAnnotation(annotations) {
+    this.annotations.clear()
+    this.annotationsByValue.clear()
     const annos = annotations ?? allAnnotations ?? []
     for (const anno of annos) {
       const { value, type, color, note } = anno
@@ -1496,7 +1498,9 @@ class Reader {
     const annotation = this.annotationsByValue.get(cfi)
     if (!annotation) return
     const { value } = annotation
-    const spineCode = (value.split('/')[2].split('!')[0] - 2) / 2
+    const resolved = this.view.resolveNavigation(value)
+    if (!resolved) return
+    const spineCode = resolved.index
 
     const list = this.annotations.get(spineCode)
     if (list) {

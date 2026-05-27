@@ -237,8 +237,11 @@ const partsToNode = (node, parts, filter) => {
         const el = node.ownerDocument.getElementById(id)
         if (el) return { node: el, offset: 0 }
     }
-    for (const { index } of parts) {
+    for (const { index, id: stepId } of parts) {
         const newNode = node ? indexChildNodes(node, filter)[index] : null
+        if (stepId && newNode && newNode.nodeType === 1 && newNode.id !== stepId) {
+            throw new Error(`CFI ID mismatch: expected ${stepId}, found ${newNode.id}`)
+        }
         // handle non-existent nodes
         if (newNode === 'first') return { node: node.firstChild ?? node }
         if (newNode === 'last') return { node: node.lastChild ?? node }
@@ -299,13 +302,21 @@ export const toRange = (doc, parts, filter) => {
 
     const range = doc.createRange()
 
+    const getSafeOffset = (node, offset) => {
+        if (!node) return 0;
+        const maxOffset = node.nodeType === 3 || node.nodeType === 4 // TEXT_NODE or CDATA_SECTION_NODE
+            ? (node.nodeValue?.length ?? 0)
+            : (node.childNodes?.length ?? 0);
+        return Math.max(0, Math.min(offset, maxOffset));
+    }
+
     if (start.before) range.setStartBefore(start.node)
     else if (start.after) range.setStartAfter(start.node)
-    else range.setStart(start.node, start.offset)
+    else range.setStart(start.node, getSafeOffset(start.node, start.offset))
 
     if (end.before) range.setEndBefore(end.node)
     else if (end.after) range.setEndAfter(end.node)
-    else range.setEnd(end.node, end.offset)
+    else range.setEnd(end.node, getSafeOffset(end.node, end.offset))
     return range
 }
 
