@@ -833,7 +833,12 @@
   "translateMicrosoftAzure": "Microsoft Azure API",
   "translateGoogleCloud": "Google Cloud API",
   "translateDeepL": "DeepL API",
+  "translateBaidu": "Baidu Translate",
+  "translateTencent": "Tencent Translate",
+  "translateVolcengine": "Volcengine Translate",
+  "translateAliyun": "Aliyun Translate",
   "translateTip": "Tip",
+
   "translateAzureHelpText": "Microsoft Azure Translate has a free quota of 2M chars/month.",
   "translateGoogleHelpText": "Google Cloud Translation API has a free quota of 500k chars/month.",
   "translateDeepLHelpText": "DeepL API Free plan has a free quota of 500k chars/month.",

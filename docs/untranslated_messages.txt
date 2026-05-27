@@ -5,7 +5,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "de": [
@@ -14,7 +18,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "es": [
@@ -23,7 +31,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "fr": [
@@ -32,7 +44,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "it": [
@@ -41,7 +57,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "ja": [
@@ -50,7 +70,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "ko": [
@@ -59,7 +83,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "pt": [
@@ -68,7 +96,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "ro": [
@@ -77,7 +109,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "ru": [
@@ -86,7 +122,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "tr": [
@@ -95,7 +135,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "zh": [
@@ -104,7 +148,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "zh_LZH": [
@@ -113,7 +161,11 @@
     "settingsAiProviderReasoningEffortAuto",
     "settingsAiProviderReasoningEffortLow",
     "settingsAiProviderReasoningEffortMedium",
-    "settingsAiProviderReasoningEffortHigh"
+    "settingsAiProviderReasoningEffortHigh",
+    "translateBaidu",
+    "translateTencent",
+    "translateVolcengine",
+    "translateAliyun"
   ],
 
   "zh_TW": [

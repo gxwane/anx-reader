@@ -8,6 +8,10 @@ import 'package:anx_reader/service/translate/ai.dart';
 import 'package:anx_reader/service/translate/deepl.dart';
 import 'package:anx_reader/service/translate/google_api.dart';
 import 'package:anx_reader/service/translate/microsoft_api.dart';
+import 'package:anx_reader/service/translate/baidu_api.dart';
+import 'package:anx_reader/service/translate/tencent_api.dart';
+import 'package:anx_reader/service/translate/volcengine_api.dart';
+import 'package:anx_reader/service/translate/aliyun_api.dart';
 import 'package:anx_reader/service/translate/web_view.dart';
 import 'package:anx_reader/utils/env_var.dart';
 import 'package:anx_reader/utils/log/common.dart';
@@ -20,6 +24,10 @@ enum TranslateService {
   microsoftApi,
   googleApi,
   deepl,
+  baiduApi,
+  tencentApi,
+  volcengineApi,
+  aliyunApi,
   ai;
 
   TranslateServiceProvider get provider {
@@ -34,6 +42,14 @@ enum TranslateService {
         return GoogleApiTranslateProvider();
       case TranslateService.deepl:
         return DeepLTranslateProvider();
+      case TranslateService.baiduApi:
+        return BaiduApiTranslateProvider();
+      case TranslateService.tencentApi:
+        return TencentApiTranslateProvider();
+      case TranslateService.volcengineApi:
+        return VolcengineApiTranslateProvider();
+      case TranslateService.aliyunApi:
+        return AliyunApiTranslateProvider();
       case TranslateService.ai:
         return AiTranslateProvider();
     }
