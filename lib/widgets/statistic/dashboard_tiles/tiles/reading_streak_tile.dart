@@ -79,13 +79,15 @@ class _ReadingStreakContent extends StatelessWidget {
                   Text(
                     subtitle,
                     style: theme.textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             )
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -99,6 +101,8 @@ class _ReadingStreakContent extends StatelessWidget {
         Text(
           encouragement,
           style: theme.textTheme.bodyMedium,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     );
@@ -130,11 +134,14 @@ class _StatPill extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: theme.textTheme.labelSmall),
+          Text(label,
+              style: theme.textTheme.labelSmall, maxLines: 1, overflow: TextOverflow.ellipsis),
           Text(
             value,
             style: theme.textTheme.titleMedium
                 ?.copyWith(fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),

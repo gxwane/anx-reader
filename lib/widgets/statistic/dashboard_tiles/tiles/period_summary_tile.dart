@@ -79,7 +79,7 @@ class PeriodSummaryTile extends StatisticsDashboardTileBase {
             children: [
               Text(formatted, style: theme.textTheme.headlineSmall),
               Text(
-                  '${(periodSeconds / totalSeconds * 100).toStringAsFixed(1)}%',
+                  '${totalSeconds == 0 ? 0 : (periodSeconds / totalSeconds * 100).toStringAsFixed(1)}%',
                   style: theme.textTheme.labelMedium),
               const Spacer(),
               LinearProgressIndicator(

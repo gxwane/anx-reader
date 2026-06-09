@@ -140,9 +140,12 @@ abstract class StatisticsDashboardTileBase {
       color: theme.scaffoldBackgroundColor,
       width: flipSize(context).width,
       height: flipSize(context).height,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: OverflowBox(
+        alignment: Alignment.topCenter,
+        maxHeight: double.infinity,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           FilledContainer(
             radius: 29,
@@ -194,6 +197,7 @@ abstract class StatisticsDashboardTileBase {
             ],
           ),
         ],
+      ),
       ),
     );
   }

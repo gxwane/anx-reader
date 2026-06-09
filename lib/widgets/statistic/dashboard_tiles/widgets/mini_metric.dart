@@ -32,7 +32,7 @@ class DashboardMiniMetric extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           value.toString(),
-          style: theme.textTheme.displaySmall?.copyWith(
+          style: theme.textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
           ),
         ),
