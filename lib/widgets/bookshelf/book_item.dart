@@ -86,59 +86,60 @@ class BookItem extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 5),
-          SizedBox(
-            height: 55,
-            child: Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        book.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      book.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
                       ),
                     ),
-                    if (Prefs().webdavStatus)
-                      SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: BookSyncStatusIcon(
-                          syncStatus: bookSyncStatus,
-                        ),
-                      ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        book.author,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w300,
-                            fontSize: 9,
-                            overflow: TextOverflow.ellipsis),
+                  ),
+                  if (Prefs().webdavStatus)
+                    SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: BookSyncStatusIcon(
+                        syncStatus: bookSyncStatus,
                       ),
                     ),
-                    Text(
-                      '${(book.readingPercentage * 100).toStringAsFixed(0)}%',
+                ],
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      book.author,
                       style: const TextStyle(
                           fontWeight: FontWeight.w300,
                           fontSize: 9,
                           overflow: TextOverflow.ellipsis),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                  Text(
+                    '${(book.readingPercentage * 100).toStringAsFixed(0)}%',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w300,
+                        fontSize: 9,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
+            ],
           ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    }
   }
-}
+
+
