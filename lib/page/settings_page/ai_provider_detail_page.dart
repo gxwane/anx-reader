@@ -560,34 +560,7 @@ class _AiProviderDetailPageState extends ConsumerState<AiProviderDetailPage> {
         return;
       }
 
-      // Position the dropdown below the fetch button
-      final renderBox =
-          _fetchButtonKey.currentContext?.findRenderObject() as RenderBox?;
-      final offset = renderBox?.localToGlobal(Offset.zero) ?? Offset.zero;
-      final size = renderBox?.size ?? Size.zero;
-
-      final selected = await showMenu<String>(
-        context: context,
-        position: RelativeRect.fromLTRB(
-          offset.dx,
-          offset.dy + size.height,
-          offset.dx + size.width,
-          offset.dy + size.height + 1,
-        ),
-        constraints: BoxConstraints(
-          minWidth: 220,
-          maxHeight: MediaQuery.of(context).size.height * 0.4,
-        ),
-        items: models
-            .map(
-              (modelId) => PopupMenuItem<String>(
-                value: modelId,
-                child: Text(modelId),
-              ),
-            )
-            .toList(),
-      );
-
+      final selected = await _showModelPickerDialog(models);
       if (selected != null) {
         _modelController.text = selected;
         setState(() => _isModified = true);
@@ -603,6 +576,77 @@ class _AiProviderDetailPageState extends ConsumerState<AiProviderDetailPage> {
         );
       }
     }
+  }
+
+  Future<String?> _showModelPickerDialog(List<String> models) {
+    final l10n = L10n.of(context);
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final searchController = TextEditingController();
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final query = searchController.text.trim().toLowerCase();
+            final filtered = query.isEmpty
+                ? models
+                : models.where((m) => m.toLowerCase().contains(query)).toList();
+
+            return AlertDialog(
+              title: Text(l10n.settingsAiProviderFetchModels),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: searchController,
+                      decoration: InputDecoration(
+                        hintText: l10n.aiModelEnterManually,
+                        prefixIcon: const Icon(Icons.search),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      autofocus: true,
+                      onChanged: (_) => setDialogState(() {}),
+                    ),
+                    const SizedBox(height: 8),
+                    Flexible(
+                      child: filtered.isNotEmpty
+                          ? ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: filtered.length,
+                              itemBuilder: (context, index) {
+                                final modelId = filtered[index];
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(modelId),
+                                  onTap: () =>
+                                      Navigator.pop(ctx, modelId),
+                                );
+                              },
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text(
+                                l10n.settingsAiProviderNoModelsFound,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text(l10n.commonCancel),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _saveProvider() {

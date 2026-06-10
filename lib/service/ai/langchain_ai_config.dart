@@ -80,7 +80,7 @@ class LangchainAiConfig {
       identifier: identifier,
       apiKey: apiKey,
       model: model,
-      baseUrl: _deriveBaseUrl(url),
+      baseUrl: deriveBaseUrl(url),
       headers: headers,
       temperature: parseDouble(raw['temperature']),
       topP: parseDouble(raw['top_p']),
@@ -103,7 +103,7 @@ class LangchainAiConfig {
       identifier: providerId,
       apiKey: apiKey,
       model: model,
-      baseUrl: _deriveBaseUrl(url),
+      baseUrl: deriveBaseUrl(url),
       reasoningEffort: reasoningEffort,
     );
   }
@@ -178,7 +178,7 @@ Map<String, dynamic>? _parseJson(String? value) {
   return null;
 }
 
-String? _deriveBaseUrl(String? url) {
+String? deriveBaseUrl(String? url) {
   if (url == null || url.trim().isEmpty) {
     return null;
   }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'langchain_ai_config.dart';
 
 /// Fetches the list of available model IDs from an OpenAI-compatible /models endpoint.
 ///
@@ -10,9 +11,9 @@ Future<List<String>> fetchAiModels({
   required String apiKey,
   Duration timeout = const Duration(seconds: 10),
 }) async {
-  final baseUrl = url.trim();
+  final base = deriveBaseUrl(url.trim()) ?? url.trim();
   final modelsUrl =
-      baseUrl.endsWith('/') ? '${baseUrl}models' : '$baseUrl/models';
+      base.endsWith('/') ? '${base}models' : '$base/models';
 
   final response = await http.get(
     Uri.parse(modelsUrl),

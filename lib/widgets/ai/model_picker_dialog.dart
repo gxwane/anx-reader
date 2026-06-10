@@ -46,12 +46,22 @@ class _ModelPickerDialogState extends State<_ModelPickerDialog> {
       widget.provider.hasValidKey &&
       widget.provider.url.isNotEmpty;
 
+  List<String> get _filteredModels {
+    if (_fetchedModels == null) return [];
+    final query = _controller.text.trim().toLowerCase();
+    if (query.isEmpty) return _fetchedModels!;
+    return _fetchedModels!
+        .where((m) => m.toLowerCase().contains(query))
+        .toList();
+  }
+
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(
       text: widget.currentModel ?? '',
     );
+    _controller.addListener(() => setState(() {}));
   }
 
   @override
@@ -156,23 +166,33 @@ class _ModelPickerDialogState extends State<_ModelPickerDialog> {
                 constraints: BoxConstraints(
                   maxHeight: MediaQuery.of(context).size.height * 0.35,
                 ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _fetchedModels!.length,
-                  itemBuilder: (context, index) {
-                    final modelId = _fetchedModels![index];
-                    final isSelected = _controller.text == modelId;
-                    return ListTile(
-                      dense: true,
-                      title: Text(modelId),
-                      selected: isSelected,
-                      selectedColor: theme.colorScheme.primary,
-                      onTap: () {
-                        setState(() => _controller.text = modelId);
-                      },
-                    );
-                  },
-                ),
+                child: _filteredModels.isNotEmpty
+                    ? ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _filteredModels.length,
+                        itemBuilder: (context, index) {
+                          final modelId = _filteredModels[index];
+                          final isSelected = _controller.text == modelId;
+                          return ListTile(
+                            dense: true,
+                            title: Text(modelId),
+                            selected: isSelected,
+                            selectedColor: theme.colorScheme.primary,
+                            onTap: () {
+                              setState(() => _controller.text = modelId);
+                            },
+                          );
+                        },
+                      )
+                    : Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            l10n.settingsAiProviderNoModelsFound,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ),
+                      ),
               ),
             ],
           ],
