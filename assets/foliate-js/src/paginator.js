@@ -609,6 +609,8 @@ export class Paginator extends HTMLElement {
   #pendingAnchorRestore = false
   #lastContainerWidth = 0
   #lastContainerHeight = 0
+  #selectionScrollLock = null
+  #selectionScrollUnlockFrame = null
   constructor() {
     super()
     this.#root.innerHTML = `<style>
@@ -724,6 +726,7 @@ export class Paginator extends HTMLElement {
     this.#observer.observe(this.#container)
     this.#container.addEventListener('scroll', () => {
       if (this.#ignoreNativeScroll) return
+      if (this.#handleSelectionScrollLock()) return
       if (this.#justAnchored) {
         this.#justAnchored = false
         return
@@ -745,6 +748,11 @@ export class Paginator extends HTMLElement {
       doc.addEventListener('touchstart', this.#onTouchStart.bind(this), opts)
       doc.addEventListener('touchmove', this.#onTouchMove.bind(this), opts)
       doc.addEventListener('touchend', this.#onTouchEnd.bind(this), opts)
+      doc.addEventListener('selectstart', () => this.#startSelectionScrollLock(true))
+      doc.addEventListener('selectionchange', () => {
+        if (this.#getActiveSelectionText()) this.#startSelectionScrollLock()
+        else this.#selectionScrollLock = null
+      })
     })
 
     this.#mediaQueryListener = () => {
@@ -752,6 +760,55 @@ export class Paginator extends HTMLElement {
       this.#applyBackground()
     }
     this.#mediaQuery.addEventListener('change', this.#mediaQueryListener)
+  }
+  #getActiveSelectionText() {
+    try {
+      return this.#view?.document?.defaultView?.getSelection?.()?.toString?.() ?? ''
+    } catch (_) {
+      return ''
+    }
+  }
+  #startSelectionScrollLock(force = false) {
+    if (this.scrolled) return
+    if (!force && !this.#getActiveSelectionText()) return
+    const scrollProp = this.scrollProp
+    if (this.#selectionScrollLock?.scrollProp === scrollProp) return
+    this.#selectionScrollLock = {
+      scrollProp,
+      offset: this.#touchState?.startScroll ?? this.#container[scrollProp],
+    }
+  }
+  #updateSelectionScrollLock(offset = this.#container[this.scrollProp]) {
+    if (this.scrolled || !this.#getActiveSelectionText()) return
+    this.#selectionScrollLock = {
+      scrollProp: this.scrollProp,
+      offset,
+    }
+  }
+  #handleSelectionScrollLock() {
+    if (this.scrolled) {
+      this.#selectionScrollLock = null
+      return false
+    }
+    if (!this.#getActiveSelectionText()) {
+      this.#selectionScrollLock = null
+      return false
+    }
+    this.#startSelectionScrollLock()
+    const lock = this.#selectionScrollLock
+    const scrollProp = this.scrollProp
+    if (!lock || lock.scrollProp !== scrollProp) return true
+    if (Math.abs(this.#container[scrollProp] - lock.offset) > 0.5) {
+      if (this.#selectionScrollUnlockFrame != null)
+        cancelAnimationFrame(this.#selectionScrollUnlockFrame)
+      this.#ignoreNativeScroll = true
+      this.#container[scrollProp] = lock.offset
+      this.#selectionScrollUnlockFrame = requestAnimationFrame(() => {
+        this.#selectionScrollUnlockFrame = null
+        this.#ignoreNativeScroll = false
+      })
+    }
+    return true
   }
   #isInteracting() {
     return !!(this.#touchState || this.#isSnapping || this.#locked)
@@ -1251,6 +1308,11 @@ export class Paginator extends HTMLElement {
       return
     }
 
+    if (this.#getActiveSelectionText()) {
+      this.#touchState = null
+      this.#flushDeferredLayout()
+      return
+    }
 
     // XXX: Firefox seems to report scale as 1... sometimes...?
     // at this point I'm basically throwing `requestAnimationFrame` at
@@ -1310,6 +1372,7 @@ export class Paginator extends HTMLElement {
     const easing = opts.easing ?? easeOutSine
     
     const finish = () => {
+      this.#updateSelectionScrollLock(offset)
       this.#afterScroll(reason)
       this.#ignoreNativeScroll = false
     }
