@@ -136,14 +136,23 @@ class BookNotesList extends ConsumerWidget {
       );
     }
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Spacer(),
-        IconButton(
-          onPressed: () => _showFilterSheet(context, ref),
-          icon: Icon(
-            state.showAllNotes ? EvaIcons.funnel_outline : EvaIcons.funnel,
-          ),
+        Row(
+          children: [
+            const Spacer(),
+            IconButton(
+              onPressed: () => _showFilterSheet(context, ref),
+              icon: Icon(
+                state.showAllNotes ? EvaIcons.funnel_outline : EvaIcons.funnel,
+              ),
+            ),
+          ],
+        ),
+        _NotesSearchBar(
+          initialValue: state.searchKeyword,
+          onChanged: (keyword) => notifier.setSearchKeyword(keyword),
         ),
       ],
     );
@@ -530,6 +539,69 @@ class BookNotesList extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _NotesSearchBar extends StatefulWidget {
+  const _NotesSearchBar({
+    required this.initialValue,
+    required this.onChanged,
+  });
+
+  final String initialValue;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_NotesSearchBar> createState() => _NotesSearchBarState();
+}
+
+class _NotesSearchBarState extends State<_NotesSearchBar> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+    _controller.addListener(() {
+      widget.onChanged(_controller.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: TextField(
+        controller: _controller,
+        decoration: InputDecoration(
+          hintText: L10n.of(context).startTypingToSearch,
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _controller.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _controller.clear();
+                  },
+                )
+              : null,
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

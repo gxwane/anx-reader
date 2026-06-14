@@ -27,32 +27,34 @@ class NotesStatistics extends _$NotesStatistics {
 class BookIdAndNotes extends _$BookIdAndNotes {
   @override
   Future<List<Map<String, dynamic>>> build() async {
-    final bookDataList = await _getBookIdAndNotes();
-    final result = <Map<String, dynamic>>[];
+    final bookDataList = await bookNoteDao.selectAllBookIdAndNotes();
+    if (bookDataList.isEmpty) return [];
 
-    for (final data in bookDataList) {
-      Book book = await bookDao.selectBookById(data['bookId']);
-      int readingTime =
-          await readingTimeDao.selectTotalReadingTimeByBookId(book.id);
-      result.add({
-        'bookId': data['bookId'],
+    final bookIds =
+        bookDataList.map((data) => data['bookId'] as int).toList();
+    final booksFuture = bookDao.selectBooksByIds(bookIds);
+    final readingTimesFuture =
+        readingTimeDao.selectTotalReadingTimesByBookIds(bookIds);
+
+    final results = await Future.wait([booksFuture, readingTimesFuture]);
+    final books = {for (final book in results[0] as List<Book>) book.id: book};
+    final readingTimes = results[1] as Map<int, int>;
+
+    return bookDataList.map((data) {
+      final bookId = data['bookId'] as int;
+      return <String, dynamic>{
+        'bookId': bookId,
         'numberOfNotes': data['numberOfNotes'],
         'latestTime': data['latestTime'],
-        'book': book,
-        'readingTime': readingTime,
-      });
-    }
-
-    return result;
-  }
-
-  Future<List<Map<String, dynamic>>> _getBookIdAndNotes() async {
-    return await bookNoteDao.selectAllBookIdAndNotes();
+        'book': books[bookId]!,
+        'readingTime': readingTimes[bookId] ?? 0,
+      };
+    }).toList();
   }
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    state = AsyncValue.data(await _getBookIdAndNotes());
+    state = AsyncValue.data(await build());
   }
 }
 

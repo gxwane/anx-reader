@@ -40,6 +40,7 @@ class _StatisticPageState extends State<StatisticPage> {
     final numberOfBook = await readingTimeDao.selectTotalNumberOfBook();
     final numberOfDate = await readingTimeDao.selectTotalNumberOfDate();
     final numberOfNotes = await readingTimeDao.selectTotalNumberOfNotes();
+    if (!mounted) return;
     setState(() {
       totalNumberOfBook = numberOfBook;
       totalNumberOfDate = numberOfDate;

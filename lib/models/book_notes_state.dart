@@ -47,6 +47,7 @@ abstract class BookNotesState with _$BookNotesState {
     required bool showBookmarks,
     required Set<String> enabledTypeColors,
     required Set<int> selectedNoteIds,
+    @Default('') String searchKeyword,
   }) = _BookNotesState;
 
   int get totalNotes => allNotes.length;

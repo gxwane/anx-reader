@@ -106,6 +106,23 @@ class BookNotesController extends _$BookNotesController {
     );
   }
 
+  void setSearchKeyword(String keyword) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    final next = current.copyWith(searchKeyword: keyword);
+    _emit(
+      next.copyWith(
+        visibleNotes: _filterAndSort(
+          next.allNotes,
+          next.enabledTypeColors,
+          next.showBookmarks,
+          next.viewSortMode,
+          keyword: keyword,
+        ),
+      ),
+    );
+  }
+
   void toggleShowBookmarks() {
     final current = state.valueOrNull;
     if (current == null) return;
@@ -117,6 +134,7 @@ class BookNotesController extends _$BookNotesController {
           next.enabledTypeColors,
           next.showBookmarks,
           next.viewSortMode,
+          keyword: next.searchKeyword,
         ),
       ),
     );
@@ -187,6 +205,7 @@ class BookNotesController extends _$BookNotesController {
           current.enabledTypeColors,
           current.showBookmarks,
           newMode,
+          keyword: current.searchKeyword,
         ),
       ),
     );
@@ -267,6 +286,7 @@ class BookNotesController extends _$BookNotesController {
         state.enabledTypeColors,
         state.showBookmarks,
         state.viewSortMode,
+        keyword: state.searchKeyword,
       ),
     );
   }
@@ -281,6 +301,7 @@ class BookNotesController extends _$BookNotesController {
     final showBookmarks = previous?.showBookmarks ?? true;
     final viewSort = previous?.viewSortMode ?? _viewSortFromPrefs();
     final exportSort = previous?.exportSortMode ?? _exportSortFromPrefs();
+    final searchKeyword = previous?.searchKeyword ?? '';
     final validSelection = (previous?.selectedNoteIds ?? {})
         .where((id) => notes.any((note) => note.id == id))
         .toSet();
@@ -292,12 +313,14 @@ class BookNotesController extends _$BookNotesController {
         enabledTypeColors,
         showBookmarks,
         viewSort,
+        keyword: searchKeyword,
       ),
       viewSortMode: viewSort,
       exportSortMode: exportSort,
       showBookmarks: showBookmarks,
       enabledTypeColors: enabledTypeColors,
       selectedNoteIds: validSelection,
+      searchKeyword: searchKeyword,
     );
   }
 
@@ -312,10 +335,20 @@ List<BookNote> _filterAndSort(
   List<BookNote> notes,
   Set<String> enabledTypeColors,
   bool showBookmarks,
-  NotesSortMode sortMode,
-) {
+  NotesSortMode sortMode, {
+  String keyword = '',
+}) {
+  var filteredNotes = notes;
+  if (keyword.isNotEmpty) {
+    final kw = keyword.toLowerCase();
+    filteredNotes = notes.where((note) {
+      return note.content.toLowerCase().contains(kw) ||
+          (note.readerNote?.toLowerCase().contains(kw) ?? false) ||
+          note.chapter.toLowerCase().contains(kw);
+    }).toList();
+  }
   final filtered = <BookNote>[];
-  for (final note in notes) {
+  for (final note in filteredNotes) {
     if (note.type == 'bookmark') {
       if (showBookmarks) {
         filtered.add(note);

@@ -24,6 +24,24 @@ class NotesPage extends ConsumerStatefulWidget {
 class _NotesPageState extends ConsumerState<NotesPage> {
   late final ScrollController _scrollController =
       widget.controller ?? ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchTerm = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(() {
+        _searchTerm = _searchController.text;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +58,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       notesStatistic(),
+                      _searchBar(),
                       bookNotesList(false),
                     ],
                   ),
@@ -56,6 +75,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 notesStatistic(),
+                _searchBar(),
                 bookNotesList(true),
               ],
             );
@@ -104,20 +124,64 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     );
   }
 
+  Widget _searchBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: L10n.of(context).startTypingToSearch,
+          prefixIcon: const Icon(Icons.search, size: 20),
+          suffixIcon: _searchTerm.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                )
+              : null,
+          isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide(
+              color: Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget bookNotesList(bool isMobile) {
     final bookIdAndNotes = ref.watch(bookIdAndNotesProvider);
 
     return bookIdAndNotes.when(
       data: (data) {
-        return data.isEmpty
-            ? const Expanded(child: Center(child: NotesTips()))
-            : Expanded(
+        final filteredData = _searchTerm.isEmpty
+            ? data
+            : data
+                .where((item) => (item['book'] as Book)
+                    .title
+                    .toLowerCase()
+                    .contains(_searchTerm.toLowerCase()))
+                .toList();
+        if (data.isEmpty) {
+          return const Expanded(child: Center(child: NotesTips()));
+        }
+        if (_searchTerm.isNotEmpty && filteredData.isEmpty) {
+          return const Expanded(
+            child: Center(child: Text('No matching books')),
+          );
+        }
+        return Expanded(
                 child: ListView.builder(
                     padding: EdgeInsets.only(bottom: 80),
                     controller: _scrollController,
-                    itemCount: data.length,
+                    itemCount: filteredData.length,
                     itemBuilder: (context, index) {
-                      final item = data[index];
+                      final item = filteredData[index];
                       return bookNotesItem(
                         book: item['book']!,
                         numberOfNotes: item['numberOfNotes']!,

@@ -284,6 +284,21 @@ class ReadingTimeDao extends BaseDao {
     return rows;
   }
 
+  Future<Map<int, int>> selectTotalReadingTimesByBookIds(
+      List<int> bookIds) async {
+    if (bookIds.isEmpty) return {};
+    final rows = await rawQueryList(
+      'SELECT book_id, SUM(reading_time) AS total_sum FROM $table WHERE book_id IN (${bookIds.join(",")}) GROUP BY book_id',
+      mapper: (row) => <String, dynamic>{
+        'bookId': row['book_id'] as int? ?? 0,
+        'totalSum': row['total_sum'] as int? ?? 0,
+      },
+    );
+    return {
+      for (final row in rows) row['bookId'] as int: row['totalSum'] as int,
+    };
+  }
+
   Future<int> selectTotalReadingTimeByBookId(int bookId) async {
     final total = await rawQuerySingle(
       'SELECT SUM(reading_time) AS total_sum FROM $table WHERE book_id = ?',
