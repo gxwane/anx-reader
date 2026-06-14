@@ -4,6 +4,7 @@ import 'package:anx_reader/page/book_notes_page.dart';
 import 'package:anx_reader/providers/notes_page_current_book.dart';
 import 'package:anx_reader/providers/notes_statistics.dart';
 import 'package:anx_reader/utils/date/convert_seconds.dart';
+import 'package:anx_reader/utils/date/relative_time_formatter.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:anx_reader/widgets/highlight_digit.dart';
@@ -116,11 +117,13 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                     controller: _scrollController,
                     itemCount: data.length,
                     itemBuilder: (context, index) {
+                      final item = data[index];
                       return bookNotesItem(
-                        book: data[index]['book']!,
-                        numberOfNotes: data[index]['numberOfNotes']!,
+                        book: item['book']!,
+                        numberOfNotes: item['numberOfNotes']!,
                         isMobile: isMobile,
-                        readingTime: data[index]['readingTime']!,
+                        readingTime: item['readingTime']!,
+                        latestTime: item['latestTime'] as String? ?? '',
                       );
                     }),
               );
@@ -135,6 +138,7 @@ class _NotesPageState extends ConsumerState<NotesPage> {
     required int numberOfNotes,
     required bool isMobile,
     required int readingTime,
+    required String latestTime,
   }) {
     TextStyle digitStyle = const TextStyle(
       fontSize: 28,
@@ -191,7 +195,6 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                   const SizedBox(height: 8),
                   Text(book.title, style: titleStyle),
                   const SizedBox(height: 18),
-                  // Reading time
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -207,6 +210,13 @@ class _NotesPageState extends ConsumerState<NotesPage> {
                         const SizedBox(width: 4),
                         Text(
                           '${(book.readingPercentage * 100).toStringAsFixed(1)}%',
+                          style: readingTimeStyle,
+                        ),
+                        Text(" | ", style: readingTimeStyle),
+                        Text(
+                          RelativeTimeFormatter.format(
+                            DateTime.tryParse(latestTime),
+                          ),
                           style: readingTimeStyle,
                         ),
                       ],

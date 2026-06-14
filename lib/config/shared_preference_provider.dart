@@ -1344,7 +1344,7 @@ class Prefs extends ChangeNotifier {
     final stored = prefs.getString('notesViewSortField');
     return NotesSortField.values.firstWhere(
       (field) => field.name == stored,
-      orElse: () => NotesSortField.cfi,
+      orElse: () => NotesSortField.createdTime,
     );
   }
 
@@ -1357,7 +1357,7 @@ class Prefs extends ChangeNotifier {
     final stored = prefs.getString('notesViewSortDirection');
     return SortDirection.values.firstWhere(
       (dir) => dir.name == stored,
-      orElse: () => SortDirection.asc,
+      orElse: () => SortDirection.desc,
     );
   }
 

@@ -177,7 +177,7 @@ class BookNotesController extends _$BookNotesController {
     if (current == null) return;
     final newMode = current.viewSortMode.field == field
         ? current.viewSortMode.toggleDirection()
-        : current.viewSortMode.copyWith(field: field).toggleDirection();
+        : current.viewSortMode.changeField(field);
     _persistViewSort(newMode);
     _emit(
       current.copyWith(

@@ -37,6 +37,7 @@ class BookIdAndNotes extends _$BookIdAndNotes {
       result.add({
         'bookId': data['bookId'],
         'numberOfNotes': data['numberOfNotes'],
+        'latestTime': data['latestTime'],
         'book': book,
         'readingTime': readingTime,
       });

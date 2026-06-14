@@ -79,12 +79,13 @@ class BookNoteDao extends BaseDao {
     return note;
   }
 
-  Future<List<Map<String, int>>> selectAllBookIdAndNotes() async {
+  Future<List<Map<String, dynamic>>> selectAllBookIdAndNotes() async {
     return rawQueryList(
-      'SELECT book_id, COUNT(id) AS number_of_notes FROM $table WHERE $_typeFilter GROUP BY book_id ORDER BY number_of_notes DESC',
-      mapper: (row) => <String, int>{
+      'SELECT book_id, COUNT(id) AS number_of_notes, MAX(update_time) AS latest_time FROM $table WHERE $_typeFilter GROUP BY book_id ORDER BY MAX(update_time) DESC',
+      mapper: (row) => <String, dynamic>{
         'bookId': row['book_id'] as int? ?? 0,
         'numberOfNotes': row['number_of_notes'] as int? ?? 0,
+        'latestTime': row['latest_time'] as String? ?? '',
       },
     ).then((rows) => rows.where((element) => element['bookId'] != 0).toList());
   }
