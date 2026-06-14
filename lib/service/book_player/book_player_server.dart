@@ -27,9 +27,7 @@ class Server {
       await stop();
     }
 
-    var handler = const shelf.Pipeline()
-        .addMiddleware(shelf.logRequests())
-        .addHandler(_handleRequests);
+    var handler = const shelf.Pipeline().addHandler(_handleRequests);
 
     int port = Prefs().lastServerPort;
 

@@ -48,6 +48,7 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
   late final _scrollController = widget.controller ?? ScrollController();
   final _gridViewKey = GlobalKey();
   bool _dragging = false;
+  bool _isImporting = false;
   final GlobalKey _tagButtonKey = GlobalKey();
   final TextEditingController _editTagController = TextEditingController();
 
@@ -74,6 +75,10 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
   }
 
   Future<void> _importBook() async {
+    if (_isImporting) {
+      return;
+    }
+
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.any,
       allowMultiple: true,
@@ -97,7 +102,23 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
       fileList = files.map((file) => File(file.path!)).toList();
     }
 
-    importBookList(fileList, context, ref);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isImporting = true;
+    });
+
+    try {
+      await importBookList(fileList, context, ref);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isImporting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -474,17 +495,37 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
         Expanded(
           child: DropTarget(
             onDragDone: (detail) async {
-              List<File> files = [];
-              for (var file in detail.files) {
-                files.add(await _copyToTempFile(
-                  sourcePath: file.path,
-                  fileName: file.name,
-                ));
+              if (_isImporting) {
+                setState(() {
+                  _dragging = false;
+                });
+                return;
               }
-              importBookList(files, context, ref);
+
               setState(() {
-                _dragging = false;
+                _isImporting = true;
               });
+
+              try {
+                List<File> files = [];
+                for (var file in detail.files) {
+                  files.add(await _copyToTempFile(
+                    sourcePath: file.path,
+                    fileName: file.name,
+                  ));
+                }
+                if (!context.mounted) {
+                  return;
+                }
+                await importBookList(files, context, ref);
+              } finally {
+                if (mounted) {
+                  setState(() {
+                    _dragging = false;
+                    _isImporting = false;
+                  });
+                }
+              }
             },
             onDragEntered: (detail) {
               setState(() {
@@ -563,7 +604,7 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
         const SyncButton(),
         IconButton(
           icon: const Icon(Icons.add),
-          onPressed: _importBook,
+          onPressed: _isImporting ? null : _importBook,
         ),
         IconButton(
             icon: const Icon(Icons.sort),
