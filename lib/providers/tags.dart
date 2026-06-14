@@ -1,3 +1,4 @@
+import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/dao/tag.dart';
 import 'package:anx_reader/models/tag.dart';
 import 'package:anx_reader/utils/color/rgb.dart';
@@ -35,6 +36,9 @@ class TagList extends _$TagList {
   @override
   Future<List<Tag>> build() async {
     final tags = await tagDao.fetchAllTags();
+    ref
+        .read(tagSelectionProvider.notifier)
+        .retainValidTagIds(tags.map((tag) => tag.id).toSet());
     return _sortedTags(tags);
   }
 
@@ -53,6 +57,7 @@ class TagList extends _$TagList {
 
   Future<void> deleteTag(int id) async {
     await tagDao.deleteTag(id);
+    ref.read(tagSelectionProvider.notifier).remove(id);
     await _refresh();
   }
 
@@ -115,7 +120,7 @@ class BookTagEditor extends _$BookTagEditor {
 @riverpod
 class TagSelection extends _$TagSelection {
   @override
-  Set<int> build() => <int>{};
+  Set<int> build() => Prefs().bookshelfSelectedTagIds.toSet();
 
   void toggle(int tagId) {
     final next = {...state};
@@ -133,13 +138,37 @@ class TagSelection extends _$TagSelection {
       next.add(tagId);
     }
     state = next;
+    Prefs().bookshelfSelectedTagIds = state;
   }
 
   void setSelection(Set<int> tagIds) {
     state = {...tagIds};
+    Prefs().bookshelfSelectedTagIds = state;
+  }
+
+  void remove(int tagId) {
+    if (!state.contains(tagId)) {
+      return;
+    }
+    final next = {...state}..remove(tagId);
+    state = next;
+    Prefs().bookshelfSelectedTagIds = state;
+  }
+
+  void retainValidTagIds(Set<int> validTagIds) {
+    final validSelection = state
+        .where(
+            (tagId) => tagId == kNoTagFilterId || validTagIds.contains(tagId))
+        .toSet();
+    if (validSelection.length == state.length) {
+      return;
+    }
+    state = validSelection;
+    Prefs().bookshelfSelectedTagIds = state;
   }
 
   void clear() {
     state = <int>{};
+    Prefs().bookshelfSelectedTagIds = state;
   }
 }

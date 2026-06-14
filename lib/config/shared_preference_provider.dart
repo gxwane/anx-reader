@@ -70,6 +70,9 @@ class Prefs extends ChangeNotifier {
   static const String _statisticsDashboardTilesKey = 'statisticsDashboardTiles';
   static const String _enabledAiToolsKey = 'enabledAiTools';
   static const String _userPromptsKey = 'userPrompts';
+  static const String _bookshelfReadingStatusFilterKey =
+      'bookshelfReadingStatusFilter';
+  static const String _bookshelfSelectedTagIdsKey = 'bookshelfSelectedTagIds';
 
   Future<void> initPrefs() async {
     prefs = await SharedPreferences.getInstance();
@@ -1300,6 +1303,31 @@ class Prefs extends ChangeNotifier {
 
   set sortOrder(SortOrderEnum order) {
     prefs.setString('sortOrder', order.name);
+    notifyListeners();
+  }
+
+  String get bookshelfReadingStatusFilter {
+    return prefs.getString(_bookshelfReadingStatusFilterKey) ?? 'none';
+  }
+
+  set bookshelfReadingStatusFilter(String status) {
+    prefs.setString(_bookshelfReadingStatusFilterKey, status);
+    notifyListeners();
+  }
+
+  List<int> get bookshelfSelectedTagIds {
+    final stored = prefs.getStringList(_bookshelfSelectedTagIdsKey);
+    if (stored == null || stored.isEmpty) {
+      return const [];
+    }
+    return stored.map(int.tryParse).whereType<int>().toList(growable: false);
+  }
+
+  set bookshelfSelectedTagIds(Iterable<int> tagIds) {
+    prefs.setStringList(
+      _bookshelfSelectedTagIdsKey,
+      tagIds.map((id) => id.toString()).toList(growable: false),
+    );
     notifyListeners();
   }
 
