@@ -4,6 +4,7 @@ console.log('AnxUA', navigator.userAgent)
 import './view.js'
 import { FootnoteHandler } from './footnotes.js'
 import { Overlayer } from './overlayer.js'
+import { isGeneratedBacklinkHref, isNumberedNoteMarker } from './noteref.js'
 import { collapse, compare, fromRange, toRange } from './epubcfi.js'
 const { configure, ZipReader, BlobReader, TextWriter, BlobWriter } =
   await import('./vendor/zip.js')
@@ -1296,6 +1297,13 @@ const replaceFootnote = (view) => {
   // if #rrggbbaa, replace aa to ee
   footnoteDialog.style.backgroundColor = style.backgroundColor.slice(0, 7) + '33'
 }
+
+const isFootnoteBacklinkClick = ({ a, href }) => {
+  const doc = a?.getRootNode?.()
+  if (!doc?.__isFootNote) return false
+  return isNumberedNoteMarker(a) && isGeneratedBacklinkHref(href)
+}
+
 class Reader {
   annotations = new Map()
   annotationsByValue = new Map()
@@ -1378,11 +1386,18 @@ class Reader {
       onExternalLink(e.detail)
     })
 
-    view.addEventListener('link', e =>
+    view.addEventListener('link', e => {
+      if (isFootnoteBacklinkClick(e.detail)) {
+        e.preventDefault()
+        closeFootnoteDialog()
+        return
+      }
+
       this.#footnoteHandler.handle(this.view.book, e)?.catch(err => {
         console.warn(err)
-        this.view.goTo(e.detail.href)
-      }))
+        if (e.defaultPrevented) this.view.goTo(e.detail.href)
+      })
+    })
 
     view.history.addEventListener('pushstate', e => {
       callFlutter('onPushState', {

@@ -1,4 +1,9 @@
-import { isExplicitNoteRef, isHeuristicNoteRef } from './noteref.js'
+import {
+    isExplicitNoteRef,
+    isGeneratedBacklinkHref,
+    isHeuristicNoteRef,
+    isNumberedNoteMarker,
+} from './noteref.js'
 
 const getTypes = el => new Set(el?.getAttributeNS?.('http://www.idpf.org/2007/ops', 'type')?.split(' '))
 const getRoles = el => new Set(el?.getAttribute?.('role')?.split(' '))
@@ -17,6 +22,7 @@ const isInline = 'a, span, sup, sub, em, strong, i, b, small, big'
 const extractFootnote = (doc, anchor) => {
     let el = anchor(doc)
     const target = el
+    if (!el) throw new Error('Footnote target not found')
     while (el.matches(isInline)) {
         const parent = el.parentElement
         if (!parent) break
@@ -32,8 +38,9 @@ const extractFootnote = (doc, anchor) => {
 
 export class FootnoteHandler extends EventTarget {
     detectFootnotes = true
-    #showFragment(book, { index, anchor }, href) {
+    #showFragment(book, target, href) {
         const view = document.createElement('foliate-view')
+        const { index, anchor } = target
         return new Promise((resolve, reject) => {
             view.addEventListener('load', e => {
                 try {
@@ -60,7 +67,7 @@ export class FootnoteHandler extends EventTarget {
             })
             view.open(book)
                 .then(() => this.dispatchEvent(new CustomEvent('before-render', { detail: { view } })))
-                .then(() => view.goTo(index))
+                .then(() => view.renderer.goTo(target))
                 .catch(reject)
         })
     }
@@ -69,6 +76,8 @@ export class FootnoteHandler extends EventTarget {
         const isExplicit = isExplicitNoteRef(a)
         const isHeuristic = this.detectFootnotes && isHeuristicNoteRef(a)
         if (!isExplicit && !isHeuristic) return
+
+        if (isNumberedNoteMarker(a) && isGeneratedBacklinkHref(href)) return
 
         e.preventDefault()
         if (isExplicit) {
