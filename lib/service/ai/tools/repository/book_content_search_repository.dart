@@ -4,6 +4,8 @@ import 'dart:io';
 
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/page/home_page.dart';
+import 'package:anx_reader/providers/book_search_bridge.dart';
+import 'package:anx_reader/providers/current_reading.dart';
 import 'package:anx_reader/service/ai/tools/input/book_content_search_input.dart';
 import 'package:anx_reader/service/ai/tools/repository/books_repository.dart';
 import 'package:anx_reader/service/book_player/book_player_server.dart';
@@ -13,18 +15,22 @@ import 'package:anx_reader/utils/webView/gererate_url.dart';
 import 'package:anx_reader/utils/webView/webview_console_message.dart';
 import 'package:anx_reader/utils/webView/anx_headless_webview.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 class BookContentSearchRepository {
   BookContentSearchRepository({
     BooksRepository? booksRepository,
+    WidgetRef? ref,
     Duration? searchTimeout,
     Duration? sessionIdleTimeout,
   })  : _booksRepository = booksRepository ?? const BooksRepository(),
+        _ref = ref,
         _searchTimeout = searchTimeout ?? const Duration(seconds: 15),
         _sessionIdleTimeout = sessionIdleTimeout ?? const Duration(minutes: 3);
 
   final BooksRepository _booksRepository;
+  final WidgetRef? _ref;
   final Duration _searchTimeout;
   final Duration _sessionIdleTimeout;
 
@@ -40,15 +46,42 @@ class BookContentSearchRepository {
     AnxLog.info(
         'BookContentSearchRepository: Starting search for book=${book.id}, keyword="$keyword"');
 
+    final maxResults = input.resolvedMaxResults();
+    final maxSnippets = input.resolvedMaxSnippets();
+    final maxCharacters = input.resolvedMaxCharacters();
+
+    final activeReaderResponse = await _trySearchActiveReader(
+      book: book,
+      keyword: keyword,
+      maxResults: maxResults,
+      maxSnippets: maxSnippets,
+      maxCharacters: maxCharacters,
+    );
+    if (activeReaderResponse != null) {
+      return _buildResultMap(
+        book: book,
+        keyword: keyword,
+        response: activeReaderResponse,
+      );
+    }
+
+    if (Platform.isWindows) {
+      throw StateError(
+        'Background book search is disabled on Windows because WebView2 may '
+        'crash while loading a second reader instance. Open the target book '
+        'and search the active reading session instead.',
+      );
+    }
+
     final session = await _getOrCreateSession(book);
 
     try {
       final response = await session
           .runSearch(
             keyword: keyword,
-            maxResults: input.resolvedMaxResults(),
-            maxSnippets: input.resolvedMaxSnippets(),
-            maxCharacters: input.resolvedMaxCharacters(),
+            maxResults: maxResults,
+            maxSnippets: maxSnippets,
+            maxCharacters: maxCharacters,
             timeout: _searchTimeout,
           )
           .timeout(
@@ -58,14 +91,11 @@ class BookContentSearchRepository {
             ),
           );
 
-      return {
-        'bookId': book.id,
-        'bookTitle': book.title,
-        'keyword': keyword,
-        'results': response.results.map((result) => result.toMap()).toList(),
-        'searchDurationMs': response.duration.inMilliseconds,
-        'completed': response.completed,
-      };
+      return _buildResultMap(
+        book: book,
+        keyword: keyword,
+        response: response,
+      );
     } on Object catch (error, stackTrace) {
       AnxLog.severe(
           'BookContentSearchRepository: Search failed for book=${book.id}, keyword="$keyword": $error\n$stackTrace');
@@ -93,6 +123,60 @@ class BookContentSearchRepository {
       throw StateError('Book with id=$bookId has been deleted.');
     }
     return book;
+  }
+
+  Future<_SearchResponse?> _trySearchActiveReader({
+    required Book book,
+    required String keyword,
+    required int maxResults,
+    required int maxSnippets,
+    required int? maxCharacters,
+  }) async {
+    final ref = _ref;
+    if (ref == null) {
+      return null;
+    }
+
+    final readingState = ref.read(currentReadingProvider);
+    if (!readingState.isReading || readingState.book?.id != book.id) {
+      return null;
+    }
+
+    final handlers = ref.read(bookSearchBridgeProvider);
+    if (handlers == null || handlers.bookId != book.id) {
+      return null;
+    }
+
+    AnxLog.info(
+        'BookContentSearchRepository: Searching active reader for book=${book.id}');
+    final response = await handlers.searchBook(
+      keyword: keyword,
+      maxResults: maxResults,
+      maxSnippets: maxSnippets,
+      maxCharacters: maxCharacters,
+      timeout: _searchTimeout,
+    );
+
+    return _SearchResponse.fromBridge(
+      response,
+      maxSnippets: maxSnippets,
+      maxCharacters: maxCharacters,
+    );
+  }
+
+  Map<String, dynamic> _buildResultMap({
+    required Book book,
+    required String keyword,
+    required _SearchResponse response,
+  }) {
+    return {
+      'bookId': book.id,
+      'bookTitle': book.title,
+      'keyword': keyword,
+      'results': response.results.map((result) => result.toMap()).toList(),
+      'searchDurationMs': response.duration.inMilliseconds,
+      'completed': response.completed,
+    };
   }
 
   Future<_HeadlessSearchSession> _getOrCreateSession(Book book) async {
@@ -537,6 +621,26 @@ class _SearchResponse {
   final List<_SearchResult> results;
   final bool completed;
   final Duration duration;
+
+  static _SearchResponse fromBridge(
+    BookSearchBridgeResponse response, {
+    required int maxSnippets,
+    required int? maxCharacters,
+  }) {
+    return _SearchResponse(
+      results: response.results
+          .map(
+            (result) => _SearchResult.fromJson(
+              result,
+              maxSnippets: maxSnippets,
+              maxCharacters: maxCharacters,
+            ),
+          )
+          .toList(growable: false),
+      completed: response.completed,
+      duration: response.duration,
+    );
+  }
 
   _SearchResponse copyWith({
     List<_SearchResult>? results,

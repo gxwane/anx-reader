@@ -11,6 +11,7 @@ import 'package:anx_reader/models/current_reading_state.dart';
 import 'package:anx_reader/page/home_page.dart';
 import 'package:anx_reader/page/iap_page.dart';
 import 'package:anx_reader/providers/ai_chat.dart';
+import 'package:anx_reader/providers/book_search_bridge.dart';
 import 'package:anx_reader/providers/chapter_content_bridge.dart';
 import 'package:anx_reader/providers/current_reading.dart';
 import 'package:anx_reader/providers/sync.dart';
@@ -495,6 +496,7 @@ Future<void> pushToReadingPage(
       );
 
   final currentReading = ref.read(currentReadingProvider.notifier);
+  final bookSearchBridge = ref.read(bookSearchBridgeProvider.notifier);
   final chapterContentBridge = ref.read(chapterContentBridgeProvider.notifier);
   final tocSearch = ref.read(tocSearchProvider.notifier);
 
@@ -512,6 +514,7 @@ Future<void> pushToReadingPage(
   ).then((_) {
     AnxLog.info('ReadingPage: poped: ${book.title}');
     currentReading.finish();
+    bookSearchBridge.state = null;
     chapterContentBridge.state = null;
     tocSearch.clear();
     AnxLog.info('Pop successfully ReadingPage: ${book.title}');

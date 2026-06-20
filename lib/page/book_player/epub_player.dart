@@ -24,6 +24,7 @@ import 'package:anx_reader/page/book_player/image_viewer.dart';
 import 'package:anx_reader/page/home_page.dart';
 import 'package:anx_reader/page/reading_page.dart';
 import 'package:anx_reader/providers/book_list.dart';
+import 'package:anx_reader/providers/book_search_bridge.dart';
 import 'package:anx_reader/providers/book_toc.dart';
 import 'package:anx_reader/providers/bookmark.dart';
 import 'package:anx_reader/providers/chapter_content_bridge.dart';
@@ -79,6 +80,68 @@ class EpubPlayer extends ConsumerStatefulWidget {
   ConsumerState<EpubPlayer> createState() => EpubPlayerState();
 }
 
+class _ActiveAiBookSearch {
+  _ActiveAiBookSearch({
+    required this.maxResults,
+  });
+
+  final int maxResults;
+  final List<Map<String, dynamic>> results = [];
+  final Completer<_AiBookSearchResult> completer =
+      Completer<_AiBookSearchResult>();
+  late Stopwatch stopwatch;
+
+  void handle(Map<String, dynamic> data) {
+    if (data.containsKey('process')) {
+      final progress = _toDouble(data['process']);
+      if (progress >= 1.0) {
+        complete(completed: true);
+      }
+      return;
+    }
+
+    if (results.length >= maxResults) {
+      return;
+    }
+
+    results.add(Map<String, dynamic>.from(data));
+    if (results.length >= maxResults) {
+      complete(completed: true);
+    }
+  }
+
+  void complete({required bool completed}) {
+    if (completer.isCompleted) {
+      return;
+    }
+    stopwatch.stop();
+    completer.complete(_AiBookSearchResult(
+      results: List<Map<String, dynamic>>.from(results),
+      completed: completed,
+    ));
+  }
+
+  double _toDouble(dynamic value) {
+    if (value is num) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value) ?? 0;
+    }
+    return 0;
+  }
+}
+
+class _AiBookSearchResult {
+  const _AiBookSearchResult({
+    required this.results,
+    required this.completed,
+  });
+
+  final List<Map<String, dynamic>> results;
+  final bool completed;
+}
+
 class EpubPlayerState extends ConsumerState<EpubPlayer>
     with TickerProviderStateMixin {
   late InAppWebViewController webViewController;
@@ -106,6 +169,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   String? _lastSelectionContextText;
   bool _selectionClearLocked = false;
   bool _selectionClearPending = false;
+  _ActiveAiBookSearch? _activeAiBookSearch;
 
   // Scroll wheel debounce
   Timer? _scrollDebounceTimer;
@@ -325,6 +389,62 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     webViewController.evaluateJavascript(source: "clearSearch()");
   }
 
+  Future<BookSearchBridgeResponse> _searchBookForAi({
+    required String keyword,
+    required int maxResults,
+    required int maxSnippets,
+    required int? maxCharacters,
+    required Duration timeout,
+  }) async {
+    if (_activeAiBookSearch != null) {
+      throw StateError('Another book search is already running.');
+    }
+
+    final trimmedKeyword = keyword.trim();
+    if (trimmedKeyword.isEmpty) {
+      throw ArgumentError('keyword must not be empty');
+    }
+
+    final search = _ActiveAiBookSearch(
+      maxResults: maxResults,
+    );
+    _activeAiBookSearch = search;
+
+    final escapedKeyword = jsonEncode(trimmedKeyword);
+    final stopwatch = Stopwatch()..start();
+    search.stopwatch = stopwatch;
+
+    try {
+      AnxLog.info(
+          'EpubPlayer(${widget.book.id}): running AI book search keyword="$trimmedKeyword"');
+      await webViewController.evaluateJavascript(source: 'clearSearch()');
+      await webViewController.evaluateJavascript(
+        source:
+            'search($escapedKeyword, {"scope":"book","matchCase":false,"matchDiacritics":false,"matchWholeWords":false})',
+      );
+
+      final response =
+          await search.completer.future.timeout(timeout, onTimeout: () {
+        if (!search.completer.isCompleted) {
+          search.completer.completeError(TimeoutException(
+              'Search handler timeout after ${timeout.inSeconds} seconds'));
+        }
+        return search.completer.future;
+      });
+      stopwatch.stop();
+      AnxLog.info(
+          'EpubPlayer(${widget.book.id}): AI book search completed results=${response.results.length}, completed=${response.completed}, durationMs=${stopwatch.elapsedMilliseconds}');
+      return BookSearchBridgeResponse(
+        results: response.results,
+        completed: response.completed,
+        duration: stopwatch.elapsed,
+      );
+    } finally {
+      await webViewController.evaluateJavascript(source: 'clearSearch()');
+      _activeAiBookSearch = null;
+    }
+  }
+
   Future<void> initTts({String? fromCfi}) async {
     if (fromCfi != null && fromCfi.isNotEmpty) {
       await webViewController.evaluateJavascript(
@@ -474,6 +594,14 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
           _getCurrentChapterContent(maxCharacters: maxCharacters),
       fetchChapterByHref: (href, {int? maxCharacters}) =>
           _getChapterContentByHref(href, maxCharacters: maxCharacters),
+    );
+  }
+
+  void _registerBookSearchBridge() {
+    ref.read(bookSearchBridgeProvider.notifier).state =
+        BookSearchBridgeHandlers(
+      bookId: widget.book.id,
+      searchBook: _searchBookForAi,
     );
   }
 
@@ -787,6 +915,11 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
       handlerName: 'onSearch',
       callback: (args) {
         Map<String, dynamic> search = args[0];
+        final activeAiSearch = _activeAiBookSearch;
+        if (activeAiSearch != null) {
+          activeAiSearch.handle(search);
+          return;
+        }
         setState(() {
           final tocSearch = ref.read(tocSearchProvider.notifier);
           if (search['process'] != null) {
@@ -904,6 +1037,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     webViewController = controller;
     setHandler(controller);
     _registerChapterContentBridge();
+    _registerBookSearchBridge();
 
     // Initialize translation mode based on book-specific settings
     Future.delayed(const Duration(milliseconds: 300), () {
