@@ -134,7 +134,9 @@ class ReadingPageState extends ConsumerState<ReadingPage>
 
   @override
   void dispose() {
-    Sync().syncData(SyncDirection.upload, ref, trigger: SyncTrigger.auto);
+    if (!isAppShuttingDown) {
+      Sync().syncData(SyncDirection.upload, ref, trigger: SyncTrigger.auto);
+    }
     _readTimeWatch.stop();
     _awakeTimer?.cancel();
     WakelockPlus.disable();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anx_reader/utils/platform_utils.dart';
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
@@ -28,6 +30,9 @@ import 'package:window_manager/window_manager.dart';
 final navigatorKey = GlobalKey<NavigatorState>();
 late AudioHandler audioHandler;
 final heroineController = HeroineController();
+bool isAppShuttingDown = false;
+
+const Duration _shutdownCleanupTimeout = Duration(seconds: 2);
 
 /// Whether macOS data migration is needed (checked at startup)
 bool _needsMigration = false;
@@ -107,11 +112,75 @@ class _MyAppState extends ConsumerState<MyApp>
 
   @override
   Future<void> onWindowClose() async {
-    await Server().stop();
-    await webViewEnvironment?.dispose();
+    if (!AnxPlatform.isWindows) {
+      await Server().stop();
+      await webViewEnvironment?.dispose();
+      webViewEnvironment = null;
+      await DBHelper.close();
+      await windowManager.destroy();
+      return;
+    }
+
+    if (isAppShuttingDown) {
+      AnxLog.info('Shutdown: duplicate close request ignored');
+      return;
+    }
+
+    isAppShuttingDown = true;
+    AnxLog.info('Shutdown: started');
+
+    await _hideWindowForShutdown();
+
+    final environment = webViewEnvironment;
     webViewEnvironment = null;
-    await DBHelper.close();
+    await Future.wait([
+      _runShutdownTask('server stop', () => Server().stop()),
+      _runShutdownTask('webview environment dispose', () async {
+        await environment?.dispose();
+      }),
+      _runShutdownTask('database close', DBHelper.close),
+    ]);
+
+    AnxLog.info('Shutdown: destroying window');
     await windowManager.destroy();
+  }
+
+  Future<void> _hideWindowForShutdown() async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      await windowManager.hide().timeout(const Duration(milliseconds: 500));
+      AnxLog.info(
+        'Shutdown: window hidden in ${stopwatch.elapsedMilliseconds}ms',
+      );
+    } catch (error, stackTrace) {
+      AnxLog.warning(
+        'Shutdown: failed to hide window after ${stopwatch.elapsedMilliseconds}ms: $error',
+        stackTrace,
+      );
+    }
+  }
+
+  Future<void> _runShutdownTask(
+    String name,
+    Future<void> Function() task,
+  ) async {
+    final stopwatch = Stopwatch()..start();
+    try {
+      await task().timeout(_shutdownCleanupTimeout);
+      AnxLog.info(
+        'Shutdown: $name completed in ${stopwatch.elapsedMilliseconds}ms',
+      );
+    } on TimeoutException {
+      AnxLog.warning(
+        'Shutdown: $name timed out after ${stopwatch.elapsedMilliseconds}ms',
+      );
+    } catch (error, stackTrace) {
+      AnxLog.severe(
+        'Shutdown: $name failed after ${stopwatch.elapsedMilliseconds}ms: $error',
+        error,
+        stackTrace,
+      );
+    }
   }
 
   @override
@@ -153,6 +222,10 @@ class _MyAppState extends ConsumerState<MyApp>
 
   @override
   Future<void> didChangeAppLifecycleState(AppLifecycleState state) async {
+    if (isAppShuttingDown) {
+      return;
+    }
+
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
       if (Prefs().webdavStatus) {
