@@ -11,6 +11,10 @@ Future<String?> saveFileToDownload(
     String? sourceFilePath,
     required String fileName,
     String? mimeType}) async {
+  if (bytes == null && sourceFilePath == null) {
+    throw ArgumentError('Either bytes or sourceFilePath must be provided');
+  }
+
   String downloadPath = await getDownloadPath();
   String fileSavePath = '$downloadPath/$fileName';
 
@@ -30,22 +34,40 @@ Future<String?> saveFileToDownload(
       String? outputFile = await FilePicker.platform.saveFile(
         fileName: fileName,
       );
-      bytes ??= await File(sourceFilePath!).readAsBytes();
       if (outputFile != null) {
-        final file = File(outputFile);
-        await file.writeAsBytes(bytes);
+        await _writeOrCopyFile(
+          outputFile,
+          bytes: bytes,
+          sourceFilePath: sourceFilePath,
+        );
         return outputFile;
       }
       return outputFile;
     case AnxPlatformEnum.windows:
-      final file = File(fileSavePath);
-
-      if (!await file.exists()) {
-        await file.create(recursive: true);
-      }
-
-      bytes ??= await File(sourceFilePath!).readAsBytes();
-      await file.writeAsBytes(bytes);
+      await _writeOrCopyFile(
+        fileSavePath,
+        bytes: bytes,
+        sourceFilePath: sourceFilePath,
+      );
       return fileSavePath;
   }
+}
+
+Future<void> _writeOrCopyFile(
+  String outputPath, {
+  Uint8List? bytes,
+  String? sourceFilePath,
+}) async {
+  final outputFile = File(outputPath);
+  await outputFile.parent.create(recursive: true);
+
+  if (bytes != null) {
+    await outputFile.writeAsBytes(bytes);
+    return;
+  }
+
+  final sourceFile = File(sourceFilePath!);
+  final input = sourceFile.openRead();
+  final output = outputFile.openWrite();
+  await input.pipe(output);
 }
