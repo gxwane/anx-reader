@@ -170,6 +170,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   bool _selectionClearLocked = false;
   bool _selectionClearPending = false;
   _ActiveAiBookSearch? _activeAiBookSearch;
+  late final Future<int?> _batteryLevelFuture = _readBatteryLevelSafely();
 
   // Scroll wheel debounce
   Timer? _scrollDebounceTimer;
@@ -1315,16 +1316,17 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
       final timeWidget = MinuteClock(textStyle: textStyle);
 
       final batteryWidget = FutureBuilder(
-          future: Battery().batteryLevel,
+          future: _batteryLevelFuture,
           builder: (context, snapshot) {
-            if (snapshot.hasData) {
+            final batteryLevel = snapshot.data;
+            if (batteryLevel != null) {
               return Stack(
                 alignment: Alignment.center,
                 children: [
                   Padding(
                     padding: EdgeInsets.fromLTRB(
                         0, (textStyle.fontSize ?? 10) * 0.08, 2, 0),
-                    child: Text('${snapshot.data}', style: batteryTextStyle),
+                    child: Text('$batteryLevel', style: batteryTextStyle),
                   ),
                   Icon(
                     HeroIcons.battery_0,
@@ -1442,6 +1444,14 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
         ),
       ],
     );
+  }
+
+  Future<int?> _readBatteryLevelSafely() async {
+    try {
+      return await Battery().batteryLevel;
+    } catch (_) {
+      return null;
+    }
   }
 
   Widget buildWebviewWithIOSWorkaround(
