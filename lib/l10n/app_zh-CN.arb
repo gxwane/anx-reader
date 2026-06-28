@@ -167,6 +167,25 @@
   "bookshelfProgress": "阅读进度",
   "bookshelfImportTime": "导入时间",
   "notesPageDetail": "详情",
+  "notesPageImport": "\u5bfc\u5165",
+  "notesImportSummary": "\u5df2\u5bfc\u5165 {imported} \u6761\uff0c\u8df3\u8fc7 {duplicates} \u6761\u91cd\u590d\uff0c{unresolved} \u6761\u672a\u5339\u914d\uff0c{parseErrors} \u6761\u89e3\u6790\u5931\u8d25\u3002",
+  "@notesImportSummary": {
+    "placeholders": {
+      "imported": {
+        "type": "int"
+      },
+      "duplicates": {
+        "type": "int"
+      },
+      "unresolved": {
+        "type": "int"
+      },
+      "parseErrors": {
+        "type": "int"
+      }
+    }
+  },
+  "notesImportUnsupportedFile": "\u8bf7\u9009\u62e9 Moon+ Reader \u7684 .mrexpt \u6587\u4ef6\u3002",
   "notesPageExport": "导出",
   "notesPageCopied": "已复制",
   "notesPageExportedTo": "导出至",

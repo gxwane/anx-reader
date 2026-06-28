@@ -13,6 +13,200 @@ const { EPUB } = await import('./epub.js')
 var isPdf = false;
 
 const clamp01 = value => Math.min(Math.max(value ?? 0, 0), 1)
+const ANXLOC_PREFIX = 'anxloc:v1:'
+
+const isAnxLocation = value =>
+  typeof value === 'string' && value.startsWith(ANXLOC_PREFIX)
+
+const encodeAnxLocation = payload => {
+  const json = JSON.stringify(payload)
+  const bytes = new TextEncoder().encode(json)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return `${ANXLOC_PREFIX}${btoa(binary)}`
+}
+
+const decodeAnxLocation = value => {
+  if (!isAnxLocation(value)) return null
+  try {
+    const binary = atob(value.slice(ANXLOC_PREFIX.length))
+    const bytes = Uint8Array.from(binary, ch => ch.charCodeAt(0))
+    return JSON.parse(new TextDecoder().decode(bytes))
+  } catch (e) {
+    console.warn('[ExternalNotes] Failed to decode anxloc:', e)
+    return null
+  }
+}
+
+const getAnxLocationIndex = value => {
+  const location = decodeAnxLocation(value)
+  return Number.isInteger(location?.index) && location.index >= 0
+    ? location.index
+    : null
+}
+
+const decodeExternalTextEntities = text =>
+  text
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+
+const sanitizeExternalText = text =>
+  typeof text === 'string'
+    ? decodeExternalTextEntities(text)
+      .replace(/<\s*br\s*\/?\s*>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+    : ''
+
+const normalizeExternalText = text =>
+  sanitizeExternalText(text).replace(/\s+/g, ' ').trim()
+
+const buildNormalizedIndex = (text, { compact = false } = {}) => {
+  let normalized = ''
+  const offsets = []
+  let inWhitespace = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (/\s/.test(ch)) {
+      if (compact) continue
+      if (!inWhitespace && normalized.length > 0) {
+        normalized += ' '
+        offsets.push(i)
+      }
+      inWhitespace = true
+    } else {
+      normalized += ch
+      offsets.push(i)
+      inWhitespace = false
+    }
+  }
+  if (normalized.endsWith(' ')) {
+    normalized = normalized.slice(0, -1)
+    offsets.pop()
+  }
+  return { normalized, offsets }
+}
+
+const findClosestOffset = (matches, offsets, preferredOffset) => {
+  if (matches.length === 1) return matches[0]
+  return matches.reduce((best, current) =>
+    Math.abs(offsets[current] - preferredOffset) <
+      Math.abs(offsets[best] - preferredOffset) ? current : best
+  , matches[0])
+}
+
+const findInNormalizedIndex = (index, query, preferredOffset = 0) => {
+  if (!query) return null
+  const { normalized, offsets } = index
+  const normalizedOffsets = []
+  let searchFrom = 0
+  while (true) {
+    const found = normalized.indexOf(query, searchFrom)
+    if (found < 0) break
+    normalizedOffsets.push(found)
+    searchFrom = found + Math.max(1, query.length)
+  }
+  if (normalizedOffsets.length === 0) return null
+
+  const normalizedStart = findClosestOffset(normalizedOffsets, offsets, preferredOffset)
+  const normalizedEnd = normalizedStart + query.length - 1
+  const start = offsets[normalizedStart]
+  const end = (offsets[normalizedEnd] ?? start) + 1
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null
+  return { start, end }
+}
+
+const findExternalTextOffsets = (text, query, preferredOffset = 0) => {
+  const exactOffsets = []
+  let searchFrom = 0
+  while (true) {
+    const found = text.indexOf(query, searchFrom)
+    if (found < 0) break
+    exactOffsets.push(found)
+    searchFrom = found + Math.max(1, query.length)
+  }
+
+  if (exactOffsets.length > 0) {
+    const start = exactOffsets.length === 1
+      ? exactOffsets[0]
+      : exactOffsets.reduce((best, current) =>
+        Math.abs(current - preferredOffset) < Math.abs(best - preferredOffset) ? current : best
+      , exactOffsets[0])
+    return { start, end: start + query.length }
+  }
+
+  const normalizedQuery = normalizeExternalText(query)
+  if (!normalizedQuery) return null
+  const normalizedMatch = findInNormalizedIndex(
+    buildNormalizedIndex(text),
+    normalizedQuery,
+    preferredOffset
+  )
+  if (normalizedMatch) return normalizedMatch
+
+  const compactQuery = normalizedQuery.replace(/\s+/g, '')
+  return findInNormalizedIndex(
+    buildNormalizedIndex(text, { compact: true }),
+    compactQuery,
+    preferredOffset
+  )
+}
+
+const collectTextNodes = root => {
+  const nodes = []
+  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  while (walker.nextNode()) {
+    nodes.push(walker.currentNode)
+  }
+  return nodes
+}
+
+const findTextRange = (doc, query, preferredOffset = 0) => {
+  const body = doc?.body
+  const normalizedQuery = normalizeExternalText(query)
+  if (!body || !normalizedQuery) return null
+
+  const text = body.textContent ?? ''
+  if (!text) return null
+
+  const offsets = findExternalTextOffsets(text, query, preferredOffset)
+  if (!offsets) return null
+  const { start, end } = offsets
+  const nodes = collectTextNodes(body)
+  let cursor = 0
+  let startNode = null
+  let startNodeOffset = 0
+  let endNode = null
+  let endNodeOffset = 0
+
+  for (const node of nodes) {
+    const length = node.textContent.length
+    const nodeStart = cursor
+    const nodeEnd = cursor + length
+    if (!startNode && start >= nodeStart && start <= nodeEnd) {
+      startNode = node
+      startNodeOffset = Math.max(0, Math.min(length, start - nodeStart))
+    }
+    if (!endNode && end >= nodeStart && end <= nodeEnd) {
+      endNode = node
+      endNodeOffset = Math.max(0, Math.min(length, end - nodeStart))
+      break
+    }
+    cursor = nodeEnd
+  }
+
+  if (!startNode || !endNode) return null
+  const range = doc.createRange()
+  range.setStart(startNode, startNodeOffset)
+  range.setEnd(endNode, endNodeOffset)
+  return { range, offset: start }
+}
+
+const makeExternalTextAnchor = (query, preferredOffset = 0) => doc =>
+  findTextRange(doc, query, preferredOffset)?.range ?? null
 
 const getPosition = (target) => {
 
@@ -1307,6 +1501,7 @@ const isFootnoteBacklinkClick = ({ a, href }) => {
 class Reader {
   annotations = new Map()
   annotationsByValue = new Map()
+  annotationAliasesByValue = new Map()
   #footnoteHandler = new FootnoteHandler()
   #doc
   #index
@@ -1343,7 +1538,12 @@ class Reader {
     if (!cfi)
       this.view.renderer.next()
     this.setView(this.view)
-    await this.view.init({ lastLocation: cfi })
+    if (isAnxLocation(cfi)) {
+      await this.view.init({})
+      await this.goToNoteTarget(cfi)
+    } else {
+      await this.view.init({ lastLocation: cfi })
+    }
 
     // set html bg color to grey 
     document.documentElement.style.backgroundColor = 'grey'
@@ -1376,6 +1576,7 @@ class Reader {
 
     view.addEventListener('show-annotation', e => {
       const annotation = this.annotationsByValue.get(e.detail.value)
+        ?? this.annotationAliasesByValue.get(e.detail.value)
       const pos = getPosition(e.detail.range)
       if (window.getSelection()?.toString()) return
       const contextText = buildRangeContextText(e.detail.range)
@@ -1422,6 +1623,7 @@ class Reader {
   renderAnnotation(annotations) {
     this.annotations.clear()
     this.annotationsByValue.clear()
+    this.annotationAliasesByValue.clear()
     const annos = annotations ?? allAnnotations ?? []
     for (const anno of annos) {
       const { value, type, color, note } = anno
@@ -1444,7 +1646,13 @@ class Reader {
 
   addAnnotation(annotation) {
     const { value } = annotation
-    const spineCode = (value.split('/')[2].split('!')[0] - 2) / 2
+    if (typeof value !== 'string' || !value) return
+
+    const spineCode = this.#resolveAnnotationIndex(value)
+    if (!Number.isInteger(spineCode) || spineCode < 0) {
+      console.warn('[Annotations] Skipping annotation with unresolved target:', value)
+      return
+    }
 
     const list = this.annotations.get(spineCode)
     if (list) list.push(annotation)
@@ -1462,9 +1670,21 @@ class Reader {
         }
       }
     } else {
-      this.view.addAnnotation(annotation)
+      this.#addViewAnnotation(annotation)
     }
 
+  }
+
+  #resolveAnnotationIndex(value) {
+    const anxIndex = getAnxLocationIndex(value)
+    if (anxIndex != null) return anxIndex
+
+    try {
+      return this.view.resolveNavigation(value)?.index
+    } catch (e) {
+      console.warn('[Annotations] Failed to resolve annotation target:', e)
+      return null
+    }
   }
 
   #checkCurrentPageBookmark() {
@@ -1496,6 +1716,7 @@ class Reader {
   }
 
   #checkBookmark(bookmark) {
+    if (isAnxLocation(bookmark.value)) return false
     const currCfi = this.view.lastLocation?.cfi
     const currStart = collapse(currCfi)
     const currEnd = collapse(currCfi, true)
@@ -1513,9 +1734,8 @@ class Reader {
     const annotation = this.annotationsByValue.get(cfi)
     if (!annotation) return
     const { value } = annotation
-    const resolved = this.view.resolveNavigation(value)
-    if (!resolved) return
-    const spineCode = resolved.index
+    const spineCode = this.#resolveAnnotationIndex(value)
+    if (!Number.isInteger(spineCode) || spineCode < 0) return
 
     const list = this.annotations.get(spineCode)
     if (list) {
@@ -1524,8 +1744,9 @@ class Reader {
     }
 
     this.annotationsByValue.delete(value)
+    this.#clearAnnotationAliases(annotation)
 
-    this.view.addAnnotation(annotation, true)
+    this.#addViewAnnotation(annotation, true)
 
     if (annotation.type === 'bookmark' && this.#checkBookmark(annotation)) {
       this.#hideBookmarkIcon()
@@ -1537,6 +1758,143 @@ class Reader {
       }
     }
 
+  }
+
+  #addViewAnnotation(annotation, remove = false) {
+    if (!isAnxLocation(annotation.value)) {
+      this.view.addAnnotation(annotation, remove)
+      return
+    }
+
+    const location = decodeAnxLocation(annotation.value)
+    if (!location || location.index !== this.#index) return
+
+    const match = findTextRange(this.#doc, location.content, location.offset)
+    if (!match?.range) return
+
+    const viewAnnotation = {
+      ...annotation,
+      value: this.view.getCFI(this.#index, match.range),
+    }
+    if (remove) this.annotationAliasesByValue.delete(viewAnnotation.value)
+    else this.annotationAliasesByValue.set(viewAnnotation.value, annotation)
+    this.view.addAnnotation(viewAnnotation, remove)
+  }
+
+  #clearAnnotationAliases(annotation) {
+    for (const [value, mapped] of this.annotationAliasesByValue) {
+      if (mapped === annotation || mapped?.id === annotation.id) {
+        this.annotationAliasesByValue.delete(value)
+      }
+    }
+  }
+
+  async goToNoteTarget(target) {
+    const location = decodeAnxLocation(target)
+    if (location) {
+      const index = Number(location.index)
+      if (Number.isInteger(index) && index >= 0) {
+        try {
+          await this.view.renderer.goTo({
+            index,
+            anchor: makeExternalTextAnchor(location.content, location.offset),
+          })
+          this.view.history.pushState(target)
+          return
+        } catch (e) {
+          console.warn('[ExternalNotes] Failed to go to text target:', e)
+        }
+      }
+      if (typeof location.fraction === 'number') await this.view.goToFraction(location.fraction)
+      return
+    }
+    await this.view.goTo(target)
+  }
+
+  async resolveExternalNotes(records) {
+    const resolved = []
+    if (!Array.isArray(records)) return resolved
+
+    const sections = this.view?.book?.sections ?? []
+    console.info(`[ExternalNotes] Resolving ${records.length} records against ${sections.length} sections`)
+
+    for (const record of records) {
+      try {
+        const preferredIndex = Number(record.chapterIndex) - 1
+        const preferredOffset = Number(record.startOffset) || 0
+        if (!Number.isInteger(preferredIndex) || preferredIndex < 0) {
+          console.warn('[ExternalNotes] Skip record with invalid chapterIndex:', record)
+          continue
+        }
+
+        const trySection = async (index, usePreferredOffset) => {
+          const section = sections[index]
+          if (!section?.createDocument) return null
+          const doc = await section.createDocument()
+          const match = findTextRange(doc, record.content, usePreferredOffset ? preferredOffset : 0)
+          return match?.range ? { index, doc, match } : null
+        }
+
+        let resolvedMatch = await trySection(preferredIndex, true)
+        let resolvedByFallback = false
+
+        if (!resolvedMatch) {
+          console.info(
+            `[ExternalNotes] Preferred section no match: record=${record.index}, moonChapter=${record.chapterIndex}, section=${preferredIndex}, offset=${preferredOffset}, text="${normalizeExternalText(record.content).slice(0, 80)}"`
+          )
+          for (let index = 0; index < sections.length; index++) {
+            if (index === preferredIndex) continue
+            resolvedMatch = await trySection(index, false)
+            if (resolvedMatch) {
+              resolvedByFallback = true
+              break
+            }
+          }
+        }
+
+        if (!resolvedMatch) {
+          console.warn(
+            `[ExternalNotes] No match: record=${record.index}, moonChapter=${record.chapterIndex}, text="${normalizeExternalText(record.content).slice(0, 80)}"`
+          )
+          continue
+        }
+
+        const { index, doc, match } = resolvedMatch
+
+        const target = encodeAnxLocation({
+          index,
+          offset: match.offset,
+          length: record.content?.length ?? 0,
+          content: record.content,
+          fraction: getRangeStartFraction(doc, match.range),
+        })
+
+        if (resolvedByFallback) {
+          console.info(
+            `[ExternalNotes] Fallback matched: record=${record.index}, moonChapter=${record.chapterIndex}, section=${index}, offset=${match.offset}`
+          )
+        }
+
+        const progress = this.view.getProgressOf(index, match.range)
+        const chapter = progress?.tocItem?.label
+          ?? this.view.book.sections?.[index]?.tocItem?.label
+          ?? `Chapter ${index + 1}`
+
+        resolved.push({
+          index: record.index,
+          target,
+          chapter,
+          content: record.content,
+          readerNote: record.readerNote,
+          color: record.color,
+          createTime: record.createTime,
+        })
+      } catch (e) {
+        console.warn('[ExternalNotes] Failed to resolve note:', e)
+      }
+    }
+
+    return resolved
   }
 
   #onLoad({ detail: { doc, index } }) {
@@ -2112,6 +2470,8 @@ window.goToHref = href => reader.view.goTo(href)
 
 window.goToCfi = cfi => reader.view.goTo(cfi)
 
+window.goToNoteTarget = target => reader.goToNoteTarget(target)
+
 window.goToPercent = percent => reader.view.goToFraction(percent)
 
 window.nextPage = () => reader.view.next()
@@ -2272,6 +2632,9 @@ window.previousContent = (count = 2000) => reader.getPreviousContent(count)
 
 window.getChapterContentByHref = async (href, opts) =>
   reader.getChapterContentByHref(href, opts)
+
+window.resolveExternalNotes = async (records) =>
+  reader.resolveExternalNotes(records)
 
 // window.convertChinese = (mode) => reader.convertChinese(mode)
 

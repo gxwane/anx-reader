@@ -401,6 +401,10 @@ int _compareDate(DateTime? a, DateTime? b) {
 }
 
 int _compareCfi(String a, String b) {
+  if (a.startsWith('anxloc:v1:') || b.startsWith('anxloc:v1:')) {
+    return a.compareTo(b);
+  }
+
   List<String> replace(String str) {
     return str
         .replaceAll('epubcfi(/', '')

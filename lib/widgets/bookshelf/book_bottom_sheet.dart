@@ -286,7 +286,7 @@ class BookBottomSheet extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.all(20),
-      height: 100,
+      height: 120,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -306,6 +306,7 @@ class BookBottomSheet extends ConsumerWidget {
             deleteIcon: IconAndText(
               icon: const Icon(EvaIcons.trash),
               text: L10n.of(context).commonDelete,
+              compact: true,
             ),
             confirmIcon: IconAndText(
               icon: const Icon(
@@ -313,6 +314,7 @@ class BookBottomSheet extends ConsumerWidget {
                 color: Colors.red,
               ),
               text: L10n.of(context).commonConfirm,
+              compact: true,
             ),
           ),
           PopupMenuButton(
@@ -334,6 +336,7 @@ class BookBottomSheet extends ConsumerWidget {
               child: IconAndText(
                 icon: const Icon(EvaIcons.more_vertical),
                 text: L10n.of(context).more,
+                compact: true,
               ))
         ],
       ),

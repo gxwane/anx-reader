@@ -167,6 +167,25 @@
   "bookshelfProgress": "Progresso",
   "bookshelfImportTime": "Tempo de Importação",
   "notesPageDetail": "Detalhe",
+  "notesPageImport": "Import",
+  "notesImportSummary": "Imported {imported}, skipped {duplicates} duplicates, {unresolved} unresolved, {parseErrors} parse errors.",
+  "@notesImportSummary": {
+    "placeholders": {
+      "imported": {
+        "type": "int"
+      },
+      "duplicates": {
+        "type": "int"
+      },
+      "unresolved": {
+        "type": "int"
+      },
+      "parseErrors": {
+        "type": "int"
+      }
+    }
+  },
+  "notesImportUnsupportedFile": "Please select a Moon+ Reader .mrexpt file.",
   "notesPageExport": "Exportar",
   "notesPageCopied": "Copiado",
   "notesPageExportedTo": "Exportado para",

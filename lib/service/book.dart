@@ -18,6 +18,7 @@ import 'package:anx_reader/providers/sync.dart';
 import 'package:anx_reader/providers/iap.dart';
 import 'package:anx_reader/providers/book_list.dart';
 import 'package:anx_reader/providers/toc_search.dart';
+import 'package:anx_reader/service/book_metadata_extractor.dart';
 import 'package:anx_reader/service/convert_to_epub/txt/convert_from_txt.dart';
 import 'package:anx_reader/service/md5_service.dart';
 import 'package:anx_reader/utils/webView/anx_headless_webview.dart';
@@ -450,7 +451,7 @@ Future<void> importBook(File file, WidgetRef ref) async {
   }
 
   await getBookMetadata(file, md5: md5, ref: ref);
-  ref.read(bookListProvider.notifier).refresh();
+  _refreshBookListIfAlive(ref);
 }
 
 Future<void> pushToReadingPage(
@@ -597,6 +598,26 @@ Future<void> getBookMetadata(
   String? md5,
   WidgetRef? ref,
 }) async {
+  if (Platform.isWindows) {
+    final metadata = await BookMetadataExtractor().extract(file);
+    if (metadata.fallback) {
+      AnxLog.warning(
+        'Book metadata: using fallback metadata on Windows for ${file.path}',
+      );
+    }
+    await saveBook(
+      file,
+      metadata.title,
+      metadata.author,
+      metadata.description,
+      md5,
+      metadata.cover,
+      provideBook: book,
+    );
+    _refreshBookListIfAlive(ref);
+    return;
+  }
+
   String serverFileName = Server().setTempFile(file);
 
   String cfi = '';
@@ -647,7 +668,7 @@ Future<void> getBookMetadata(
               cover,
               provideBook: book,
             );
-            ref?.read(bookListProvider.notifier).refresh();
+            _refreshBookListIfAlive(ref);
             // return;
           });
     },
@@ -675,4 +696,13 @@ Future<void> getBookMetadata(
   await headlessInAppWebView?.dispose();
   headlessInAppWebView = null;
   throw Exception('Import: Get book metadata timeout');
+}
+
+void _refreshBookListIfAlive(WidgetRef? ref) {
+  if (ref == null) return;
+  try {
+    ref.read(bookListProvider.notifier).refresh();
+  } catch (e) {
+    AnxLog.info('Skip refreshing book list: $e');
+  }
 }

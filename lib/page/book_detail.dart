@@ -10,6 +10,7 @@ import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/reading_time.dart';
 import 'package:anx_reader/models/tag.dart';
+import 'package:anx_reader/models/book_notes_state.dart';
 import 'package:anx_reader/providers/sync.dart';
 import 'package:anx_reader/providers/book_list.dart';
 import 'package:anx_reader/providers/tags.dart';
@@ -489,6 +490,10 @@ class _BookDetailState extends ConsumerState<BookDetail> {
         padding: const EdgeInsets.all(12),
         child: AsyncSkeletonWrapper(
           asyncValue: ref.watch(bookTagEditorProvider(widget.book.id)),
+          mock: const BookTagState(
+            tags: [],
+            attachedIds: {},
+          ),
           builder: (state, _) {
             final notifier =
                 ref.read(bookTagEditorProvider(widget.book.id).notifier);

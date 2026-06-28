@@ -303,8 +303,8 @@ class Sync extends _$Sync {
       imageCache.clearLiveImages();
 
       try {
-        ref?.read(bookListProvider.notifier).refresh();
-        ref?.read(groupDaoProvider.notifier).refresh();
+        this.ref.read(bookListProvider.notifier).refresh();
+        this.ref.read(groupDaoProvider.notifier).refresh();
       } catch (e) {
         AnxLog.info('Failed to refresh book list: $e');
       }

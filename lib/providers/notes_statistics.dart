@@ -42,14 +42,18 @@ class BookIdAndNotes extends _$BookIdAndNotes {
 
     return bookDataList.map((data) {
       final bookId = data['bookId'] as int;
+      final book = books[bookId];
+      if (book == null) {
+        return null;
+      }
       return <String, dynamic>{
         'bookId': bookId,
         'numberOfNotes': data['numberOfNotes'],
         'latestTime': data['latestTime'],
-        'book': books[bookId]!,
+        'book': book,
         'readingTime': readingTimes[bookId] ?? 0,
       };
-    }).toList();
+    }).whereType<Map<String, dynamic>>().toList();
   }
 
   Future<void> refresh() async {

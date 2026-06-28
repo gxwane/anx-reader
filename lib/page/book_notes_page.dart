@@ -5,6 +5,7 @@ import 'package:anx_reader/models/book_notes_state.dart';
 import 'package:anx_reader/service/notes/export_notes.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
 import 'package:anx_reader/widgets/book_notes/book_notes_list.dart';
+import 'package:anx_reader/widgets/book_notes/notes_import_flow.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/page/book_detail.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
@@ -373,6 +374,16 @@ class _BookNotesPageState extends ConsumerState<BookNotesPage> {
           text: L10n.of(context).notesPageExport,
           onTap: () {
             handleExportNotes(context, book);
+          }),
+      IconAndText(
+          icon: const Icon(Icons.note_add_outlined),
+          text: L10n.of(context).notesPageImport,
+          onTap: () {
+            importMoonReaderNotesForBook(
+              context: context,
+              ref: ref,
+              book: book,
+            );
           }),
     ]);
   }

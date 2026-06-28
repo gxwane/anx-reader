@@ -325,8 +325,16 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   void goToHref(String href) =>
       webViewController.evaluateJavascript(source: "goToHref('$href')");
 
-  void goToCfi(String cfi) =>
-      webViewController.evaluateJavascript(source: "goToCfi('$cfi')");
+  void goToCfi(String cfi) => webViewController.evaluateJavascript(
+      source: "goToNoteTarget(${jsonEncode(cfi)})");
+
+  Future<dynamic> resolveExternalNotes(List<Map<String, dynamic>> notes) async {
+    final encoded = jsonEncode(notes);
+    final result = await webViewController.callAsyncJavaScript(
+      functionBody: 'return await resolveExternalNotes($encoded)',
+    );
+    return result?.value;
+  }
 
   void addAnnotation(BookNote bookNote) {
     final noteContent =
@@ -360,8 +368,9 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
       ''');
   }
 
-  void removeAnnotation(String cfi) =>
-      webViewController.evaluateJavascript(source: "removeAnnotation('$cfi')");
+  void removeAnnotation(String cfi) => webViewController.evaluateJavascript(
+        source: "removeAnnotation(${jsonEncode(cfi)})",
+      );
 
   void clearSearch() {
     ref.read(tocSearchProvider.notifier).clear();
@@ -886,6 +895,9 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
               }
               return;
             }
+            AnxLog.warning(
+                'EpubPlayer(${widget.book.id}): ignored annotation click without annotation payload');
+            return;
           }
 
           int id = annotation['annotation']['id'];

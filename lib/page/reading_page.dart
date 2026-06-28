@@ -15,16 +15,22 @@ import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/read_theme.dart';
 import 'package:anx_reader/page/book_detail.dart';
 import 'package:anx_reader/page/book_player/epub_player.dart';
+import 'package:anx_reader/providers/book_notes.dart';
 import 'package:anx_reader/providers/sync.dart';
 import 'package:anx_reader/service/ai/index.dart';
 import 'package:anx_reader/service/ai/prompt_generate.dart';
+import 'package:anx_reader/service/notes/external_notes_import_service.dart';
+import 'package:anx_reader/service/notes/pending_notes_import.dart';
 import 'package:anx_reader/utils/env_var.dart';
+import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/utils/ui/status_bar.dart';
 import 'package:anx_reader/widgets/ai/ai_chat_stream.dart';
 import 'package:anx_reader/widgets/ai/ai_stream.dart';
 import 'package:anx_reader/widgets/reading_page/notes_widget.dart';
 import 'package:anx_reader/models/reading_time.dart';
+import 'package:anx_reader/providers/notes_page_current_book.dart';
+import 'package:anx_reader/providers/notes_statistics.dart';
 import 'package:anx_reader/widgets/reading_page/progress_widget.dart';
 import 'package:anx_reader/widgets/reading_page/tts_fab.dart';
 import 'package:anx_reader/widgets/reading_page/tts_widget.dart';
@@ -85,6 +91,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
   bool bookmarkExists = false;
 
   late final FocusNode _readerFocusNode;
+  PendingNotesImportSession? _notesImportSession;
   // late final VolumeKeyBoard _volumeKeyBoard;
   // bool _volumeKeyListenerAttached = false;
 
@@ -151,6 +158,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
     );
     _sessionStart = null;
     audioHandler.stop();
+    _notesImportSession?.cancelIfResolving();
     // if (_volumeKeyListenerAttached) {
     //   unawaited(_volumeKeyBoard.removeListener());
     // }
@@ -466,6 +474,65 @@ class ReadingPageState extends ConsumerState<ReadingPage>
         },
       );
     }
+    await _runPendingNotesImport();
+  }
+
+  Future<void> _runPendingNotesImport() async {
+    if (_notesImportSession != null) {
+      return;
+    }
+    final l10n = L10n.of(context);
+    final session = pendingNotesImportController.takeForBook(_book);
+    if (session == null) {
+      return;
+    }
+
+    _notesImportSession = session;
+    AnxLog.info(
+      'Notes import: active reader import started, bookId=${_book.id}, file=${session.file.path}',
+    );
+
+    try {
+      final report = await ExternalNotesImportService().importMoonReaderMrexpt(
+        book: _book,
+        file: session.file,
+        session: session,
+      );
+
+      ref.invalidate(bookNotesControllerProvider(_book));
+      ref.invalidate(bookIdAndNotesProvider);
+      ref.invalidate(notesStatisticsProvider);
+      ref.invalidate(notesPageCurrentBookProvider);
+
+      AnxToast.show(
+        l10n.notesImportSummary(
+          report.imported,
+          report.duplicates,
+          report.unresolved,
+          report.parseErrors,
+        ),
+      );
+    } catch (error, stackTrace) {
+      final cancelled =
+          error is NotesImportCancelledException || session.cancelled;
+      if (cancelled) {
+        AnxLog.warning(
+          'Notes import: cancelled bookId=${_book.id}, file=${session.file.path}',
+          stackTrace,
+        );
+        AnxToast.show('导入已取消');
+      } else {
+        AnxLog.warning(
+          'Notes import: active reader import failed bookId=${_book.id}: $error',
+          stackTrace,
+        );
+        AnxToast.show(l10n.importFailed(error));
+      }
+    } finally {
+      if (identical(_notesImportSession, session)) {
+        _notesImportSession = null;
+      }
+    }
   }
 
   List<Widget> _buildAiChatTrailing(BuildContext context) {
@@ -701,6 +768,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
                       icon: const Icon(Icons.copy),
                       tooltip: L10n.of(context).readingPageCopyChapterContent,
                       onPressed: () async {
+                        final l10n = L10n.of(context);
                         try {
                           var content = await epubPlayerKey.currentState
                               ?.theChapterContent();
@@ -709,11 +777,9 @@ class ReadingPageState extends ConsumerState<ReadingPage>
                             await Clipboard.setData(
                                 ClipboardData(text: content!));
                           }
-                          AnxToast.show(L10n.of(context)
-                              .readingPageCopiedCharacters(len));
+                          AnxToast.show(l10n.readingPageCopiedCharacters(len));
                         } catch (e) {
-                          AnxToast.show(
-                              L10n.of(context).readingPageErrorCopyingContent);
+                          AnxToast.show(l10n.readingPageErrorCopyingContent);
                         }
                       },
                     ),

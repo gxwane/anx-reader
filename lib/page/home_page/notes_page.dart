@@ -5,6 +5,7 @@ import 'package:anx_reader/providers/notes_page_current_book.dart';
 import 'package:anx_reader/providers/notes_statistics.dart';
 import 'package:anx_reader/utils/date/convert_seconds.dart';
 import 'package:anx_reader/utils/date/relative_time_formatter.dart';
+import 'package:anx_reader/widgets/book_notes/notes_import_flow.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:anx_reader/widgets/highlight_digit.dart';
@@ -101,21 +102,39 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           bottom: false,
           child: Padding(
             padding: const EdgeInsets.all(10.0),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              highlightDigit(
-                context,
-                L10n.of(context).notesNotesAcross(data['numberOfNotes']!),
-                textStyle,
-                digitStyle,
-              ),
-              highlightDigit(
-                context,
-                L10n.of(context).notesBooks(data['numberOfBooks']!),
-                textStyle,
-                digitStyle,
-              ),
-            ]),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        highlightDigit(
+                          context,
+                          L10n.of(context)
+                              .notesNotesAcross(data['numberOfNotes']!),
+                          textStyle,
+                          digitStyle,
+                        ),
+                        highlightDigit(
+                          context,
+                          L10n.of(context).notesBooks(data['numberOfBooks']!),
+                          textStyle,
+                          digitStyle,
+                        ),
+                      ]),
+                ),
+                IconButton(
+                  tooltip: L10n.of(context).notesPageImport,
+                  icon: const Icon(Icons.note_add_outlined),
+                  onPressed: () {
+                    importMoonReaderNotesWithBookPicker(
+                      context: context,
+                      ref: ref,
+                    );
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -176,21 +195,21 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           );
         }
         return Expanded(
-                child: ListView.builder(
-                    padding: EdgeInsets.only(bottom: 80),
-                    controller: _scrollController,
-                    itemCount: filteredData.length,
-                    itemBuilder: (context, index) {
-                      final item = filteredData[index];
-                      return bookNotesItem(
-                        book: item['book']!,
-                        numberOfNotes: item['numberOfNotes']!,
-                        isMobile: isMobile,
-                        readingTime: item['readingTime']!,
-                        latestTime: item['latestTime'] as String? ?? '',
-                      );
-                    }),
-              );
+          child: ListView.builder(
+              padding: EdgeInsets.only(bottom: 80),
+              controller: _scrollController,
+              itemCount: filteredData.length,
+              itemBuilder: (context, index) {
+                final item = filteredData[index];
+                return bookNotesItem(
+                  book: item['book']!,
+                  numberOfNotes: item['numberOfNotes']!,
+                  isMobile: isMobile,
+                  readingTime: item['readingTime']!,
+                  latestTime: item['latestTime'] as String? ?? '',
+                );
+              }),
+        );
       },
       loading: () => const CircularProgressIndicator(),
       error: (error, stack) => Text('Error: $error'),
@@ -313,6 +332,10 @@ class NotesDetail extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final bookIdAndNotes = ref.watch(bookIdAndNotesProvider);
+    if (bookIdAndNotes.valueOrNull?.isEmpty ?? false) {
+      return const NotesTips();
+    }
     return ref.watch(notesPageCurrentBookProvider).when(
           data: (current) {
             return BookNotesPage(
