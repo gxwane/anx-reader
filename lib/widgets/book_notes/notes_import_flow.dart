@@ -11,6 +11,7 @@ import 'package:anx_reader/service/book.dart';
 import 'package:anx_reader/service/notes/external_notes_import_service.dart';
 import 'package:anx_reader/service/notes/pending_notes_import.dart';
 import 'package:anx_reader/utils/log/common.dart';
+import 'package:anx_reader/utils/platform_utils.dart';
 import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
 import 'package:file_picker/file_picker.dart';
@@ -82,11 +83,19 @@ Future<void> importMoonReaderNotesWithBookPicker({
   if (file == null) return;
   if (!context.mounted) return;
 
-  final book = await showModalBottomSheet<Book>(
-    context: context,
-    isScrollControlled: true,
-    builder: (context) => const _NotesImportBookPicker(),
-  );
+  final book = AnxPlatform.isDesktop
+      ? await showDialog<Book>(
+          context: context,
+          builder: (context) => Dialog(
+            insetPadding: const EdgeInsets.all(40),
+            child: const _NotesImportBookPicker(),
+          ),
+        )
+      : await showModalBottomSheet<Book>(
+          context: context,
+          isScrollControlled: true,
+          builder: (context) => const _NotesImportBookPicker(),
+        );
   if (book == null || !context.mounted) {
     AnxLog.info('Notes import: user cancelled book picker');
     return;
@@ -173,8 +182,11 @@ class _NotesImportBookPickerState extends State<_NotesImportBookPicker> {
   Widget build(BuildContext context) {
     final l10n = L10n.of(context);
     return SafeArea(
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.72,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.72,
+          maxWidth: AnxPlatform.isDesktop ? 500 : double.infinity,
+        ),
         child: Column(
           children: [
             Padding(

@@ -90,71 +90,77 @@ class BookNotesList extends ConsumerWidget {
       final allSelected =
           state.selectedNoteIds.length == state.visibleNotes.length &&
               state.visibleNotes.isNotEmpty;
-      return Row(
-        children: [
-          IconButton(
-            onPressed: () {
-              if (allSelected) {
-                notifier.clearSelection();
-              } else {
-                notifier.selectAllVisible();
-              }
-            },
-            icon: Icon(
-              allSelected ? EvaIcons.checkmark_circle : Icons.circle_outlined,
-              color: buttonColor,
+      return ColoredBox(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: Row(
+          children: [
+            IconButton(
+              onPressed: () {
+                if (allSelected) {
+                  notifier.clearSelection();
+                } else {
+                  notifier.selectAllVisible();
+                }
+              },
+              icon: Icon(
+                allSelected ? EvaIcons.checkmark_circle : Icons.circle_outlined,
+                color: buttonColor,
+              ),
             ),
-          ),
-          const Spacer(),
-          DeleteConfirm(
-            delete: () async {
-              final notesToDelete = List<BookNote>.from(state.selectedNotes);
-              await notifier.deleteNotes(notesToDelete);
-              if (reading) {
-                final player = epubPlayerKey.currentState;
-                if (player != null) {
-                  for (final note in notesToDelete) {
-                    if (note.cfi.isNotEmpty) {
-                      player.removeAnnotation(note.cfi);
+            const Spacer(),
+            DeleteConfirm(
+              delete: () async {
+                final notesToDelete = List<BookNote>.from(state.selectedNotes);
+                await notifier.deleteNotes(notesToDelete);
+                if (reading) {
+                  final player = epubPlayerKey.currentState;
+                  if (player != null) {
+                    for (final note in notesToDelete) {
+                      if (note.cfi.isNotEmpty) {
+                        player.removeAnnotation(note.cfi);
+                      }
                     }
                   }
                 }
-              }
-            },
-            deleteIcon: Icon(EvaIcons.trash_2, color: buttonColor),
-            confirmIcon: const Icon(EvaIcons.close_circle, color: Colors.red),
-          ),
-          if (!reading && exportNotes != null)
-            IconButton(
-              onPressed: () {
-                final selected = notifier.notesForExport(selectedOnly: true);
-                exportNotes!.call(context, book, notes: selected);
               },
-              icon: Icon(Icons.ios_share, color: buttonColor),
+              deleteIcon: Icon(EvaIcons.trash_2, color: buttonColor),
+              confirmIcon: const Icon(EvaIcons.close_circle, color: Colors.red),
             ),
-        ],
+            if (!reading && exportNotes != null)
+              IconButton(
+                onPressed: () {
+                  final selected = notifier.notesForExport(selectedOnly: true);
+                  exportNotes!.call(context, book, notes: selected);
+                },
+                icon: Icon(Icons.ios_share, color: buttonColor),
+              ),
+          ],
+        ),
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            const Spacer(),
-            IconButton(
-              onPressed: () => _showFilterSheet(context, ref),
-              icon: Icon(
-                state.showAllNotes ? EvaIcons.funnel_outline : EvaIcons.funnel,
+    return ColoredBox(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Spacer(),
+              IconButton(
+                onPressed: () => _showFilterSheet(context, ref),
+                icon: Icon(
+                  state.showAllNotes ? EvaIcons.funnel_outline : EvaIcons.funnel,
+                ),
               ),
-            ),
-          ],
-        ),
-        _NotesSearchBar(
-          initialValue: state.searchKeyword,
-          onChanged: (keyword) => notifier.setSearchKeyword(keyword),
-        ),
-      ],
+            ],
+          ),
+          _NotesSearchBar(
+            initialValue: state.searchKeyword,
+            onChanged: (keyword) => notifier.setSearchKeyword(keyword),
+          ),
+        ],
+      ),
     );
   }
 
