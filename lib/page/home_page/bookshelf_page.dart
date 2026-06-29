@@ -51,12 +51,14 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
   bool _isImporting = false;
   final GlobalKey _tagButtonKey = GlobalKey();
   final TextEditingController _editTagController = TextEditingController();
+  PersistentBottomSheetController? _bookSheetController;
 
   @override
   bool get wantKeepAlive => true;
 
   @override
   void dispose() {
+    _bookSheetController?.close();
     _editTagController.dispose();
     super.dispose();
   }
@@ -387,11 +389,23 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
       );
     }
 
-    void handleBottomSheet(BuildContext context, Book book) {
-      showBottomSheet(
+    void openBookSheet(Book book) {
+      final old = _bookSheetController;
+      old?.close();
+      late final PersistentBottomSheetController controller;
+      controller = showBottomSheet(
         context: context,
-        builder: (context) => BookBottomSheet(book: book),
+        builder: (context) => TapRegion(
+          onTapOutside: (_) => controller.close(),
+          child: BookBottomSheet(book: book),
+        ),
       );
+      _bookSheetController = controller;
+      controller.closed.whenComplete(() {
+        if (identical(_bookSheetController, controller)) {
+          _bookSheetController = null;
+        }
+      });
     }
 
     List<int> lockedIndices = [];
@@ -410,13 +424,20 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
                     // lock all index of books
                     lockedIndices: lockedIndices,
                     enableDraggable: true,
-                    longPressDelay: const Duration(milliseconds: 300),
+                    longPressDelay: AnxPlatform.isDesktop
+                        ? Duration.zero
+                        : const Duration(milliseconds: 300),
                     onReorder: (ReorderedListFunction reorderedListFunction) {},
                     scrollController: _scrollController,
                     onDragStarted: (index) {
                       if (books[index].length == 1) {
-                        handleBottomSheet(context, books[index].first);
-                        // add other books to lockedIndices
+                        if (!AnxPlatform.isDesktop) {
+                          showBottomSheet(
+                            context: context,
+                            builder: (context) =>
+                                BookBottomSheet(book: books[index].first),
+                          );
+                        }
                         for (int i = 0; i < books.length; i++) {
                           if (i != index) {
                             lockedIndices.add(i);
@@ -444,11 +465,18 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
                               ? CustomDraggable(
                                   key: topLevelKey,
                                   data: book.first,
-                                  child: BookFolder(books: book),
+                                  child: BookFolder(
+                                      books: book,
+                                      onOpenBookSheet: AnxPlatform.isDesktop
+                                          ? openBookSheet
+                                          : null),
                                 )
                               : BookFolder(
                                   key: topLevelKey,
                                   books: book,
+                                  onOpenBookSheet: AnxPlatform.isDesktop
+                                      ? openBookSheet
+                                      : null,
                                 );
                         },
                       ),

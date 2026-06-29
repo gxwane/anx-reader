@@ -16,9 +16,11 @@ class BookFolder extends ConsumerStatefulWidget {
   const BookFolder({
     super.key,
     required this.books,
+    this.onOpenBookSheet,
   });
 
   final List<Book> books;
+  final void Function(Book)? onOpenBookSheet;
 
   @override
   ConsumerState<BookFolder> createState() => _BookFolderState();
@@ -92,7 +94,7 @@ class _BookFolderState extends ConsumerState<BookFolder> {
       onLeave: (data) => onLeaveBook(data),
       builder: (context, candidateData, rejectedData) {
         return scaleTransition(
-          BookItem(book: widget.books[0]),
+          BookItem(book: widget.books[0], onOpenBookSheet: widget.onOpenBookSheet),
         );
       },
     );

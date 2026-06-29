@@ -13,9 +13,11 @@ class BookItem extends ConsumerWidget {
   const BookItem({
     super.key,
     required this.book,
+    this.onOpenBookSheet,
   });
 
   final Book book;
+  final void Function(Book)? onOpenBookSheet;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -52,10 +54,20 @@ class BookItem extends ConsumerWidget {
         pushToReadingPage(ref, context, book);
       },
       onLongPress: () {
-        handleLongPress(context);
+        final cb = onOpenBookSheet;
+        if (cb != null) {
+          cb(book);
+        } else {
+          handleLongPress(context);
+        }
       },
       onSecondaryTap: () {
-        handleLongPress(context);
+        final cb = onOpenBookSheet;
+        if (cb != null) {
+          cb(book);
+        } else {
+          handleLongPress(context);
+        }
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
