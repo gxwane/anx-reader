@@ -15,9 +15,15 @@ var isPdf = false;
 const clamp01 = value => Math.min(Math.max(value ?? 0, 0), 1)
 const ANXLOC_PREFIX = 'anxloc:v1:'
 
+/**
+ * @deprecated 此格式已废弃，新导入笔记均使用标准 EPUB CFI。仅保留作旧数据向后兼容之用。
+ */
 const isAnxLocation = value =>
   typeof value === 'string' && value.startsWith(ANXLOC_PREFIX)
 
+/**
+ * @deprecated 此格式已废弃，新导入笔记均使用标准 EPUB CFI。仅保留作旧数据向后兼容之用。
+ */
 const encodeAnxLocation = payload => {
   const json = JSON.stringify(payload)
   const bytes = new TextEncoder().encode(json)
@@ -26,6 +32,9 @@ const encodeAnxLocation = payload => {
   return `${ANXLOC_PREFIX}${btoa(binary)}`
 }
 
+/**
+ * @deprecated 此格式已废弃，新导入笔记均使用标准 EPUB CFI。仅保留作旧数据向后兼容之用。
+ */
 const decodeAnxLocation = value => {
   if (!isAnxLocation(value)) return null
   try {
@@ -38,6 +47,9 @@ const decodeAnxLocation = value => {
   }
 }
 
+/**
+ * @deprecated 此格式已废弃，新导入笔记均使用标准 EPUB CFI。仅保留作旧数据向后兼容之用。
+ */
 const getAnxLocationIndex = value => {
   const location = decodeAnxLocation(value)
   return Number.isInteger(location?.index) && location.index >= 0
@@ -1539,8 +1551,33 @@ class Reader {
       this.view.renderer.next()
     this.setView(this.view)
     if (isAnxLocation(cfi)) {
-      await this.view.init({})
-      await this.goToNoteTarget(cfi)
+      const location = decodeAnxLocation(cfi)
+      const index = Number(location?.index)
+      if (Number.isInteger(index) && index >= 0) {
+        const originalResolve = this.view.resolveNavigation.bind(this.view)
+        this.view.resolveNavigation = target => {
+          if (target === cfi) {
+            return {
+              index,
+              anchor: makeExternalTextAnchor(location.content, location.offset)
+            }
+          }
+          return originalResolve(target)
+        }
+        await this.view.init({ lastLocation: cfi })
+        this.view.resolveNavigation = originalResolve
+      } else if (typeof location?.fraction === 'number') {
+        const originalResolve = this.view.resolveNavigation.bind(this.view)
+        this.view.resolveNavigation = target => {
+          if (target === cfi) return { fraction: location.fraction }
+          return originalResolve(target)
+        }
+        await this.view.init({ lastLocation: cfi })
+        this.view.resolveNavigation = originalResolve
+      } else {
+        await this.view.init({})
+        await this.goToNoteTarget(cfi)
+      }
     } else {
       await this.view.init({ lastLocation: cfi })
     }
@@ -1861,13 +1898,7 @@ class Reader {
 
         const { index, doc, match } = resolvedMatch
 
-        const target = encodeAnxLocation({
-          index,
-          offset: match.offset,
-          length: record.content?.length ?? 0,
-          content: record.content,
-          fraction: getRangeStartFraction(doc, match.range),
-        })
+        const target = this.view.getCFI(index, match.range)
 
         if (resolvedByFallback) {
           console.info(
