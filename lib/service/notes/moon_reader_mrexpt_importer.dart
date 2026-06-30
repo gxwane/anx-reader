@@ -143,7 +143,7 @@ class MoonReaderMrexptImporter {
     }
 
     final trailing = lines.skip(10).toList();
-    while (trailing.isNotEmpty && trailing.last.trim() == '0') {
+    while (trailing.isNotEmpty && int.tryParse(trailing.last.trim()) != null) {
       trailing.removeLast();
     }
     if (trailing.isEmpty) return null;
