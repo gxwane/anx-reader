@@ -1,131 +1,14 @@
+import {
+  computeVirtualChapterTextMetrics,
+  isolateVirtualChapter,
+  mapSectionFractionToVChapter,
+  mapVChapterFractionToSectionFraction,
+  resolveVirtualChapterFromAnchor,
+  validateVirtualChapterPartition,
+} from './virtual-chapter.js'
+
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 const clamp01 = value => Math.max(0, Math.min(1, value ?? 0))
-
-// Compute virtual chapter text-length metrics on the *full* document.
-// This is used to map per-virtual-chapter progress back to per-section progress.
-// Note: page/scroll progress is still computed on the sliced DOM; this only
-// affects the fraction reported to the outer progress model.
-const computeVirtualChapterTextMetrics = (doc, virtualChapters) => {
-  const body = doc?.body
-  if (!body || !Array.isArray(virtualChapters) || virtualChapters.length === 0) return null
-
-  const findEl = id => body.querySelector(`#${CSS.escape(id)}`)
-    ?? body.querySelector(`[name="${CSS.escape(id)}"]`)
-
-  // Collect boundary ids and resolve them to elements.
-  const idToEl = new Map()
-  for (const vc of virtualChapters) {
-    if (vc?.fragmentStart) idToEl.set(vc.fragmentStart, findEl(vc.fragmentStart))
-    if (vc?.fragmentEnd) idToEl.set(vc.fragmentEnd, findEl(vc.fragmentEnd))
-  }
-
-  // If any required start boundary is missing, bail out (fallback path will apply).
-  for (const vc of virtualChapters) {
-    if (vc?.fragmentStart && !idToEl.get(vc.fragmentStart)) return null
-  }
-
-  // Record character offsets before each boundary element by walking the DOM once.
-  const boundaryEls = new Set(Array.from(idToEl.values()).filter(Boolean))
-  const elToPos = new Map()
-  let pos = 0
-  const it = doc.createNodeIterator(body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT)
-  for (let node = it.nextNode(); node; node = it.nextNode()) {
-    if (node.nodeType === 1) {
-      if (boundaryEls.has(node) && !elToPos.has(node)) elToPos.set(node, pos)
-    } else if (node.nodeType === 3) {
-      pos += node.nodeValue?.length ?? 0
-    }
-  }
-
-  // Map boundary id -> character offset.
-  const idToPos = new Map()
-  for (const [id, el] of idToEl.entries()) {
-    if (!id) continue
-    if (!el) continue
-    idToPos.set(id, elToPos.get(el) ?? 0)
-  }
-
-  const lens = []
-  const cum = []
-  let sum = 0
-  for (let i = 0; i < virtualChapters.length; i++) {
-    cum[i] = sum
-    const vc = virtualChapters[i]
-    const start = vc?.fragmentStart ? (idToPos.get(vc.fragmentStart) ?? 0) : 0
-    const end = vc?.fragmentEnd ? (idToPos.get(vc.fragmentEnd) ?? pos) : pos
-    const len = Math.max(0, end - start)
-    lens[i] = len
-    sum += len
-  }
-
-  if (!Number.isFinite(sum) || sum <= 0) return null
-  return { lens, cum, total: sum }
-}
-
-const mapVChapterFractionToSectionFraction = (metrics, chapterIndex, localFraction) => {
-  if (!metrics || !Number.isFinite(metrics.total) || metrics.total <= 0) return null
-  const i = Math.max(0, Math.min(chapterIndex ?? 0, (metrics.lens?.length ?? 1) - 1))
-  const before = metrics.cum?.[i] ?? 0
-  const len = metrics.lens?.[i] ?? 0
-  const f = Math.max(0, Math.min(1, localFraction ?? 0))
-  if (len <= 0) return before / metrics.total
-  return (before + f * len) / metrics.total
-}
-
-const mapSectionFractionToVChapter = (metrics, sectionFraction) => {
-  if (!metrics || !Number.isFinite(metrics.total) || metrics.total <= 0) return null
-  const f = Math.max(0, Math.min(1, sectionFraction ?? 0))
-  const target = f * metrics.total
-  const lens = metrics.lens ?? []
-  const cum = metrics.cum ?? []
-  for (let i = 0; i < lens.length; i++) {
-    const start = cum[i] ?? 0
-    const len = lens[i] ?? 0
-    if (len <= 0) continue
-    if (target < start + len || i === lens.length - 1) {
-      const local = (target - start) / len
-      return { chapterIndex: i, localAnchor: Math.max(0, Math.min(1, local)) }
-    }
-  }
-  return { chapterIndex: 0, localAnchor: 0 }
-}
-
-// Apply virtual chapter DOM slicing to a live document.
-// Removes nodes outside [fragmentStart, fragmentEnd) from body,
-// keeping only the content belonging to the current virtual chapter.
-const applyVirtualChapterSlice = (doc, vChapter) => {
-  const { fragmentStart, fragmentEnd } = vChapter
-  const body = doc.body
-  if (!body || (!fragmentStart && !fragmentEnd)) return
-
-  const findEl = id => body.querySelector(`#${CSS.escape(id)}`)
-    ?? body.querySelector(`[name="${CSS.escape(id)}"]`)
-
-  const startEl = fragmentStart ? findEl(fragmentStart) : null
-  const endEl = fragmentEnd ? findEl(fragmentEnd) : null
-
-  if (fragmentStart && !startEl) {
-    console.warn(`[VirtualChapter] Start fragment not found: ${fragmentStart}`)
-    return
-  }
-
-  try {
-    const range = doc.createRange()
-    if (startEl) range.setStartBefore(startEl)
-    else range.setStart(body, 0)
-
-    if (endEl) range.setEndBefore(endEl)
-    else range.setEnd(body, body.childNodes.length)
-
-    const fragment = range.extractContents()
-    body.replaceChildren(fragment)
-    if (fragmentStart) {
-      body.id = 'vcs_' + fragmentStart
-    }
-  } catch (e) {
-    console.warn('[VirtualChapter] DOM slice failed:', e)
-  }
-}
 
 const lerp = (min, max, x) => x * (max - min) + min
 const easeOutSine = x => Math.sin((x * Math.PI) / 2)
@@ -1549,31 +1432,40 @@ export class Paginator extends HTMLElement {
       const view = this.#createView()
       const afterLoad = doc => {
         const section = this.sections?.[index]
+        const requestedVirtualChapters = autoResolveVChapters ?? section?.virtualChapters
+        const virtualChapters = requestedVirtualChapters
+          && validateVirtualChapterPartition(doc, requestedVirtualChapters)
+          ? requestedVirtualChapters
+          : null
+        if (requestedVirtualChapters && !virtualChapters) {
+          console.warn('[VirtualChapter] Invalid partition; rendering the complete section')
+          if (section) section.virtualChapters = null
+          this.#currentChapter = 0
+        }
 
         // Compute and cache metrics on the *full* document before any slicing.
         try {
-          const vcs = autoResolveVChapters ?? section?.virtualChapters
-          if (section && vcs && !section.__vcTextMetrics) {
-            section.__vcTextMetrics = computeVirtualChapterTextMetrics(doc, vcs)
+          if (section && virtualChapters && !section.__vcTextMetrics) {
+            section.__vcTextMetrics = computeVirtualChapterTextMetrics(doc, virtualChapters)
           }
         } catch (e) {
           // Metrics are optional; fall back if anything goes wrong.
           console.warn('[VirtualChapter] Metrics computation failed:', e)
         }
 
-        if (autoResolveVChapters && typeof anchor === 'function' && doc.body) {
+        if (virtualChapters && autoResolveVChapters && typeof anchor === 'function' && doc.body) {
           // CFI restoration: resolve the correct virtual chapter from the full doc
           try {
             const chapter = this.#resolveChapterFromAnchor(
-              { virtualChapters: autoResolveVChapters }, anchor, doc)
+              { virtualChapters }, anchor, doc)
             this.#currentChapter = chapter
-            applyVirtualChapterSlice(doc, autoResolveVChapters[chapter])
+            isolateVirtualChapter(doc, virtualChapters[chapter])
           } catch (e) {
             console.warn('[Paginator] Auto-resolve virtual chapter failed:', e)
             this.#currentChapter = 0
-            try { applyVirtualChapterSlice(doc, autoResolveVChapters[0]) } catch (_) {}
+            try { isolateVirtualChapter(doc, virtualChapters[0]) } catch (_) {}
           }
-        } else if (autoResolveVChapters && typeof anchor === 'number' && doc.body) {
+        } else if (virtualChapters && autoResolveVChapters && typeof anchor === 'number' && doc.body) {
           // Fraction navigation: resolve chapter using metrics, then slice.
           try {
             const metrics = section?.__vcTextMetrics
@@ -1582,17 +1474,17 @@ export class Paginator extends HTMLElement {
             const localAnchor = mapped?.localAnchor ?? 0
             this.#currentChapter = chapter
             resolvedAnchorOverride = localAnchor
-            applyVirtualChapterSlice(doc, autoResolveVChapters[chapter])
+            isolateVirtualChapter(doc, virtualChapters[chapter])
           } catch (e) {
             console.warn('[Paginator] Auto-resolve virtual chapter (fraction) failed:', e)
             this.#currentChapter = 0
             resolvedAnchorOverride = 0
-            try { applyVirtualChapterSlice(doc, autoResolveVChapters[0]) } catch (_) {}
+            try { isolateVirtualChapter(doc, virtualChapters[0]) } catch (_) {}
           }
-        } else if (vChapter) {
+        } else if (virtualChapters && vChapter) {
           // Apply virtual chapter DOM slicing before rendering
           try {
-            applyVirtualChapterSlice(doc, vChapter)
+            isolateVirtualChapter(doc, vChapter)
           } catch (e) {
             console.warn('[Paginator] Virtual chapter slice failed:', e)
           }
@@ -1621,9 +1513,10 @@ export class Paginator extends HTMLElement {
       try {
         resolvedAnchor = anchor(this.#view.document)
       } catch (e) {
-        // Anchor may reference a node removed by virtual chapter slicing.
-        // Fall back to the start of the loaded chapter.
-        console.warn('[Paginator] Anchor resolution failed (possibly sliced doc):', e)
+        // Virtual chapters are now isolated non-destructively (display:none), so the
+        // anchor node is always present and this normally succeeds. Keep a defensive
+        // fallback to the chapter start in case a CFI is genuinely unresolvable.
+        console.warn('[Paginator] Anchor resolution failed:', e)
         resolvedAnchor = 0
       }
     } else {
@@ -1637,45 +1530,7 @@ export class Paginator extends HTMLElement {
   }
   // Resolve which virtual chapter an anchor belongs to
   #resolveChapterFromAnchor(section, anchor, doc) {
-    const virtualChapters = section.virtualChapters
-    if (!virtualChapters || !anchor) return 0
-
-    // If anchor is a function, we need to evaluate it with a doc
-    // If doc is provided, evaluate the anchor
-    if (typeof anchor === 'function' && doc) {
-      const result = anchor(doc)
-      if (result?.startContainer || result?.nodeType === 1) {
-        // Find which virtual chapter contains this element/range
-        for (let i = virtualChapters.length - 1; i >= 0; i--) {
-          const vc = virtualChapters[i]
-          if (!vc.fragmentStart) continue
-          const startEl = doc.getElementById(vc.fragmentStart)
-            ?? doc.querySelector(`[name="${CSS.escape(vc.fragmentStart)}"]`)
-          if (startEl) {
-            const target = result?.startContainer
-              ? result.startContainer
-              : result
-            // Check if target comes after or at startEl
-            const position = startEl.compareDocumentPosition(target)
-            if (position === 0 || position & Node.DOCUMENT_POSITION_FOLLOWING) {
-              return i
-            }
-          }
-        }
-      }
-      return 0
-    }
-
-    // If anchor is a number (fraction), calculate which chapter
-    if (typeof anchor === 'number' && virtualChapters.length > 0) {
-      // Distribute the fraction across virtual chapters
-      return Math.min(
-        Math.floor(anchor * virtualChapters.length),
-        virtualChapters.length - 1
-      )
-    }
-
-    return 0
+    return resolveVirtualChapterFromAnchor(section.virtualChapters, anchor, doc)
   }
   async #goTo({ index, anchor, select, chapterIndex }) {
     const section = this.sections[index]

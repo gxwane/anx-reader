@@ -4,7 +4,7 @@
   "description": "This folder forked from [Foliate-js](https://github.com/johnfactotum/foliate-js) which is MIT licensed.",
   "main": "book.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test test/*.test.mjs",
     "build": "rm -rf dist && webpack",
     "debug": "http-server . -p 3000 -c-1 --cors -o debug.html",
     "dev": "http-server . -p 3000 -c-1 --cors"
@@ -24,7 +24,8 @@
     "core-js": "^3.33.0",
     "http-server": "^14.1.1",
     "webpack": "^5.99.7",
-    "webpack-cli": "^6.0.1"
+    "webpack-cli": "^6.0.1",
+    "jsdom": "^29.1.1"
   },
   "dependencies": {
     "@babel/runtime": "^7.23.0",

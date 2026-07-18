@@ -1,4 +1,14 @@
 import * as CFI from './epubcfi.js'
+import {
+    HTML_MEDIA_TYPE,
+    XHTML_MEDIA_TYPE,
+    parseContentDocument,
+    serializeContentDocument,
+} from './content-document.js'
+import {
+    buildLegacyVirtualChapterPlan,
+    buildVirtualChapterPlan,
+} from './virtual-chapter.js'
 
 const NS = {
     CONTAINER: 'urn:oasis:names:tc:opendocument:xmlns:container',
@@ -16,8 +26,8 @@ const NS = {
 const MIME = {
     XML: 'application/xml',
     NCX: 'application/x-dtbncx+xml',
-    XHTML: 'application/xhtml+xml',
-    HTML: 'text/html',
+    XHTML: XHTML_MEDIA_TYPE,
+    HTML: HTML_MEDIA_TYPE,
     CSS: 'text/css',
     SVG: 'image/svg+xml',
     JS: /\/(x-)?(javascript|ecmascript)/,
@@ -915,17 +925,15 @@ class Loader {
 
         // parse and replace in HTML
         if ([MIME.XHTML, MIME.HTML, MIME.SVG].includes(mediaType)) {
-            let doc = new DOMParser().parseFromString(str, mediaType)
-            // change to HTML if it's not valid XHTML
-            if (mediaType === MIME.XHTML && (doc.querySelector('parsererror')
-                || !doc.documentElement?.namespaceURI)) {
-                console.warn(doc.querySelector('parsererror')?.innerText ?? 'Invalid XHTML')
-                item.mediaType = MIME.HTML
-                doc = new DOMParser().parseFromString(str, item.mediaType)
+            const parsed = parseContentDocument(str, mediaType)
+            const doc = parsed.document
+            const effectiveMediaType = parsed.mediaType
+            if (parsed.recoveredFromInvalidXHTML) {
+                console.warn(parsed.parserErrorMessage)
             }
             // replace hrefs in XML processing instructions
             // this is mainly for SVGs that use xml-stylesheet
-            if ([MIME.XHTML, MIME.SVG].includes(item.mediaType)) {
+            if ([MIME.XHTML, MIME.SVG].includes(effectiveMediaType)) {
                 let child = doc.firstChild
                 while (child instanceof ProcessingInstruction) {
                     if (child.data) {
@@ -958,8 +966,8 @@ class Loader {
                 el.setAttribute('style',
                     await this.replaceCSS(el.getAttribute('style'), href, parents))
             // TODO: replace inline scripts? probably not worth the trouble
-            const result = new XMLSerializer().serializeToString(doc)
-            return this.createURL(href, result, item.mediaType, parent)
+            const result = serializeContentDocument(doc)
+            return this.createURL(href, result, effectiveMediaType, parent)
         }
 
         const result = mediaType === MIME.CSS
@@ -1172,57 +1180,21 @@ ${doc.querySelector('parsererror').innerText}`)
 
             if (!entries || entries.length <= 1) {
                 section.virtualChapters = null
+                section.legacyVirtualChapters = null
                 continue
             }
+
+            // Compatibility metadata only. Reader uses this to translate vcs_
+            // CFIs created by releases that destructively sliced the document.
+            section.legacyVirtualChapters = buildLegacyVirtualChapterPlan(entries)
 
             // Group entries by their TOC depth, then pick the shallowest depth
             // that has more than one entry — this gives chapter-level granularity
             // and avoids splitting at sub-section items.
-            const byDepth = new Map()
-            for (const entry of entries) {
-                if (!byDepth.has(entry.depth)) byDepth.set(entry.depth, [])
-                byDepth.get(entry.depth).push(entry)
-            }
-
-            let useEntries = null
-            for (const depth of [...byDepth.keys()].sort((a, b) => a - b)) {
-                if (byDepth.get(depth).length > 1) {
-                    useEntries = byDepth.get(depth)
-                    break
-                }
-            }
-
-            if (!useEntries || useEntries.length <= 1) {
+            const virtualChapters = buildVirtualChapterPlan(entries)
+            if (!virtualChapters) {
                 section.virtualChapters = null
                 continue
-            }
-
-            // Deduplicate by fragment value
-            const seen = new Set()
-            const uniqueEntries = []
-            for (const entry of useEntries) {
-                const key = entry.fragment ?? '__root__'
-                if (!seen.has(key)) {
-                    seen.add(key)
-                    uniqueEntries.push(entry)
-                }
-            }
-
-            // Require at least one fragment boundary (otherwise slices are identical)
-            if (uniqueEntries.length <= 1 || !uniqueEntries.some(e => e.fragment !== null)) {
-                section.virtualChapters = null
-                continue
-            }
-
-            const virtualChapters = []
-            for (let i = 0; i < uniqueEntries.length; i++) {
-                const current = uniqueEntries[i]
-                const next = uniqueEntries[i + 1]
-                virtualChapters.push({
-                    fragmentStart: current.fragment,
-                    fragmentEnd: next?.fragment || null,
-                    tocItem: current.tocItem,
-                })
             }
 
             section.virtualChapters = virtualChapters
@@ -1294,6 +1266,7 @@ ${doc.querySelector('parsererror').innerText}`)
                     ? this.resources.getItemByID(item.mediaOverlay) : null,
                 // Virtual chapter properties (set by #buildVirtualChapters after init)
                 virtualChapters: null,
+                legacyVirtualChapters: null,
             }
         }).filter(s => s)
 
@@ -1383,7 +1356,7 @@ ${doc.querySelector('parsererror').innerText}`)
     }
     async loadDocument(item) {
         const str = await this.loadText(item.href)
-        return this.parser.parseFromString(str, item.mediaType)
+        return parseContentDocument(str, item.mediaType, this.parser).document
     }
     getMediaOverlay() {
         return new MediaOverlay(this, this.#loadXML.bind(this))

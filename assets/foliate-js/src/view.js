@@ -4,6 +4,7 @@ import { Overlayer } from './overlayer.js'
 import { textWalker } from './text-walker.js'
 import { Translator, TranslationMode } from './translator.js'
 import { isExplicitNoteRef } from './noteref.js'
+import { isRangeInHiddenVirtualChapter } from './virtual-chapter.js'
 const { TTS } = await import('./tts.js')
 
 const SEARCH_PREFIX = 'foliate-search:'
@@ -518,7 +519,9 @@ a[${noteRefTouchAttr}] {
           return
         }
         const range = doc ? anchor(doc) : anchor
-        overlayer.add(value, range, Overlayer.outline, { color: '#39c5bbaa' });
+        if (!isRangeInHiddenVirtualChapter(range)) {
+          overlayer.add(value, range, Overlayer.outline, { color: '#39c5bbaa' });
+        }
       }
       return
     }
@@ -529,8 +532,10 @@ a[${noteRefTouchAttr}] {
       overlayer.remove(value)
       if (!remove) {
         const range = doc ? anchor(doc) : anchor
-        const draw = (func, opts) => overlayer.add(value, range, func, opts)
-        this.#emit('draw-annotation', { draw, annotation, doc, range })
+        if (!isRangeInHiddenVirtualChapter(range)) {
+          const draw = (func, opts) => overlayer.add(value, range, func, opts)
+          this.#emit('draw-annotation', { draw, annotation, doc, range })
+        }
       }
     }
     const label = this.#tocProgress.getProgress(index)?.label ?? ''
@@ -588,17 +593,9 @@ a[${noteRefTouchAttr}] {
       const anchor = doc => CFI.toRange(doc, parts)
       resolved = { index, anchor }
     }
-    
-    // Extract vcs_ from cfi to find chapterIndex
-    const match = cfi.match(/\[vcs_([^\];]+)[\];]/)
-    if (match && resolved) {
-      const id = match[1]
-      const section = this.book.sections?.[resolved.index]
-      if (section?.virtualChapters) {
-         const idx = section.virtualChapters.findIndex(vc => vc.fragmentStart === id)
-         if (idx !== -1) resolved.chapterIndex = idx
-      }
-    }
+    // Virtual-chapter sections load the full document; the paginator's afterLoad
+    // resolves the anchor against that intact DOM and auto-detects which virtual
+    // chapter contains it (see #display autoResolveVChapters). No marker needed.
     return resolved;
   }
   resolveNavigation(target) {

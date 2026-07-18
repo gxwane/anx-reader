@@ -742,13 +742,11 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   Future<void> renderAnnotations(InAppWebViewController controller) async {
     List<BookNote> annotationList =
         await bookNoteDao.selectBookNotesByBookId(widget.book.id);
-    String allAnnotations =
-        jsonEncode(annotationList.map((e) => e.toJson()).toList())
-            .replaceAll('\'', '\\\'');
-    controller.evaluateJavascript(source: '''
-     const allAnnotations = $allAnnotations
-     renderAnnotations()
-    ''');
+    final allAnnotations =
+        jsonEncode(annotationList.map((e) => e.toJson()).toList());
+    await controller.callAsyncJavaScript(
+      functionBody: 'return await renderAnnotations($allAnnotations)',
+    );
   }
 
   void getThemeColor() {
@@ -946,8 +944,8 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     );
     controller.addJavaScriptHandler(
       handlerName: 'renderAnnotations',
-      callback: (args) {
-        renderAnnotations(controller);
+      callback: (args) async {
+        await renderAnnotations(controller);
       },
     );
     controller.addJavaScriptHandler(

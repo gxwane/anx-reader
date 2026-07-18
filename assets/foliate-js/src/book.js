@@ -6,6 +6,16 @@ import { FootnoteHandler } from './footnotes.js'
 import { Overlayer } from './overlayer.js'
 import { isGeneratedBacklinkHref, isNumberedNoteMarker } from './noteref.js'
 import { collapse, compare, fromRange, toRange } from './epubcfi.js'
+import {
+  normalizeAnnotationExcerpt as normalizeExternalText,
+  repairAnnotationTarget,
+} from './annotation-target.js'
+import {
+  getDocumentBody,
+  normalizeLegacyVirtualChapterTarget,
+  resolveVirtualChapterFromAnchor,
+} from './virtual-chapter.js'
+import { createTextRangeFromOffsets as createTextRange } from './text-range.js'
 const { configure, ZipReader, BlobReader, TextWriter, BlobWriter } =
   await import('./vendor/zip.js')
 const { EPUB } = await import('./epub.js')
@@ -56,25 +66,6 @@ const getAnxLocationIndex = value => {
     ? location.index
     : null
 }
-
-const decodeExternalTextEntities = text =>
-  text
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-
-const sanitizeExternalText = text =>
-  typeof text === 'string'
-    ? decodeExternalTextEntities(text)
-      .replace(/<\s*br\s*\/?\s*>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-    : ''
-
-const normalizeExternalText = text =>
-  sanitizeExternalText(text).replace(/\s+/g, ' ').trim()
 
 const buildNormalizedIndex = (text, { compact = false } = {}) => {
   let normalized = ''
@@ -167,17 +158,8 @@ const findExternalTextOffsets = (text, query, preferredOffset = 0) => {
   )
 }
 
-const collectTextNodes = root => {
-  const nodes = []
-  const walker = root.ownerDocument.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  while (walker.nextNode()) {
-    nodes.push(walker.currentNode)
-  }
-  return nodes
-}
-
 const findTextRange = (doc, query, preferredOffset = 0) => {
-  const body = doc?.body
+  const body = getDocumentBody(doc)
   const normalizedQuery = normalizeExternalText(query)
   if (!body || !normalizedQuery) return null
 
@@ -186,35 +168,9 @@ const findTextRange = (doc, query, preferredOffset = 0) => {
 
   const offsets = findExternalTextOffsets(text, query, preferredOffset)
   if (!offsets) return null
-  const { start, end } = offsets
-  const nodes = collectTextNodes(body)
-  let cursor = 0
-  let startNode = null
-  let startNodeOffset = 0
-  let endNode = null
-  let endNodeOffset = 0
-
-  for (const node of nodes) {
-    const length = node.textContent.length
-    const nodeStart = cursor
-    const nodeEnd = cursor + length
-    if (!startNode && start >= nodeStart && start <= nodeEnd) {
-      startNode = node
-      startNodeOffset = Math.max(0, Math.min(length, start - nodeStart))
-    }
-    if (!endNode && end >= nodeStart && end <= nodeEnd) {
-      endNode = node
-      endNodeOffset = Math.max(0, Math.min(length, end - nodeStart))
-      break
-    }
-    cursor = nodeEnd
-  }
-
-  if (!startNode || !endNode) return null
-  const range = doc.createRange()
-  range.setStart(startNode, startNodeOffset)
-  range.setEnd(endNode, endNodeOffset)
-  return { range, offset: start }
+  const range = createTextRange(doc, offsets.start, offsets.end)
+  if (!range) return null
+  return { range, offset: offsets.start }
 }
 
 const makeExternalTextAnchor = (query, preferredOffset = 0) => doc =>
@@ -1514,6 +1470,7 @@ class Reader {
   annotations = new Map()
   annotationsByValue = new Map()
   annotationAliasesByValue = new Map()
+  normalizedAnnotationTargets = new Map()
   #footnoteHandler = new FootnoteHandler()
   #doc
   #index
@@ -1526,6 +1483,7 @@ class Reader {
     id: null,
   }
   #ignoreBookmarkGesture = false
+  #pendingInitialTarget = null
   constructor() {
     this.#footnoteHandler.addEventListener('before-render', e => {
       const { view } = e.detail
@@ -1535,6 +1493,7 @@ class Reader {
     this.#originalContent = null
   }
   async open(file, cfi) {
+    this.#pendingInitialTarget = cfi ?? null
     this.view = await getView(file, cfi)
 
     if (importing) return
@@ -1550,6 +1509,23 @@ class Reader {
     if (!cfi)
       this.view.renderer.next()
     this.setView(this.view)
+
+    if (cfi) {
+      const documentPromises = new Map()
+      const getDocument = index => {
+        if (!documentPromises.has(index)) {
+          const section = this.view.book.sections?.[index]
+          documentPromises.set(index, section?.createDocument?.() ?? Promise.resolve(null))
+        }
+        return documentPromises.get(index)
+      }
+      const normalizedTarget = await this.#normalizeAnnotationTarget(cfi, getDocument)
+      if (normalizedTarget && normalizedTarget !== cfi) {
+        this.normalizedAnnotationTargets.set(cfi, normalizedTarget)
+        cfi = normalizedTarget
+      }
+    }
+
     if (isAnxLocation(cfi)) {
       const location = decodeAnxLocation(cfi)
       const index = Number(location?.index)
@@ -1591,7 +1567,7 @@ class Reader {
       const { index } = e.detail
       const list = this.annotations.get(index)
       if (list) for (const annotation of list)
-        this.view.addAnnotation(annotation)
+        this.#addViewAnnotation(annotation)
       
       // Apply code highlighting to newly created overlay content
       if (style && style.codeHighlightTheme && style.codeHighlightTheme !== 'off') {
@@ -1657,12 +1633,76 @@ class Reader {
     })
   }
 
-  renderAnnotation(annotations) {
+  async #normalizeAnxLocationTarget(value, getDocument) {
+    const location = decodeAnxLocation(value)
+    const index = Number(location?.index)
+    if (!Number.isInteger(index) || index < 0) return null
+
+    const doc = await getDocument(index)
+    if (!doc) return null
+    let range = findTextRange(doc, location.content, location.offset)?.range
+    if (!range && typeof location.fraction === 'number') {
+      const body = getDocumentBody(doc)
+      const offset = Math.round((body?.textContent.length ?? 0) * clamp01(location.fraction))
+      range = createTextRange(doc, offset)
+    }
+    return range ? this.view.getCFI(index, range) : null
+  }
+
+  async #normalizeLegacyVirtualChapterTarget(value, getDocument) {
+    return normalizeLegacyVirtualChapterTarget({
+      target: value,
+      resolveCFI: target => this.view.book.resolveCFI?.(target),
+      sections: this.view.book.sections,
+      getDocument,
+      createTarget: (index, range) => this.view.getCFI(index, range),
+    })
+  }
+
+  async #normalizeAnnotationTarget(value, getDocument, expectedExcerpt) {
+    try {
+      let normalizedTarget
+      if (isAnxLocation(value)) {
+        normalizedTarget = await this.#normalizeAnxLocationTarget(value, getDocument)
+      } else {
+        normalizedTarget = await this.#normalizeLegacyVirtualChapterTarget(value, getDocument)
+      }
+      if (!normalizedTarget || !expectedExcerpt) return normalizedTarget
+
+      const repairedTarget = await repairAnnotationTarget({
+        target: normalizedTarget,
+        excerpt: expectedExcerpt,
+        resolveTarget: target => this.view.resolveNavigation(target),
+        getDocument,
+        findExcerptRange: findTextRange,
+        createTarget: (index, range) => this.view.getCFI(index, range),
+      })
+      if (repairedTarget !== normalizedTarget) {
+        console.info('[Annotations] Recovered stale target from saved excerpt')
+      }
+      return repairedTarget
+    } catch (e) {
+      console.warn('[Annotations] Failed to normalize target:', e)
+      return null
+    }
+  }
+
+  async renderAnnotation(annotations) {
     this.annotations.clear()
     this.annotationsByValue.clear()
     this.annotationAliasesByValue.clear()
+    this.normalizedAnnotationTargets.clear()
     const annos = annotations ?? allAnnotations ?? []
-    for (const anno of annos) {
+    const documentPromises = new Map()
+    const getDocument = index => {
+      if (!documentPromises.has(index)) {
+        const section = this.view.book.sections?.[index]
+        documentPromises.set(index, section?.createDocument?.() ?? Promise.resolve(null))
+      }
+      return documentPromises.get(index)
+    }
+
+    const prepared = await Promise.all(annos.map(async anno => {
       const { value, type, color, note } = anno
       const annotation = {
         id: anno.id,
@@ -1671,10 +1711,30 @@ class Reader {
         color,
         note
       }
+      const expectedExcerpt = type === 'bookmark' ? null : note
+      const normalizedTarget = await this.#normalizeAnnotationTarget(
+        value, getDocument, expectedExcerpt)
+      if (normalizedTarget == null && !isAnxLocation(value)) {
+        console.warn('[Annotations] Skipping unresolved legacy target:', value)
+        return null
+      }
+      if (normalizedTarget && normalizedTarget !== value) {
+        this.normalizedAnnotationTargets.set(value, normalizedTarget)
+      }
+      return annotation
+    }))
 
+    for (const annotation of prepared) {
+      if (!annotation) continue
       this.addAnnotation(annotation)
     }
 
+    const pendingInitialTarget = this.#pendingInitialTarget
+    this.#pendingInitialTarget = null
+    const repairedInitialTarget = this.normalizedAnnotationTargets.get(pendingInitialTarget)
+    if (repairedInitialTarget && repairedInitialTarget !== pendingInitialTarget) {
+      await this.view.goTo(repairedInitialTarget)
+    }
   }
 
   showContextMenu() {
@@ -1713,6 +1773,10 @@ class Reader {
   }
 
   #resolveAnnotationIndex(value) {
+    const normalizedTarget = this.normalizedAnnotationTargets.get(value)
+    if (normalizedTarget) {
+      return this.view.resolveNavigation(normalizedTarget)?.index
+    }
     const anxIndex = getAnxLocationIndex(value)
     if (anxIndex != null) return anxIndex
 
@@ -1753,12 +1817,12 @@ class Reader {
   }
 
   #checkBookmark(bookmark) {
-    if (isAnxLocation(bookmark.value)) return false
+    const bookmarkCfi = this.normalizedAnnotationTargets.get(bookmark.value) ?? bookmark.value
+    if (isAnxLocation(bookmarkCfi)) return false
     const currCfi = this.view.lastLocation?.cfi
     const currStart = collapse(currCfi)
     const currEnd = collapse(currCfi, true)
 
-    const bookmarkCfi = bookmark.value
     const bookmarkStart = collapse(bookmarkCfi)
 
     if (compare(currStart, bookmarkStart) <= 0 &&
@@ -1784,6 +1848,7 @@ class Reader {
     this.#clearAnnotationAliases(annotation)
 
     this.#addViewAnnotation(annotation, true)
+    this.normalizedAnnotationTargets.delete(value)
 
     if (annotation.type === 'bookmark' && this.#checkBookmark(annotation)) {
       this.#hideBookmarkIcon()
@@ -1798,6 +1863,15 @@ class Reader {
   }
 
   #addViewAnnotation(annotation, remove = false) {
+    const normalizedTarget = this.normalizedAnnotationTargets.get(annotation.value)
+    if (normalizedTarget) {
+      const viewAnnotation = { ...annotation, value: normalizedTarget }
+      if (remove) this.annotationAliasesByValue.delete(normalizedTarget)
+      else this.annotationAliasesByValue.set(normalizedTarget, annotation)
+      this.view.addAnnotation(viewAnnotation, remove)
+      return
+    }
+
     if (!isAnxLocation(annotation.value)) {
       this.view.addAnnotation(annotation, remove)
       return
@@ -1827,6 +1901,12 @@ class Reader {
   }
 
   async goToNoteTarget(target) {
+    const normalizedTarget = this.normalizedAnnotationTargets.get(target)
+    if (normalizedTarget) {
+      await this.view.goTo(normalizedTarget)
+      return
+    }
+
     const location = decodeAnxLocation(target)
     if (location) {
       const index = Number(location.index)
@@ -1864,6 +1944,10 @@ class Reader {
           continue
         }
 
+        // CFIs are always generated against the *full* document. The live reader
+        // isolates virtual chapters non-destructively (display:none), so the DOM it
+        // renders is structurally identical to this full document — the CFI resolves
+        // in the same coordinate space at display time. No slicing here.
         const trySection = async (index, usePreferredOffset) => {
           const section = sections[index]
           if (!section?.createDocument) return null
@@ -1906,10 +1990,26 @@ class Reader {
           )
         }
 
-        const progress = this.view.getProgressOf(index, match.range)
-        const chapter = progress?.tocItem?.label
-          ?? this.view.book.sections?.[index]?.tocItem?.label
-          ?? `Chapter ${index + 1}`
+        // Determine the chapter label. For sections split into virtual chapters,
+        // find which virtual chapter contains the match (on the full document) and
+        // use its tocItem label; otherwise fall back to the section-level progress.
+        const section = this.view.book.sections?.[index]
+        const virtualChapters = section?.virtualChapters
+        let chapter
+        if (Array.isArray(virtualChapters) && virtualChapters.length > 0) {
+          const chapterIndex = resolveVirtualChapterFromAnchor(virtualChapters, () => match.range, doc)
+          chapter = virtualChapters[chapterIndex]?.tocItem?.label
+            ?? section?.tocItem?.label
+            ?? `Chapter ${index + 1}`
+          console.info(
+            `[ExternalNotes] Resolved with virtual chapter: record=${record.index}, section=${index}, vChapter=${chapterIndex}`
+          )
+        } else {
+          const progress = this.view.getProgressOf(index, match.range)
+          chapter = progress?.tocItem?.label
+            ?? section?.tocItem?.label
+            ?? `Chapter ${index + 1}`
+        }
 
         resolved.push({
           index: record.index,
