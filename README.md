@@ -1,12 +1,14 @@
 **English** | [简体中文](README_zh.md) | [Türkçe](README_tr.md) | [Русский](README_RU.md)
 
+> [!IMPORTANT]
+> **Anx Reader GX Preview** is an unofficial, independently maintained long-term fork of [Anx Reader](https://github.com/Anxcye/anx-reader). It has its own app identity, data and synchronization namespace, and release channel; GX Preview builds are not upstream releases. Preview versions may contain incompatible changes, so back up your library before updating.
+
 <br>
 
 <p align="center">
-  <img src="./docs/images/Anx-logo.jpg" alt="Anx-logo" width="100" />
+  <img src="./assets/icon/Anx-logo-gx-preview.png" alt="Anx Reader GX Preview logo" width="100" />
 </p>
-<h1 align="center">Anx Reader</h1>
-<p align="center"><a href="https://trendshift.io/repositories/10329" target="_blank"><img src="https://trendshift.io/api/badge/repositories/10329" alt="Anxcye%2Fanx-reader | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a></p>
+<h1 align="center">Anx Reader GX Preview</h1>
 
 <p align="center">
   <a href="https://github.com/Anxcye/anx-reader#platform-support"><img src="https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20iOS%20%7C%20Android-lightgrey" alt="Platforms"></a>
@@ -14,12 +16,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Anxcye/anx-reader/releases/latest"><img src="https://img.shields.io/github/v/release/anxcye/anx-reader" alt="Latest Release"></a>
-  <a href="https://github.com/Anxcye/anx-reader/releases"><img src="https://img.shields.io/github/v/release/anxcye/anx-reader?include_prereleases" alt="Pre-release"></a>
-  <a href="https://github.com/Anxcye/anx-reader/blob/main/LICENSE"><img src="https://img.shields.io/github/license/anxcye/anx-reader" alt="License" ></a>
-  <a href="https://github.com/Anxcye/anx-reader/releases"><img src="https://img.shields.io/github/downloads/anxcye/anx-reader/total" alt="Downloads"></a>
-  <a href="https://hellogithub.com/repository/819a2b3050204451bed552a8812114e5" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=819a2b3050204451bed552a8812114e5&claim_uid=WBA1XOQirm2GRqs&theme=small" alt="Featured｜HelloGitHub"/></a>
-  <a href="https://github.com/anxcye/anx-reader/stargazers"><img src="https://img.shields.io/github/stars/anxcye/anx-reader" alt="stars"></a>
+  <a href="https://github.com/gxwane/anx-reader/releases/latest"><img src="https://img.shields.io/github/v/release/gxwane/anx-reader" alt="Latest Release"></a>
+  <a href="https://github.com/gxwane/anx-reader/releases"><img src="https://img.shields.io/github/v/release/gxwane/anx-reader?include_prereleases" alt="Pre-release"></a>
+  <a href="https://github.com/gxwane/anx-reader/blob/develop/LICENSE"><img src="https://img.shields.io/github/license/gxwane/anx-reader" alt="License" ></a>
+  <a href="https://github.com/gxwane/anx-reader/releases"><img src="https://img.shields.io/github/downloads/gxwane/anx-reader/total" alt="Downloads"></a>
+  <a href="https://github.com/gxwane/anx-reader/stargazers"><img src="https://img.shields.io/github/stars/gxwane/anx-reader" alt="stars"></a>
 </p>
 
 Anx Reader, a thoughtfully crafted e-book reader for book lovers. Featuring powerful AI capabilities and supporting various e-book formats, it makes reading smarter and more focused. With its modern interface design, we're committed to delivering pure reading pleasure.
@@ -39,6 +40,7 @@ Anx Reader, a thoughtfully crafted e-book reader for book lovers. Featuring powe
 | Advanced Extras | TTS with multi-voice, speed, tone, and sleep timer controls<br>Full-book translation with side-by-side view<br>Store books in the cloud and download on demand<br>One-tap simplified/traditional Chinese conversion | ✅ |
 | OPDS Catalogs | Built-in OPDS support with custom catalog management | 🛠️ In progress |
 
+GX Preview currently publishes Windows and Android packages through the [fork release channel](https://github.com/gxwane/anx-reader/releases). The iOS, macOS App Store, and F-Droid links below are distributions of upstream Anx Reader.
 
 <table border="1">
   <tr>
@@ -63,7 +65,7 @@ Anx Reader, a thoughtfully crafted e-book reader for book lovers. Featuring powe
   <tr>
     <td>Windows</td>
     <td>
-      <a href="https://github.com/Anxcye/anx-reader/releases/latest" target="_blank">
+      <a href="https://github.com/gxwane/anx-reader/releases/latest" target="_blank">
         <img src="https://github.com/user-attachments/assets/cf61e197-d756-4606-a8ad-fb591f79fdfc" alt="GitHub" height="45"/>
       </a>
     </td>
@@ -71,7 +73,7 @@ Anx Reader, a thoughtfully crafted e-book reader for book lovers. Featuring powe
   <tr>
     <td>Android</td>
     <td>
-      <a href="https://github.com/Anxcye/anx-reader/releases/latest" target="_blank">
+      <a href="https://github.com/gxwane/anx-reader/releases/latest" target="_blank">
         <img src="https://github.com/user-attachments/assets/cf61e197-d756-4606-a8ad-fb591f79fdfc" alt="GitHub" height="45"/>
       </a>
       <a href="https://f-droid.org/packages/com.anxcye.anx_reader" target="_blank">
@@ -102,7 +104,7 @@ A modern web application for managing your ebook library with Calibre integratio
 ## I Encountered a Problem, What Should I Do?
 Check [Troubleshooting](./docs/troubleshooting.md#English)
 
-Submit an [issue](https://github.com/Anxcye/anx-reader/issues/new/choose), and we will respond as soon as possible.
+Submit an [issue](https://github.com/gxwane/anx-reader/issues/new/choose) for GX Preview. For upstream Anx Reader, use the [upstream issue tracker](https://github.com/Anxcye/anx-reader/issues/new/choose).
 
 Telegram Group: [https://t.me/AnxReader](https://t.me/AnxReader)
 

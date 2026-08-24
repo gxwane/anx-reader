@@ -1,5 +1,6 @@
 import 'dart:io' as io;
 
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/models/remote_file.dart';
 import 'package:anx_reader/service/sync/sync_client_base.dart';
 import 'package:anx_reader/utils/get_path/get_temp_dir.dart';
@@ -59,8 +60,8 @@ class WebdavClient extends SyncClientBase {
 
   @override
   Future<void> testFullCapabilities() async {
-    const testDir = 'anx/.test';
-    const testFile = '$testDir/test.txt';
+    final testDir = AppIdentity.syncPath('.test');
+    final testFile = '$testDir/test.txt';
     io.File? localTestFile;
     io.File? downloadTestFile;
 
@@ -72,7 +73,7 @@ class WebdavClient extends SyncClientBase {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       localTestFile = io.File('${tempDir.path}/webdav_test_$timestamp.txt');
 
-      final testContent = 'Anx Reader WebDAV Test\n'
+      final testContent = '${AppIdentity.displayName} WebDAV Test\n'
           'Test Time: ${DateTime.now()}\n'
           'Platform: ${AnxPlatform.type.name}\n'
           'Timestamp: $timestamp\n';

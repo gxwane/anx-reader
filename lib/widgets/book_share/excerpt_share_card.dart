@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/enums/excerpt_share_template.dart';
 import 'package:anx_reader/models/font_model.dart';
 import 'package:flutter/material.dart';
@@ -89,7 +90,7 @@ class ExcerptShareCard extends StatelessWidget {
   Widget _getAnxReaderLogo({double fontSize = 12, Color? color}) {
     color ??= textColor;
     return Text(
-      'Anx Reader',
+      AppIdentity.displayName,
       style: TextStyle(
         fontSize: fontSize,
         fontWeight: FontWeight.w100,

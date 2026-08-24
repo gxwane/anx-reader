@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:core';
 
+import 'package:anx_reader/config/preview_import_policy.dart';
 import 'package:anx_reader/enums/ai_prompts.dart';
 import 'package:anx_reader/enums/bgimg_alignment.dart';
 import 'package:anx_reader/enums/bgimg_type.dart';
@@ -133,10 +134,15 @@ class Prefs extends ChangeNotifier {
     return backup;
   }
 
-  Future<void> applyPrefsBackupMap(Map<String, dynamic> backup) async {
+  Future<void> applyPrefsBackupMap(
+    Map<String, dynamic> backup, {
+    Set<String> additionalSkipKeys = const <String>{},
+  }) async {
     for (final MapEntry<String, dynamic> entry in backup.entries) {
       final String key = entry.key;
-      if (key == prefsBackupVersionKey || _prefsImportSkipKeys.contains(key)) {
+      if (key == prefsBackupVersionKey ||
+          _prefsImportSkipKeys.contains(key) ||
+          additionalSkipKeys.contains(key)) {
         continue;
       }
       final dynamic entryValue = entry.value;
@@ -167,6 +173,13 @@ class Prefs extends ChangeNotifier {
         default:
           continue;
       }
+    }
+    notifyListeners();
+  }
+
+  Future<void> clearSyncConfiguration() async {
+    for (final String key in PreviewImportPolicy.syncConfigurationKeys) {
+      await prefs.remove(key);
     }
     notifyListeners();
   }

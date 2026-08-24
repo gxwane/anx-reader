@@ -1,12 +1,14 @@
 [English](README.md) | **Türkçe** | [简体中文](README_zh.md) | [Русский](README_RU.md)
 
+> [!IMPORTANT]
+> **Anx Reader GX Preview**, [Anx Reader](https://github.com/Anxcye/anx-reader) projesinin resmi olmayan ve bağımsız olarak uzun süreli bakımı yapılan bir çatalıdır. Ayrı bir uygulama kimliği, veri ve eşitleme ad alanı ve yayın kanalı kullanır; GX Preview paketleri üst projenin resmi sürümleri değildir. Preview güncellemelerinden önce kitaplığınızı yedekleyin.
+
 <br>
 
 <p align="center">
-  <img src="./docs/images/Anx-logo.jpg" alt="Anx-logo" width="100" />
+  <img src="./assets/icon/Anx-logo-gx-preview.png" alt="Anx Reader GX Preview logosu" width="100" />
 </p>
-<h1 align="center">Anx Reader</h1>
-<p align="center"><a href="https://trendshift.io/repositories/10329" target="_blank"><img src="https://trendshift.io/api/badge/repositories/10329" alt="Anxcye%2Fanx-reader | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a></p>
+<h1 align="center">Anx Reader GX Preview</h1>
 
 <p align="center">
   <a href="https://github.com/Anxcye/anx-reader#platform-support"><img src="https://img.shields.io/badge/platform-windows%20%7C%20macos%20%7C%20iOS%20%7C%20Android-lightgrey" alt="Platformlar"></a>

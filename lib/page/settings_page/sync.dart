@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/enums/sync_protocol.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
@@ -54,7 +55,8 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
                 child: GestureDetector(
                   onTap: () async {
                     if (!await launchUrl(
-                        Uri.parse('https://anx.anxcye.com/docs/sync/webdav'),
+                        Uri.parse(
+                            '${AppIdentity.upstreamDocumentationUrl}/sync/webdav'),
                         mode: LaunchMode.externalApplication)) {
                       AnxToast.show(L10n.of(context).commonFailed);
                     }

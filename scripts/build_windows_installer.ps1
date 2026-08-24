@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Build a Windows release and compile an Inno Setup installer (app.exe).
+    Build a Windows release and compile an Anx Reader GX Preview installer.
 
 .DESCRIPTION
     Requires Inno Setup 6 (ISCC.exe). Stages files under build/windows/installer_staging
-    and writes build/windows/installer_output/app.exe (installer).
+    and writes a versioned installer under build/windows/installer_output.
 
 .PARAMETER SkipBuild
     Skip flutter build; use existing build/windows/x64/runner/Release.
@@ -82,14 +82,14 @@ $installerOut = Join-Path $repoRoot "build\windows\installer_output"
 
 if (-not $SkipBuild) {
     $env:DART_SUPPRESS_ANALYTICS = "true"
-    & $Flutter pub get
+    & $Flutter pub get --enforce-lockfile
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-    & $Flutter build windows --release
+    & $Flutter build windows --release --no-pub
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }
 
-if (-not (Test-Path (Join-Path $releaseDir "anx_reader.exe"))) {
-    Write-Error "Release build not found: $releaseDir\anx_reader.exe. Run without -SkipBuild or build first."
+if (-not (Test-Path (Join-Path $releaseDir "anx_reader_gx_preview.exe"))) {
+    Write-Error "Release build not found: $releaseDir\anx_reader_gx_preview.exe. Run without -SkipBuild or build first."
 }
 
 Remove-Item $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -126,14 +126,17 @@ $appVersion = ($matches[1] -split '\+')[0]
 # so we don't need to copy files into the Inno Setup installation.
 
 $issPath = Join-Path $repoRoot "scripts\compile_windows_setup-inno.iss"
+$installerBaseName = "Anx-Reader-GX-Preview-windows-$appVersion-setup"
 & $iscc `
-    "/DStagingDir=""$stagingDir""" `
-    "/DInstallerOutputDir=""$installerOut""" `
-    "/DMyAppVersion=""$appVersion""" `
+    "/DStagingDir=$stagingDir" `
+    "/DInstallerOutputDir=$installerOut" `
+    "/DMyAppVersion=$appVersion" `
+    "/F$installerBaseName" `
     $issPath
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-$installerExe = Join-Path $installerOut "app.exe"
+$installerFileName = "$installerBaseName.exe"
+$installerExe = Join-Path $installerOut $installerFileName
 if (-not (Test-Path $installerExe)) {
     Write-Error "Inno Setup did not produce: $installerExe"
 }

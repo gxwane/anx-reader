@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/service/tts/models/tts_voice.dart';
@@ -37,7 +38,7 @@ class OpenAiTtsProvider extends TtsServiceProvider {
         label: L10n.of(context).translateTip,
         type: ConfigItemType.tip,
         defaultValue: L10n.of(context).settingsNarrateOpenAiHelpText,
-        link: 'https://anx.anxcye.com/docs/tts/openai',
+        link: '${AppIdentity.upstreamDocumentationUrl}/tts/openai',
       ),
       ConfigItem(
         key: 'url',

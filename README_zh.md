@@ -1,15 +1,18 @@
 [English](README.md) | **简体中文** | [Türkçe](README_tr.md)
 
-<p align="center">
-  <img src="./docs/images/Anx-logo.jpg" alt="Anx-logo" width="100" />
-</p>
-<h1 align="center">Anx Reader - 让阅读更专注</h1>
+> [!IMPORTANT]
+> **Anx Reader GX Preview** 是 [Anx Reader](https://github.com/Anxcye/anx-reader) 的非官方、独立维护长期分支。它使用独立的应用身份、数据与同步命名空间以及发布渠道；GX Preview 安装包并非上游官方版本。Preview 版本可能包含不兼容变更，更新前请先备份书库。
 
 <p align="center">
-  <a href="https://github.com/Anxcye/anx-reader/blob/main/LICENSE"><img src="https://img.shields.io/github/license/anxcye/anx-reader" alt="License" ></a>
-  <a href="https://github.com/Anxcye/anx-reader/releases"><img src="https://img.shields.io/github/downloads/anxcye/anx-reader/total" alt="Downloads"></a>
-  <a href="https://hellogithub.com/repository/819a2b3050204451bed552a8812114e5" target="_blank"><img src="https://abroad.hellogithub.com/v1/widgets/recommend.svg?rid=819a2b3050204451bed552a8812114e5&claim_uid=WBA1XOQirm2GRqs&theme=small" alt="Featured｜HelloGitHub"/></a>
-  <a href="https://github.com/anxcye/anx-reader/stargazers"><img src="https://img.shields.io/github/stars/anxcye/anx-reader" alt="stars"></a>
+  <img src="./assets/icon/Anx-logo-gx-preview.png" alt="Anx Reader GX Preview 图标" width="100" />
+</p>
+<h1 align="center">Anx Reader GX Preview</h1>
+
+<p align="center">
+  <a href="https://github.com/gxwane/anx-reader/releases"><img src="https://img.shields.io/github/v/release/gxwane/anx-reader?include_prereleases" alt="Preview 版本"></a>
+  <a href="https://github.com/gxwane/anx-reader/blob/develop/LICENSE"><img src="https://img.shields.io/github/license/gxwane/anx-reader" alt="License" ></a>
+  <a href="https://github.com/gxwane/anx-reader/releases"><img src="https://img.shields.io/github/downloads/gxwane/anx-reader/total" alt="Downloads"></a>
+  <a href="https://github.com/gxwane/anx-reader/stargazers"><img src="https://img.shields.io/github/stars/gxwane/anx-reader" alt="stars"></a>
 </p>
 
 
@@ -29,6 +32,8 @@ Anx Reader，一款为热爱阅读的你精心打造的电子书阅读器。集�
 | 阅读统计 | 记录阅读时长<br>按年/月/周/日维度查看<br>阅读热力图呈现习惯变化 | ✅ |
 | 其他 | 听书功能：支持多模型、语速、音色与定时<br>书籍全文翻译：原文、译文对照阅读<br>节省空间：云端上传节省本地存储，随用随下<br>简繁转换：中文简繁体一键转换 | ✅ |
 | OPDS 书源 | 支持 OPDS 书源，支持自定义添加  |  🛠️  |
+
+GX Preview 目前通过[本分支发布渠道](https://github.com/gxwane/anx-reader/releases)提供 Windows 和 Android 安装包。下方 iOS、macOS App Store 与 F-Droid 链接均为上游 Anx Reader 的发行版本。
 
 <table border="1">
   <tr>
@@ -57,7 +62,7 @@ Anx Reader，一款为热爱阅读的你精心打造的电子书阅读器。集�
   <tr>
     <td>Windows</td>
     <td>
-      <a href="https://github.com/Anxcye/anx-reader/releases/latest" target="_blank">
+      <a href="https://github.com/gxwane/anx-reader/releases/latest" target="_blank">
         <img src="https://github.com/user-attachments/assets/cf61e197-d756-4606-a8ad-fb591f79fdfc" alt="GitHub" height="45"/>
       </a>
     </td>
@@ -65,7 +70,7 @@ Anx Reader，一款为热爱阅读的你精心打造的电子书阅读器。集�
   <tr>
     <td>Android</td>
     <td>
-      <a href="https://github.com/Anxcye/anx-reader/releases/latest" target="_blank">
+      <a href="https://github.com/gxwane/anx-reader/releases/latest" target="_blank">
         <img src="https://github.com/user-attachments/assets/cf61e197-d756-4606-a8ad-fb591f79fdfc" alt="GitHub" height="45"/>
       </a>
       <a href="https://f-droid.org/packages/com.anxcye.anx_reader" target="_blank">
@@ -79,7 +84,7 @@ Anx Reader，一款为热爱阅读的你精心打造的电子书阅读器。集�
 ### 我遇到了问题，怎么办？
 查看[故障排除](./docs/troubleshooting.md#简体中文)
 
-提出一个[issue](https://github.com/Anxcye/anx-reader/issues/new/choose)，将会尽快回复。
+GX Preview 的问题请提交到[本分支 issue](https://github.com/gxwane/anx-reader/issues/new/choose)；上游 Anx Reader 的问题请使用[上游 issue](https://github.com/Anxcye/anx-reader/issues/new/choose)。
 
 Telegram 群组：[https://t.me/AnxReader](https://t.me/AnxReader)
 

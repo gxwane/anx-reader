@@ -1,3 +1,4 @@
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/enums/lang_list.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/service/config/config_item.dart';
@@ -91,7 +92,7 @@ class GoogleApiTranslateProvider extends TranslateServiceProvider {
         label: L10n.of(context).translateTip,
         type: ConfigItemType.tip,
         defaultValue: L10n.of(context).translateGoogleHelpText,
-        link: 'https://anx.anxcye.com/docs/translate/google',
+        link: '${AppIdentity.upstreamDocumentationUrl}/translate/google',
       ),
       ConfigItem(
         key: 'api_key',

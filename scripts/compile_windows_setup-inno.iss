@@ -4,7 +4,7 @@
 ; Pass ISCC defines, e.g.:
 ;   ISCC /DMyAppVersion="1.2.3" /DStagingDir="C:\path\to\stage" /DInstallerOutputDir="C:\out" scripts\compile_windows_setup-inno.iss
 ;
-; StagingDir must contain anx_reader.exe, *.dll, data\, and logo.ico (see build_windows_installer.ps1).
+; StagingDir must contain anx_reader_gx_preview.exe, *.dll, data\, and logo.ico (see build_windows_installer.ps1).
 
 #ifndef StagingDir
   #error StagingDir not defined. Pass /DStagingDir="C:\path\to\stage"
@@ -16,11 +16,11 @@
 #define MyAppVersion "0.0.0"
 #endif
 
-#define MyAppName "AnxReader"
-#define MyAppPublisher "Anxcye"
-#define MyAppURL "https://github.com/Anxcye/Anx-Reader"
-#define MyAppExeName "anx_reader.exe"
-#define MyAppId "{{32610E5D-B613-420A-B68F-A57E2102BCE3}}"
+#define MyAppName "Anx Reader GX Preview"
+#define MyAppPublisher "gxwane"
+#define MyAppURL "https://github.com/gxwane/anx-reader"
+#define MyAppExeName "anx_reader_gx_preview.exe"
+#define MyAppId "{{9DDF6922-4FE8-4AB4-9BD4-9E7C2E5038A1}}"
 
 
 [Setup]
@@ -40,7 +40,8 @@ DisableProgramGroupPage=yes
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir={#InstallerOutputDir}
-OutputBaseFilename=app
+; build_windows_installer.ps1 supplies the versioned name with ISCC /F.
+OutputBaseFilename=Anx-Reader-GX-Preview-windows-setup
 SetupIconFile={#StagingDir}\logo.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma

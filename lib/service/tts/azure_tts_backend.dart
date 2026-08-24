@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/service/tts/models/tts_voice.dart';
@@ -33,7 +34,7 @@ class AzureTtsProvider extends TtsServiceProvider {
         label: L10n.of(context).translateTip,
         type: ConfigItemType.tip,
         defaultValue: L10n.of(context).settingsNarrateAzureHelpText,
-        link: 'https://anx.anxcye.com/docs/tts/azure',
+        link: '${AppIdentity.upstreamDocumentationUrl}/tts/azure',
       ),
       ConfigItem(
         key: 'key',

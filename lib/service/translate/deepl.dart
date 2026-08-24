@@ -1,3 +1,4 @@
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/enums/lang_list.dart';
@@ -119,7 +120,7 @@ class DeepLTranslateProvider extends TranslateServiceProvider {
         label: L10n.of(context).translateTip,
         type: ConfigItemType.tip,
         defaultValue: L10n.of(context).translateDeepLHelpText,
-        link: 'https://anx.anxcye.com/docs/translate/deepl',
+        link: '${AppIdentity.upstreamDocumentationUrl}/translate/deepl',
       ),
       ConfigItem(
         key: 'api_url',

@@ -2,7 +2,7 @@ name: anx_reader
 description: "An e-book reader."
 publish_to: 'none'
 
-version: 1.14.1+6322
+version: 0.1.0-preview.1+1
 
 environment:
   sdk: '>=3.5.2 <4.0.0'
@@ -155,6 +155,8 @@ dependency_overrides:
 
 
 dev_dependencies:
+  integration_test:
+    sdk: flutter
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0

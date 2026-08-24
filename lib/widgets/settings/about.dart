@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
@@ -8,7 +9,6 @@ import 'package:anx_reader/utils/env_var.dart';
 import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/widgets/settings/link_icon.dart';
 import 'package:anx_reader/utils/check_update.dart';
-import 'package:anx_reader/widgets/settings/show_donate_dialog.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -115,13 +115,24 @@ Future<void> openAboutDialog() async {
                   padding: const EdgeInsets.fromLTRB(0, 0, 0, 5),
                   child: Center(
                     child: Text(
-                      'Anx',
+                      AppIdentity.displayName,
                       style: TextStyle(
-                        fontSize: 50,
+                        fontSize: 32,
                         fontWeight: FontWeight.bold,
                         color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
+                  ),
+                ),
+                Card(
+                  color: Theme.of(context).colorScheme.secondaryContainer,
+                  child: ListTile(
+                    leading: Icon(
+                      Icons.fork_right,
+                      color: Theme.of(context).colorScheme.onSecondaryContainer,
+                    ),
+                    title: Text(L10n.of(context).aboutForkStatusTitle),
+                    subtitle: Text(L10n.of(context).aboutForkStatusBody),
                   ),
                 ),
                 const Divider(),
@@ -134,23 +145,16 @@ Future<void> openAboutDialog() async {
                     _handleDeveloperUnlockTap(context);
                   },
                 ),
-                if (EnvVar.enableCheckUpdate)
+                if (EnvVar.enableManualReleaseLink)
                   ListTile(
                       title: Text(L10n.of(context).aboutCheckForUpdates),
                       onTap: () => checkUpdate(true)),
-                if (EnvVar.enableDonation)
-                  ListTile(
-                    title: Text(L10n.of(context).appDonate),
-                    onTap: () {
-                      showDonateDialog(context);
-                    },
-                  ),
                 ListTile(
                   title: Text(L10n.of(context).appLicense),
                   onTap: () {
                     showLicensePage(
                       context: context,
-                      applicationName: 'Anx',
+                      applicationName: AppIdentity.displayName,
                       applicationVersion: version,
                     );
                   },
@@ -160,7 +164,17 @@ Future<void> openAboutDialog() async {
                   onTap: () {
                     launchUrl(
                       Uri.parse(
-                          'https://github.com/Anxcye/anx-reader/graphs/contributors'),
+                          '${AppIdentity.repositoryUrl}/graphs/contributors'),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  },
+                ),
+                ListTile(
+                  title: const Text('Upstream Anx Reader'),
+                  subtitle: Text(AppIdentity.upstreamRepositoryUrl),
+                  onTap: () {
+                    launchUrl(
+                      Uri.parse(AppIdentity.upstreamRepositoryUrl),
                       mode: LaunchMode.externalApplication,
                     );
                   },
@@ -169,7 +183,8 @@ Future<void> openAboutDialog() async {
                   title: Text(L10n.of(context).aboutPrivacyPolicy),
                   onTap: () async {
                     launchUrl(
-                      Uri.parse('https://anx.anxcye.com/privacy'),
+                      Uri.parse(
+                          '${AppIdentity.repositoryUrl}/blob/develop/docs/privacy-policy.md'),
                       mode: LaunchMode.externalApplication,
                     );
                   },
@@ -178,7 +193,8 @@ Future<void> openAboutDialog() async {
                   title: Text(L10n.of(context).aboutTermsOfUse),
                   onTap: () async {
                     launchUrl(
-                      Uri.parse('https://anx.anxcye.com/terms'),
+                      Uri.parse(
+                          '${AppIdentity.repositoryUrl}/blob/develop/LICENSE'),
                       mode: LaunchMode.externalApplication,
                     );
                   },
@@ -187,22 +203,12 @@ Future<void> openAboutDialog() async {
                   title: Text(L10n.of(context).aboutHelp),
                   onTap: () async {
                     launchUrl(
-                      Uri.parse('https://anx.anxcye.com/docs'),
+                      Uri.parse(AppIdentity.documentationUrl),
                       mode: LaunchMode.externalApplication,
                     );
                   },
                 ),
                 const Divider(),
-                if (EnvVar.showBeian) ...[
-                  GestureDetector(
-                    onTap: () {
-                      launchUrl(Uri.parse('https://beian.miit.gov.cn/'),
-                          mode: LaunchMode.externalApplication);
-                    },
-                    child: const Text('闽ICP备2025091402号-1A'),
-                  ),
-                  const Divider(),
-                ],
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -210,45 +216,17 @@ Future<void> openAboutDialog() async {
                     children: [
                       linkIcon(
                           icon: Icon(
-                            IonIcons.earth,
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
-                          url: 'https://anx.anxcye.com',
-                          mode: LaunchMode.externalApplication),
-                      linkIcon(
-                          icon: Icon(
                             IonIcons.logo_github,
                             color: Theme.of(context).colorScheme.secondary,
                           ),
-                          url: 'https://github.com/Anxcye/anx-reader',
+                          url: AppIdentity.repositoryUrl,
                           mode: LaunchMode.externalApplication),
-                      if (EnvVar.showTelegramLink)
-                        linkIcon(
-                            icon: Icon(
-                              Icons.telegram,
-                              color: Theme.of(context).colorScheme.secondary,
-                            ),
-                            url: 'https://t.me/AnxReader',
-                            mode: LaunchMode.externalApplication),
                       linkIcon(
-                          icon: Image.asset(
-                            'assets/images/xiaohongshu.png',
+                          icon: Icon(
+                            Icons.fork_right,
                             color: Theme.of(context).colorScheme.secondary,
                           ),
-                          url:
-                              'https://www.xiaohongshu.com/user/profile/5d403f3e00000000100151ff',
-                          mode: LaunchMode.externalApplication),
-                      linkIcon(
-                          icon: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: Image.asset(
-                              'assets/images/qq.png',
-                              color: Theme.of(context).colorScheme.secondary,
-                            ),
-                          ),
-                          // qq group url is so crazy
-                          url:
-                              'http://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=8BYItJOMz4RCQJoHAAei7FV-nGB0iT8O&authKey=MD6a7gI%2FENiMr32rQRTLx2BpzTaa1wO9Qfmhx9ETcaLS%2FdcOFeptvVH9FWfvUpL2&noverify=0&group_code=1042905699',
+                          url: AppIdentity.upstreamRepositoryUrl,
                           mode: LaunchMode.externalApplication),
                     ],
                   ),

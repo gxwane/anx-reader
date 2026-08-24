@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/service/tts/aliyun/aliyun_voices.dart';
@@ -48,7 +49,7 @@ class AliyunTtsProvider extends TtsServiceProvider {
         label: L10n.of(context).translateTip,
         type: ConfigItemType.tip,
         defaultValue: L10n.of(context).settingsNarrateAliyunHelpText,
-        link: 'https://anx.anxcye.com/docs/tts/aliyun',
+        link: '${AppIdentity.upstreamDocumentationUrl}/tts/aliyun',
       ),
       ConfigItem(
         key: 'appkey',

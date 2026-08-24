@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:anx_reader/config/preview_import_policy.dart';
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/dao/database.dart';
+import 'package:anx_reader/service/sync/sync_client_factory.dart';
 import 'package:anx_reader/utils/get_path/databases_path.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
 import 'package:anx_reader/utils/get_path/get_temp_dir.dart';
@@ -130,6 +132,8 @@ class BackupService {
               .toList(growable: false),
         });
         await _restorePrefsFromBackup(extractPath);
+        await Prefs().clearSyncConfiguration();
+        SyncClientFactory.resetCurrentClient();
         await DBHelper().initDB();
       } catch (error, stackTrace) {
         AnxLog.severe('importData: restore failed, rolling back: $error', error,
@@ -195,7 +199,10 @@ class BackupService {
     try {
       final decoded = jsonDecode(await backupFile.readAsString());
       if (decoded is Map<String, dynamic>) {
-        await Prefs().applyPrefsBackupMap(decoded);
+        await Prefs().applyPrefsBackupMap(
+          decoded,
+          additionalSkipKeys: PreviewImportPolicy.upstreamBackupSkipKeys,
+        );
         return true;
       }
       AnxLog.info('importData: prefs backup has unexpected format');

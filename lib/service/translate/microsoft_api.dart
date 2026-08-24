@@ -1,3 +1,4 @@
+import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/enums/lang_list.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/service/config/config_item.dart';
@@ -94,7 +95,7 @@ class MicrosoftApiTranslateProvider extends TranslateServiceProvider {
         label: L10n.of(context).translateTip,
         type: ConfigItemType.tip,
         defaultValue: L10n.of(context).translateAzureHelpText,
-        link: 'https://anx.anxcye.com/docs/translate/azure',
+        link: '${AppIdentity.upstreamDocumentationUrl}/translate/azure',
       ),
       ConfigItem(
         key: 'api_key',
