@@ -34,18 +34,46 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               GestureDetector(
                 onTap: () {},
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(0, 60, 0, 20),
+                  padding: const EdgeInsets.fromLTRB(0, 50, 0, 20),
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Container(
                       constraints: const BoxConstraints(maxWidth: 500),
-                      child: Text(
-                        'Anx',
-                        style: TextStyle(
-                          fontSize: 130,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Anx',
+                            style: TextStyle(
+                              fontSize: 110,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                              height: 1.0,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primaryContainer,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              'GX PREVIEW',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2.5,
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onPrimaryContainer,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

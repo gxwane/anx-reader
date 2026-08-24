@@ -172,9 +172,9 @@ class AndroidSettingsTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       DefaultTextStyle(
-                        style: TextStyle(
+                        style: (Theme.of(context).textTheme.bodyLarge ?? const TextStyle()).copyWith(
                           color: enabled
-                              ? Theme.of(context).textTheme.bodyLarge!.color!
+                              ? Theme.of(context).textTheme.bodyLarge?.color
                               : Theme.of(context).disabledColor,
                           fontSize: 18,
                           fontWeight: FontWeight.w400,
@@ -185,12 +185,9 @@ class AndroidSettingsTile extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(top: 4.0),
                           child: DefaultTextStyle(
-                            style: TextStyle(
+                            style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle()).copyWith(
                               color: enabled
-                                  ? Theme.of(context)
-                                      .textTheme
-                                      .bodySmall!
-                                      .color!
+                                  ? Theme.of(context).textTheme.bodySmall?.color
                                   : Theme.of(context).disabledColor,
                             ),
                             child: value!,
@@ -200,12 +197,9 @@ class AndroidSettingsTile extends StatelessWidget {
                         Padding(
                           padding: const EdgeInsets.only(top: 4.0),
                           child: DefaultTextStyle(
-                            style: TextStyle(
+                            style: (Theme.of(context).textTheme.bodySmall ?? const TextStyle()).copyWith(
                               color: enabled
-                                  ? Theme.of(context)
-                                      .textTheme
-                                      .bodySmall!
-                                      .color!
+                                  ? Theme.of(context).textTheme.bodySmall?.color
                                   : Theme.of(context).disabledColor,
                             ),
                             child: description!,
