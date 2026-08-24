@@ -1,6 +1,9 @@
 name: GX Preview Release
 
 on:
+  push:
+    tags:
+      - 'gx-v[0-9]*.[0-9]*.[0-9]*-preview.[0-9]*'
   workflow_dispatch:
     inputs:
       version:
@@ -42,6 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      release_notes_b64: ${{ steps.release.outputs.release_notes_b64 }}
+      windows_bootstrap: ${{ steps.release.outputs.windows_bootstrap }}
     steps:
       - name: Check out the requested commit
         uses: actions/checkout@v6
@@ -56,35 +62,52 @@ jobs:
           WINDOWS_BOOTSTRAP: ${{ inputs.windows_bootstrap }}
           BOOTSTRAP_CONFIRMATION: ${{ inputs.bootstrap_confirmation }}
         run: |
-          $VERSION = '${{ inputs.version }}'
-          $UPSTREAM_BASE = '${{ inputs.upstream_base }}'
-          if ($VERSION -notmatch '^\d+\.\d+\.\d+-preview\.\d+$') {
-            throw "Version must match <semver>-preview.<n>: $VERSION"
-          }
-          if ($UPSTREAM_BASE -notmatch '^[0-9a-fA-F]{7,40}$') {
-            throw "upstream_base must be a Git commit ID."
-          }
-          git cat-file -e "$UPSTREAM_BASE`^{commit}"
-          if ($LASTEXITCODE -ne 0) {
-            throw "upstream_base is not present in this checkout: $UPSTREAM_BASE"
-          }
-          if ('${{ github.ref }}' -ne 'refs/heads/develop') {
-            throw "GX Preview releases must run from the develop branch."
+          # Determine trigger source and resolve VERSION
+          $IS_TAG_TRIGGER = '${{ github.ref_type }}' -eq 'tag'
+          if ($IS_TAG_TRIGGER) {
+            $TAG = '${{ github.ref_name }}'
+            if ($TAG -notmatch '^gx-v(\d+\.\d+\.\d+-preview\.\d+)$') {
+              throw "Tag must match gx-v<semver>-preview.<n>: $TAG"
+            }
+            $VERSION = $Matches[1]
+            $WINDOWS_BOOTSTRAP_EFFECTIVE = 'false'
+          } else {
+            $VERSION = '${{ inputs.version }}'
+            if ($VERSION -notmatch '^\d+\.\d+\.\d+-preview\.\d+$') {
+              throw "Version must match <semver>-preview.<n>: $VERSION"
+            }
+            $UPSTREAM_BASE = '${{ inputs.upstream_base }}'
+            if ($UPSTREAM_BASE -notmatch '^[0-9a-fA-F]{7,40}$') {
+              throw "upstream_base must be a Git commit ID."
+            }
+            git cat-file -e "$UPSTREAM_BASE`^{commit}"
+            if ($LASTEXITCODE -ne 0) {
+              throw "upstream_base is not present in this checkout: $UPSTREAM_BASE"
+            }
+            if ('${{ github.ref }}' -ne 'refs/heads/develop') {
+              throw "GX Preview releases must run from the develop branch."
+            }
+            $TAG = "gx-v${VERSION}"
+            $WINDOWS_BOOTSTRAP_EFFECTIVE = $env:WINDOWS_BOOTSTRAP
           }
 
+          # Verify pubspec.yaml version matches
           $pubspecMatch = Select-String -Path pubspec.yaml -Pattern '^version:\s*(\S+)$'
           $PUBSPEC_VERSION = ($pubspecMatch.Matches[0].Groups[1].Value -split '\+')[0]
           if ($PUBSPEC_VERSION -ne $VERSION) {
             throw "pubspec.yaml version $PUBSPEC_VERSION does not match $VERSION."
           }
 
-          $TAG = "gx-v${VERSION}"
-          git rev-parse --quiet --verify "refs/tags/$TAG"
-          if ($LASTEXITCODE -eq 0) {
-            throw "Tag already exists: $TAG"
+          # For manual trigger: verify tag does not already exist
+          if (-not $IS_TAG_TRIGGER) {
+            git rev-parse --quiet --verify "refs/tags/$TAG"
+            if ($LASTEXITCODE -eq 0) {
+              throw "Tag already exists: $TAG"
+            }
           }
 
-          if ($env:WINDOWS_BOOTSTRAP -eq 'true') {
+          # Bootstrap exception check (manual trigger only)
+          if ($WINDOWS_BOOTSTRAP_EFFECTIVE -eq 'true') {
             if ($env:BOOTSTRAP_CONFIRMATION -ne 'I_ACCEPT_ONE_UNSIGNED_WINDOWS_BOOTSTRAP') {
               throw "The unsigned bootstrap confirmation text is missing."
             }
@@ -95,7 +118,27 @@ jobs:
             }
           }
 
+          # Extract release notes from CHANGELOG.md (tag trigger) or fall back to manual input
+          if ($IS_TAG_TRIGGER) {
+            if (Test-Path CHANGELOG.md) {
+              $changelogContent = Get-Content CHANGELOG.md -Raw
+              if ($changelogContent -match "(?ms)^##\s+\[$([regex]::Escape($VERSION))\][^\n]*\n(.+?)(?=\n^##\s+\[|\z)") {
+                $RELEASE_NOTES = $Matches[1].Trim()
+              } else {
+                $RELEASE_NOTES = "See CHANGELOG.md for details."
+              }
+            } else {
+              $RELEASE_NOTES = "See commit history for details."
+            }
+          } else {
+            $RELEASE_NOTES = '${{ inputs.release_notes }}'
+          }
+
           "tag=$TAG" >> $env:GITHUB_OUTPUT
+          "version=$VERSION" >> $env:GITHUB_OUTPUT
+          "windows_bootstrap=$WINDOWS_BOOTSTRAP_EFFECTIVE" >> $env:GITHUB_OUTPUT
+          $encodedNotes = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($RELEASE_NOTES))
+          "release_notes_b64=$encodedNotes" >> $env:GITHUB_OUTPUT
 
   android:
     name: Build signed Android APKs
@@ -144,30 +187,32 @@ jobs:
             printf 'storeFile=keystore.jks\n'
           } > android/key.properties
 
+
       - name: Build release APKs
         shell: bash
         run: |
           flutter gen-l10n
           flutter build apk --release --no-pub
           cp build/app/outputs/flutter-apk/app-release.apk \
-            build/app/outputs/flutter-apk/Anx-Reader-GX-Preview-android-${{ inputs.version }}-universal.apk
+            build/app/outputs/flutter-apk/Anx-Reader-GX-Preview-android-${{ needs.validate.outputs.version }}-universal.apk
           flutter build apk --release --split-per-abi --no-pub
           cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk \
-            build/app/outputs/flutter-apk/Anx-Reader-GX-Preview-android-${{ inputs.version }}-arm64-v8a.apk
+            build/app/outputs/flutter-apk/Anx-Reader-GX-Preview-android-${{ needs.validate.outputs.version }}-arm64-v8a.apk
 
       - name: Upload Android release assets
         uses: actions/upload-artifact@v7
         with:
           name: gx-preview-android-assets
           path: |
-            build/app/outputs/flutter-apk/Anx-Reader-GX-Preview-android-${{ inputs.version }}-arm64-v8a.apk
-            build/app/outputs/flutter-apk/Anx-Reader-GX-Preview-android-${{ inputs.version }}-universal.apk
+            build/app/outputs/flutter-apk/Anx-Reader-GX-Preview-android-${{ needs.validate.outputs.version }}-arm64-v8a.apk
+            build/app/outputs/flutter-apk/Anx-Reader-GX-Preview-android-${{ needs.validate.outputs.version }}-universal.apk
           if-no-files-found: error
           retention-days: 14
 
+
   windows-bootstrap:
     name: Build one-time unsigned Windows bootstrap
-    if: ${{ inputs.windows_bootstrap == true }}
+    if: ${{ needs.validate.outputs.windows_bootstrap == 'true' }}
     needs: validate
     runs-on: windows-latest
     steps:
@@ -189,8 +234,8 @@ jobs:
         shell: pwsh
         run: |
           ./scripts/build_windows_installer.ps1 -Flutter flutter
-          $source = 'build/windows/installer_output/Anx-Reader-GX-Preview-windows-${{ inputs.version }}-setup.exe'
-          $destination = 'build/windows/release-assets/Anx-Reader-GX-Preview-windows-${{ inputs.version }}-unsigned-bootstrap.exe'
+          $source = 'build/windows/installer_output/Anx-Reader-GX-Preview-windows-${{ needs.validate.outputs.version }}-setup.exe'
+          $destination = 'build/windows/release-assets/Anx-Reader-GX-Preview-windows-${{ needs.validate.outputs.version }}-unsigned-bootstrap.exe'
           New-Item -ItemType Directory -Force -Path (Split-Path $destination) | Out-Null
           Copy-Item -LiteralPath $source -Destination $destination
           if ((Get-AuthenticodeSignature -FilePath $destination).Status -ne 'NotSigned') {
@@ -205,9 +250,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+
   windows-signed:
     name: Build and SignPath-sign Windows installer
-    if: ${{ inputs.windows_bootstrap == false }}
+    if: ${{ needs.validate.outputs.windows_bootstrap != 'true' }}
     needs: validate
     runs-on: windows-latest
     environment: gx-preview-signing
@@ -256,8 +302,8 @@ jobs:
         id: upload-unsigned-windows
         uses: actions/upload-artifact@v7
         with:
-          name: gx-preview-windows-signing-request-${{ inputs.version }}
-          path: build/windows/installer_output/Anx-Reader-GX-Preview-windows-${{ inputs.version }}-setup.exe
+          name: gx-preview-windows-signing-request-${{ needs.validate.outputs.version }}
+          path: build/windows/installer_output/Anx-Reader-GX-Preview-windows-${{ needs.validate.outputs.version }}-setup.exe
           if-no-files-found: error
           retention-days: 7
 
@@ -284,7 +330,7 @@ jobs:
           if ($signature.Status -ne 'Valid') {
             throw "SignPath output has invalid Authenticode status: $($signature.Status)."
           }
-          $destination = 'build/windows/release-assets/Anx-Reader-GX-Preview-windows-${{ inputs.version }}-setup.exe'
+          $destination = 'build/windows/release-assets/Anx-Reader-GX-Preview-windows-${{ needs.validate.outputs.version }}-setup.exe'
           New-Item -ItemType Directory -Force -Path (Split-Path $destination) | Out-Null
           Copy-Item -LiteralPath $candidates[0].FullName -Destination $destination
 
@@ -295,6 +341,7 @@ jobs:
           path: build/windows/release-assets/*.exe
           if-no-files-found: error
           retention-days: 14
+
 
   release:
     name: Publish GX Preview prerelease
@@ -313,14 +360,38 @@ jobs:
           pattern: gx-preview-*-assets
           merge-multiple: true
 
+      - name: Decode release notes and generate release body
+        shell: bash
+        env:
+          RELEASE_NOTES_B64: ${{ needs.validate.outputs.release_notes_b64 }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          WINDOWS_BOOTSTRAP: ${{ needs.validate.outputs.windows_bootstrap }}
+          UPSTREAM_BASE: ${{ inputs.upstream_base }}
+        run: |
+          RELEASE_NOTES=$(echo "$RELEASE_NOTES_B64" | base64 --decode)
+          cat > release-body.md << 'BODYEOF'
+          > [!IMPORTANT]
+          > This is an unofficial, independently maintained Preview fork of Anx Reader, not an upstream release. It uses a separate app identity, data and synchronization namespace, and release channel. Back up your library before updating.
+          BODYEOF
+          printf '\n%s\n' "$RELEASE_NOTES" >> release-body.md
+          {
+            printf '\nSource commit: `%s`\n' "$GITHUB_SHA"
+            if [[ -n "$UPSTREAM_BASE" ]]; then
+              printf 'Upstream synchronization base: `%s`\n' "$UPSTREAM_BASE"
+            fi
+            printf 'Upstream project: https://github.com/Anxcye/anx-reader\n'
+            printf 'Windows unsigned bootstrap exception: `%s`\n' "$WINDOWS_BOOTSTRAP"
+            printf '\nVerify every downloaded file against `SHA256SUMS.txt` before installation.\n'
+          } >> release-body.md
+
       - name: Generate metadata and SHA-256 checksums
         shell: bash
         env:
-          WINDOWS_BOOTSTRAP: ${{ inputs.windows_bootstrap }}
+          WINDOWS_BOOTSTRAP: ${{ needs.validate.outputs.windows_bootstrap }}
         run: |
-          cat > release-assets/RELEASE-METADATA.txt <<EOF
+          cat > release-assets/RELEASE-METADATA.txt << EOF
           product=Anx Reader GX Preview
-          version=${{ inputs.version }}
+          version=${{ needs.validate.outputs.version }}
           tag=${{ needs.validate.outputs.tag }}
           source_commit=${{ github.sha }}
           upstream_base=${{ inputs.upstream_base }}
@@ -338,20 +409,10 @@ jobs:
         with:
           tag_name: ${{ needs.validate.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          name: Anx Reader GX Preview ${{ inputs.version }}
+          name: Anx Reader GX Preview ${{ needs.validate.outputs.version }}
           prerelease: true
           draft: false
-          body: |
-            > [!IMPORTANT]
-            > This is an unofficial, independently maintained Preview fork of Anx Reader, not an upstream release. It uses a separate app identity, data and synchronization namespace, and release channel. Back up your library before updating.
-
-            ${{ inputs.release_notes }}
-
-            Source commit: `${{ github.sha }}`
-            Upstream synchronization base: `${{ inputs.upstream_base }}`
-            Upstream project: https://github.com/Anxcye/anx-reader
-            Windows unsigned bootstrap exception: `${{ inputs.windows_bootstrap }}`
-
-            Verify every downloaded file against `SHA256SUMS.txt` before installation.
+          body_path: release-body.md
           files: release-assets/*
           fail_on_unmatched_files: true
+
