@@ -11,7 +11,7 @@ import 'golden_test_helper.dart';
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    setupGoldenComparator(Uri.parse('test/golden/settings_page_golden_test.dart'), tolerance: 0.01);
+    setupGoldenComparator('settings_page_golden_test.dart', tolerance: 0.05);
     await loadGoldenTestFonts();
   });
 

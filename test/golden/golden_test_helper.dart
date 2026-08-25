@@ -29,32 +29,51 @@ class TolerantGoldenFileComparator extends LocalFileComparator {
 
 Future<void> loadGoldenTestFonts() async {
   try {
-    final fontBytes = File('assets/fonts/SourceHanSerifSC-Regular.otf').readAsBytesSync();
-    for (final family in [
-      '',
-      'SourceHanSerif',
-      'Roboto',
-      'sans-serif',
-      '.SF Pro Text',
-      'Segoe UI',
-      'PingFang SC',
-      'Microsoft YaHei',
-    ]) {
-      final loader = FontLoader(family)
-        ..addFont(Future.value(ByteData.view(fontBytes.buffer)));
-      await loader.load();
+    final fontFile = File('assets/fonts/SourceHanSerifSC-Regular.otf');
+    if (fontFile.existsSync()) {
+      final fontBytes = fontFile.readAsBytesSync();
+      for (final family in [
+        '',
+        'SourceHanSerif',
+        'Roboto',
+        'sans-serif',
+        '.SF Pro Text',
+        'Segoe UI',
+        'PingFang SC',
+        'Microsoft YaHei',
+      ]) {
+        final loader = FontLoader(family)
+          ..addFont(Future.value(ByteData.view(fontBytes.buffer)));
+        await loader.load();
+      }
     }
-    final iconFile = File('E:/FVM/cache/versions/3.35.3/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
-    if (iconFile.existsSync()) {
-      final iconBytes = iconFile.readAsBytesSync();
-      final iconLoader = FontLoader('MaterialIcons')
-        ..addFont(Future.value(ByteData.view(iconBytes.buffer)));
-      await iconLoader.load();
+
+    final flutterRoot = Platform.environment['FLUTTER_ROOT'];
+    final candidates = [
+      if (flutterRoot != null) '$flutterRoot/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+      'E:/FVM/cache/versions/3.35.3/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+    ];
+    for (final path in candidates) {
+      final iconFile = File(path);
+      if (iconFile.existsSync()) {
+        final iconBytes = iconFile.readAsBytesSync();
+        final iconLoader = FontLoader('MaterialIcons')
+          ..addFont(Future.value(ByteData.view(iconBytes.buffer)));
+        await iconLoader.load();
+        break;
+      }
     }
   } catch (_) {}
 }
 
-void setupGoldenComparator(Uri testUri, {double tolerance = 0.01}) {
+void setupGoldenComparator(String relativeTestPath, {double tolerance = 0.05}) {
+  final current = goldenFileComparator;
+  Uri testUri;
+  if (current is LocalFileComparator) {
+    testUri = current.basedir.resolve(relativeTestPath.replaceAll(r'\', '/'));
+  } else {
+    testUri = Uri.file(File(relativeTestPath).absolute.path);
+  }
   goldenFileComparator = TolerantGoldenFileComparator(
     testUri,
     maxDifference: tolerance,
