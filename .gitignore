@@ -60,6 +60,8 @@ macos/DerivedData/
 .env
 *.jks
 key.properties
+*secrets*.txt
+*-base64.txt
 google_service_account.json
 **/fastlane/report.xml
 **/fastlane/Preview.html
