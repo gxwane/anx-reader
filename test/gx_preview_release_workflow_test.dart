@@ -58,7 +58,7 @@ void main() {
     expect(workflow, isNot(contains('anx.anxcye.com')));
     expect(
       workflow,
-      contains('This is an unofficial, independently maintained Preview fork'),
+      contains('本版本为 Anx Reader 的非官方、独立维护的 Preview 预览分支'),
     );
   });
 

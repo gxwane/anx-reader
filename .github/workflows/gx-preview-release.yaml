@@ -231,16 +231,16 @@ jobs:
           RELEASE_NOTES=$(echo "$RELEASE_NOTES_B64" | base64 --decode)
           cat > release-body.md << 'BODYEOF'
           > [!IMPORTANT]
-          > This is an unofficial, independently maintained Preview fork of Anx Reader, not an upstream release. It uses a separate app identity, data and synchronization namespace, and release channel. Back up your library before updating.
+          > 本版本为 Anx Reader 的非官方、独立维护的 Preview 预览分支，非上游官方发版。本分支拥有独立的应用标识、数据与 WebDAV 同步命名空间以及更新通道。升级前建议先备份书库数据。
           BODYEOF
           printf '\n%s\n' "$RELEASE_NOTES" >> release-body.md
           {
-            printf '\nSource commit: `%s`\n' "$GITHUB_SHA"
+            printf '\n源码提交 (Commit): `%s`\n' "$GITHUB_SHA"
             if [[ -n "$UPSTREAM_BASE" ]]; then
-              printf 'Upstream synchronization base: `%s`\n' "$UPSTREAM_BASE"
+              printf '上游同步基准 (Upstream Base): `%s`\n' "$UPSTREAM_BASE"
             fi
-            printf 'Upstream project: https://github.com/Anxcye/anx-reader\n'
-            printf '\nVerify every downloaded file against `SHA256SUMS.txt` before installation.\n'
+            printf '上游官方项目: https://github.com/Anxcye/anx-reader\n'
+            printf '\n安装前建议通过 `SHA256SUMS.txt` 校验下载文件的完整性。\n'
           } >> release-body.md
 
       - name: Generate metadata and SHA-256 checksums
