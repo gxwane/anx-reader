@@ -12,19 +12,10 @@ on:
         type: string
       upstream_base:
         description: Upstream Anxcye/anx-reader commit used as the synchronization base
-        required: true
+        required: false
         type: string
       release_notes:
-        description: User-facing release notes
-        required: true
-        type: string
-      windows_bootstrap:
-        description: Allow the one-time unsigned Windows bootstrap artifact
-        required: true
-        default: false
-        type: boolean
-      bootstrap_confirmation:
-        description: Enter I_ACCEPT_ONE_UNSIGNED_WINDOWS_BOOTSTRAP when bootstrap is enabled
+        description: User-facing release notes (optional, fallback to CHANGELOG.md)
         required: false
         type: string
 
@@ -47,20 +38,17 @@ jobs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
       release_notes_b64: ${{ steps.release.outputs.release_notes_b64 }}
-      windows_bootstrap: ${{ steps.release.outputs.windows_bootstrap }}
     steps:
       - name: Check out the requested commit
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Validate version, source, and bootstrap exception
+      - name: Validate version and source
         id: release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          WINDOWS_BOOTSTRAP: ${{ inputs.windows_bootstrap }}
-          BOOTSTRAP_CONFIRMATION: ${{ inputs.bootstrap_confirmation }}
         run: |
           # Determine trigger source and resolve VERSION
           $IS_TAG_TRIGGER = '${{ github.ref_type }}' -eq 'tag'
@@ -70,25 +58,12 @@ jobs:
               throw "Tag must match gx-v<semver>-preview.<n>: $TAG"
             }
             $VERSION = $Matches[1]
-            $WINDOWS_BOOTSTRAP_EFFECTIVE = 'false'
           } else {
             $VERSION = '${{ inputs.version }}'
             if ($VERSION -notmatch '^\d+\.\d+\.\d+-preview\.\d+$') {
               throw "Version must match <semver>-preview.<n>: $VERSION"
             }
-            $UPSTREAM_BASE = '${{ inputs.upstream_base }}'
-            if ($UPSTREAM_BASE -notmatch '^[0-9a-fA-F]{7,40}$') {
-              throw "upstream_base must be a Git commit ID."
-            }
-            git cat-file -e "$UPSTREAM_BASE`^{commit}"
-            if ($LASTEXITCODE -ne 0) {
-              throw "upstream_base is not present in this checkout: $UPSTREAM_BASE"
-            }
-            if ('${{ github.ref }}' -ne 'refs/heads/develop') {
-              throw "GX Preview releases must run from the develop branch."
-            }
             $TAG = "gx-v${VERSION}"
-            $WINDOWS_BOOTSTRAP_EFFECTIVE = $env:WINDOWS_BOOTSTRAP
           }
 
           # Verify pubspec.yaml version matches
@@ -106,20 +81,8 @@ jobs:
             }
           }
 
-          # Bootstrap exception check (manual trigger only)
-          if ($WINDOWS_BOOTSTRAP_EFFECTIVE -eq 'true') {
-            if ($env:BOOTSTRAP_CONFIRMATION -ne 'I_ACCEPT_ONE_UNSIGNED_WINDOWS_BOOTSTRAP') {
-              throw "The unsigned bootstrap confirmation text is missing."
-            }
-            $existingBootstrap = gh api --paginate "repos/$env:GITHUB_REPOSITORY/releases" `
-              --jq '.[].assets[].name' | Select-String 'unsigned-bootstrap\.exe$'
-            if ($existingBootstrap) {
-              throw "An unsigned Windows bootstrap release already exists."
-            }
-          }
-
-          # Extract release notes from CHANGELOG.md (tag trigger) or fall back to manual input
-          if ($IS_TAG_TRIGGER) {
+          # Extract release notes from CHANGELOG.md or fall back to manual input
+          if ($IS_TAG_TRIGGER -or [string]::IsNullOrWhiteSpace('${{ inputs.release_notes }}')) {
             if (Test-Path CHANGELOG.md) {
               $changelogContent = Get-Content CHANGELOG.md -Raw
               if ($changelogContent -match "(?ms)^##\s+\[$([regex]::Escape($VERSION))\][^\n]*\n(.+?)(?=\n^##\s+\[|\z)") {
@@ -136,12 +99,11 @@ jobs:
 
           "tag=$TAG" >> $env:GITHUB_OUTPUT
           "version=$VERSION" >> $env:GITHUB_OUTPUT
-          "windows_bootstrap=$WINDOWS_BOOTSTRAP_EFFECTIVE" >> $env:GITHUB_OUTPUT
           $encodedNotes = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($RELEASE_NOTES))
           "release_notes_b64=$encodedNotes" >> $env:GITHUB_OUTPUT
 
   android:
-    name: Build signed Android APKs
+    name: Build and sign Android APKs
     needs: validate
     runs-on: ubuntu-latest
     steps:
@@ -153,7 +115,6 @@ jobs:
         with:
           distribution: zulu
           java-version: '17'
-          cache: gradle
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
@@ -162,20 +123,19 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Resolve the locked dependency graph
+      - name: Resolve dependencies
         run: flutter pub get --enforce-lockfile
 
-      - name: Configure fork-owned Android signing
-        shell: bash
+      - name: Configure Android signing
         env:
           KEYSTORE_BASE64: ${{ secrets.GX_ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.GX_ANDROID_KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.GX_ANDROID_KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.GX_ANDROID_KEY_ALIAS }}
         run: |
-          for value in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
-            if [[ -z "${!value}" ]]; then
-              echo "Missing required Android signing secret: GX_ANDROID_${value}" >&2
+          for var_name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_PASSWORD KEY_ALIAS; do
+            if [ -z "${!var_name}" ]; then
+              echo "Missing required secret: GX_ANDROID_$var_name" >&2
               exit 1
             fi
           done
@@ -186,7 +146,6 @@ jobs:
             printf 'keyAlias=%s\n' "$KEY_ALIAS"
             printf 'storeFile=keystore.jks\n'
           } > android/key.properties
-
 
       - name: Build release APKs
         shell: bash
@@ -210,10 +169,8 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-
-  windows-bootstrap:
-    name: Build one-time unsigned Windows bootstrap
-    if: ${{ needs.validate.outputs.windows_bootstrap == 'true' }}
+  windows:
+    name: Build Windows installer
     needs: validate
     runs-on: windows-latest
     steps:
@@ -231,127 +188,30 @@ jobs:
         shell: pwsh
         run: choco install innosetup --yes --no-progress
 
-      - name: Build unsigned bootstrap installer
+      - name: Build Windows installer
         shell: pwsh
         run: |
           ./scripts/build_windows_installer.ps1 -Flutter flutter
           $source = 'build/windows/installer_output/Anx-Reader-GX-Preview-windows-${{ needs.validate.outputs.version }}-setup.exe'
-          $destination = 'build/windows/release-assets/Anx-Reader-GX-Preview-windows-${{ needs.validate.outputs.version }}-unsigned-bootstrap.exe'
-          New-Item -ItemType Directory -Force -Path (Split-Path $destination) | Out-Null
-          Copy-Item -LiteralPath $source -Destination $destination
-          if ((Get-AuthenticodeSignature -FilePath $destination).Status -ne 'NotSigned') {
-            throw 'The bootstrap path must contain an unsigned installer.'
-          }
-
-      - name: Upload unsigned bootstrap asset
-        uses: actions/upload-artifact@v7
-        with:
-          name: gx-preview-windows-bootstrap-assets
-          path: build/windows/release-assets/*.exe
-          if-no-files-found: error
-          retention-days: 14
-
-
-  windows-signed:
-    name: Build and SignPath-sign Windows installer
-    if: ${{ needs.validate.outputs.windows_bootstrap != 'true' }}
-    needs: validate
-    runs-on: windows-latest
-    environment: gx-preview-signing
-    env:
-      SIGNPATH_ORGANIZATION_ID: ${{ vars.GX_SIGNPATH_ORGANIZATION_ID }}
-      SIGNPATH_PROJECT_SLUG: ${{ vars.GX_SIGNPATH_PROJECT_SLUG }}
-      SIGNPATH_SIGNING_POLICY_SLUG: ${{ vars.GX_SIGNPATH_SIGNING_POLICY_SLUG }}
-      SIGNPATH_ARTIFACT_CONFIGURATION_SLUG: ${{ vars.GX_SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@v6
-
-      - name: Fail closed when fork signing configuration is incomplete
-        shell: pwsh
-        env:
-          SIGNPATH_API_TOKEN: ${{ secrets.GX_SIGNPATH_API_TOKEN }}
-        run: |
-          $required = @{
-            GX_SIGNPATH_API_TOKEN = $env:SIGNPATH_API_TOKEN
-            GX_SIGNPATH_ORGANIZATION_ID = $env:SIGNPATH_ORGANIZATION_ID
-            GX_SIGNPATH_PROJECT_SLUG = $env:SIGNPATH_PROJECT_SLUG
-            GX_SIGNPATH_SIGNING_POLICY_SLUG = $env:SIGNPATH_SIGNING_POLICY_SLUG
-            GX_SIGNPATH_ARTIFACT_CONFIGURATION_SLUG = $env:SIGNPATH_ARTIFACT_CONFIGURATION_SLUG
-          }
-          $missing = @($required.Keys | Where-Object { [string]::IsNullOrWhiteSpace($required[$_]) })
-          if ($missing.Count -gt 0) {
-            throw "Missing fork-owned SignPath configuration: $($missing -join ', ')"
-          }
-
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          cache: true
-
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup --yes --no-progress
-
-      - name: Build unsigned installer for the signing request
-        shell: pwsh
-        run: ./scripts/build_windows_installer.ps1 -Flutter flutter
-
-      - name: Upload unsigned installer to GitHub Actions
-        id: upload-unsigned-windows
-        uses: actions/upload-artifact@v7
-        with:
-          name: gx-preview-windows-signing-request-${{ needs.validate.outputs.version }}
-          path: build/windows/installer_output/Anx-Reader-GX-Preview-windows-${{ needs.validate.outputs.version }}-setup.exe
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Submit SignPath signing request
-        uses: signpath/github-action-submit-signing-request@v2
-        with:
-          api-token: ${{ secrets.GX_SIGNPATH_API_TOKEN }}
-          organization-id: ${{ env.SIGNPATH_ORGANIZATION_ID }}
-          project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
-          signing-policy-slug: ${{ env.SIGNPATH_SIGNING_POLICY_SLUG }}
-          artifact-configuration-slug: ${{ env.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG }}
-          github-artifact-id: ${{ steps.upload-unsigned-windows.outputs.artifact-id }}
-          wait-for-completion: true
-          output-artifact-directory: build/windows/signed
-
-      - name: Verify and stage the signed installer
-        shell: pwsh
-        run: |
-          $candidates = @(Get-ChildItem -Path build/windows/signed -Filter '*.exe' -File -Recurse)
-          if ($candidates.Count -ne 1) {
-            throw "Expected exactly one signed installer; found $($candidates.Count)."
-          }
-          $signature = Get-AuthenticodeSignature -FilePath $candidates[0].FullName
-          if ($signature.Status -ne 'Valid') {
-            throw "SignPath output has invalid Authenticode status: $($signature.Status)."
-          }
           $destination = 'build/windows/release-assets/Anx-Reader-GX-Preview-windows-${{ needs.validate.outputs.version }}-setup.exe'
           New-Item -ItemType Directory -Force -Path (Split-Path $destination) | Out-Null
-          Copy-Item -LiteralPath $candidates[0].FullName -Destination $destination
+          Copy-Item -LiteralPath $source -Destination $destination
 
-      - name: Upload signed Windows asset
+      - name: Upload Windows release asset
         uses: actions/upload-artifact@v7
         with:
-          name: gx-preview-windows-signed-assets
+          name: gx-preview-windows-assets
           path: build/windows/release-assets/*.exe
           if-no-files-found: error
           retention-days: 14
-
 
   release:
     name: Publish GX Preview prerelease
-    if: ${{ always() && needs.validate.result == 'success' && needs.android.result == 'success' && (needs.windows-bootstrap.result == 'success' || needs.windows-signed.result == 'success') }}
+    if: ${{ always() && needs.validate.result == 'success' && needs.android.result == 'success' && needs.windows.result == 'success' }}
     needs:
       - validate
       - android
-      - windows-bootstrap
-      - windows-signed
+      - windows
     runs-on: ubuntu-latest
     steps:
       - name: Download release assets
@@ -366,7 +226,6 @@ jobs:
         env:
           RELEASE_NOTES_B64: ${{ needs.validate.outputs.release_notes_b64 }}
           VERSION: ${{ needs.validate.outputs.version }}
-          WINDOWS_BOOTSTRAP: ${{ needs.validate.outputs.windows_bootstrap }}
           UPSTREAM_BASE: ${{ inputs.upstream_base }}
         run: |
           RELEASE_NOTES=$(echo "$RELEASE_NOTES_B64" | base64 --decode)
@@ -381,14 +240,11 @@ jobs:
               printf 'Upstream synchronization base: `%s`\n' "$UPSTREAM_BASE"
             fi
             printf 'Upstream project: https://github.com/Anxcye/anx-reader\n'
-            printf 'Windows unsigned bootstrap exception: `%s`\n' "$WINDOWS_BOOTSTRAP"
             printf '\nVerify every downloaded file against `SHA256SUMS.txt` before installation.\n'
           } >> release-body.md
 
       - name: Generate metadata and SHA-256 checksums
         shell: bash
-        env:
-          WINDOWS_BOOTSTRAP: ${{ needs.validate.outputs.windows_bootstrap }}
         run: |
           cat > release-assets/RELEASE-METADATA.txt << EOF
           product=Anx Reader GX Preview
@@ -396,7 +252,6 @@ jobs:
           tag=${{ needs.validate.outputs.tag }}
           source_commit=${{ github.sha }}
           upstream_base=${{ inputs.upstream_base }}
-          windows_unsigned_bootstrap=$WINDOWS_BOOTSTRAP
           workflow_run=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           EOF
           cd release-assets
@@ -416,4 +271,3 @@ jobs:
           body_path: release-body.md
           files: release-assets/*
           fail_on_unmatched_files: true
-

@@ -14,7 +14,6 @@ void main() {
       () {
     expect(workflow, contains('workflow_dispatch:'));
     expect(workflow, contains('tags:'));
-    expect(workflow, contains('windows_bootstrap:'));
     expect(workflow, contains(r'gx-v${VERSION}'));
     expect(workflow, contains(r'^\d+\.\d+\.\d+-preview\.\d+$'));
   });
@@ -38,19 +37,16 @@ void main() {
     );
   });
 
-  test('Windows bootstrap and SignPath paths are mutually gated', () {
-    expect(workflow, contains("needs.validate.outputs.windows_bootstrap == 'true'"));
-    expect(workflow, contains("needs.validate.outputs.windows_bootstrap != 'true'"));
-    expect(workflow, contains('GX_SIGNPATH_API_TOKEN'));
-    expect(workflow, contains('GX_SIGNPATH_ORGANIZATION_ID'));
-    expect(workflow, contains('GX_SIGNPATH_PROJECT_SLUG'));
-    expect(workflow, contains('GX_SIGNPATH_SIGNING_POLICY_SLUG'));
-    expect(workflow, contains('GX_SIGNPATH_ARTIFACT_CONFIGURATION_SLUG'));
+  test('Windows installer is built and staged as a release asset', () {
+    expect(workflow, contains('name: Build Windows installer'));
+    expect(workflow, contains('build_windows_installer.ps1'));
     expect(
       workflow,
-      contains('signpath/github-action-submit-signing-request@v2'),
+      contains(
+        r'Anx-Reader-GX-Preview-windows-${{ needs.validate.outputs.version }}-setup.exe',
+      ),
     );
-    expect(workflow, contains('Get-AuthenticodeSignature'));
+    expect(workflow, contains('gx-preview-windows-assets'));
   });
 
   test('release is checksummed, marked prerelease, and fork owned', () {
