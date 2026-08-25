@@ -192,6 +192,7 @@ jobs:
         shell: bash
         run: |
           flutter gen-l10n
+          dart run build_runner build --delete-conflicting-outputs
           flutter build apk --release --no-pub
           cp build/app/outputs/flutter-apk/app-release.apk \
             build/app/outputs/flutter-apk/Anx-Reader-GX-Preview-android-${{ needs.validate.outputs.version }}-universal.apk

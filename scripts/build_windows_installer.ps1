@@ -84,6 +84,10 @@ if (-not $SkipBuild) {
     $env:DART_SUPPRESS_ANALYTICS = "true"
     & $Flutter pub get --enforce-lockfile
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & $Flutter gen-l10n
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    & dart run build_runner build --delete-conflicting-outputs
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     & $Flutter build windows --release --no-pub
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 }

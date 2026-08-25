@@ -10,10 +10,10 @@ void main() {
         File('.github/workflows/gx-preview-release.yaml').readAsStringSync();
   });
 
-  test('release workflow is manual and validates the Preview version and tag',
+  test('release workflow supports tag and manual dispatch, validating Preview version and tag',
       () {
     expect(workflow, contains('workflow_dispatch:'));
-    expect(workflow, isNot(contains('push:')));
+    expect(workflow, contains('tags:'));
     expect(workflow, contains('windows_bootstrap:'));
     expect(workflow, contains(r'gx-v${VERSION}'));
     expect(workflow, contains(r'^\d+\.\d+\.\d+-preview\.\d+$'));
@@ -27,20 +27,20 @@ void main() {
     expect(
       workflow,
       contains(
-        r'Anx-Reader-GX-Preview-android-${{ inputs.version }}-arm64-v8a.apk',
+        r'Anx-Reader-GX-Preview-android-${{ needs.validate.outputs.version }}-arm64-v8a.apk',
       ),
     );
     expect(
       workflow,
       contains(
-        r'Anx-Reader-GX-Preview-android-${{ inputs.version }}-universal.apk',
+        r'Anx-Reader-GX-Preview-android-${{ needs.validate.outputs.version }}-universal.apk',
       ),
     );
   });
 
   test('Windows bootstrap and SignPath paths are mutually gated', () {
-    expect(workflow, contains("inputs.windows_bootstrap == true"));
-    expect(workflow, contains("inputs.windows_bootstrap == false"));
+    expect(workflow, contains("needs.validate.outputs.windows_bootstrap == 'true'"));
+    expect(workflow, contains("needs.validate.outputs.windows_bootstrap != 'true'"));
     expect(workflow, contains('GX_SIGNPATH_API_TOKEN'));
     expect(workflow, contains('GX_SIGNPATH_ORGANIZATION_ID'));
     expect(workflow, contains('GX_SIGNPATH_PROJECT_SLUG'));

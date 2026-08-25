@@ -1,9 +1,6 @@
-import 'dart:io';
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:anx_reader/page/home_page/settings_page.dart';
 import 'package:anx_reader/config/shared_preference_provider.dart';
@@ -20,13 +17,6 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    PackageInfo.setMockInitialValues(
-      appName: 'Anx Reader GX Preview',
-      packageName: 'com.anxcye.anx_reader.gxpreview',
-      version: '0.1.0-preview.1',
-      buildNumber: '1',
-      buildSignature: '',
-    );
     await Prefs().initPrefs();
   });
 
