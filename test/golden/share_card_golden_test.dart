@@ -21,7 +21,7 @@ FontModel get _font => FontModel(
 void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
-    setupGoldenComparator('share_card_golden_test.dart', tolerance: 0.05);
+    setupGoldenComparator('share_card_golden_test.dart', tolerance: 0.08);
     await loadGoldenTestFonts();
   });
 

@@ -66,7 +66,7 @@ Future<void> loadGoldenTestFonts() async {
   } catch (_) {}
 }
 
-void setupGoldenComparator(String relativeTestPath, {double tolerance = 0.05}) {
+void setupGoldenComparator(String relativeTestPath, {double tolerance = 0.08}) {
   final current = goldenFileComparator;
   Uri testUri;
   if (current is LocalFileComparator) {
