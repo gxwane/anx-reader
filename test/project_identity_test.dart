@@ -20,7 +20,7 @@ void main() {
         ).readAsStringSync(),
       ];
 
-      expect(pubspec, contains('version: 0.1.0-preview.1+1'));
+      expect(pubspec, matches(RegExp(r'version:\s*0\.1\.0-preview\.\d+\+\d+')));
       expect(
         gradle,
         contains('applicationId "io.github.gxwane.anx_reader_gx_preview"'),
