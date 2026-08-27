@@ -92,4 +92,5 @@ For non-trivial features, refactorings, and architectural fixes, activate the de
 ## 7. Packaging & CI Runbooks
 
 For platform packaging and autonomous GitHub CI diagnostic procedures, refer to:
-- [**`docs/packaging_and_ci.md`**](docs/packaging_and_ci.md) (Android APK/AAB builds, Windows Inno Setup installer, CI automation scripts).
+- [**`docs/packaging_and_ci.md`**](docs/packaging_and_ci.md) (Android APK/AAB builds, Windows Inno Setup installer, CI automation scripts, and Section 4: Preview Release SOP & CI/CD Iron Rules).
+- **Mandatory Release Protocol**: Always ensure remote `develop` CI passes 100% green before creating or pushing release tags. Never push branch commits and release tags concurrently.

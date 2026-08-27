@@ -102,9 +102,47 @@ jobs:
           $encodedNotes = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($RELEASE_NOTES))
           "release_notes_b64=$encodedNotes" >> $env:GITHUB_OUTPUT
 
+  test:
+    name: Run Quality Gauntlet on Release Commit
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Resolve the locked dependency graph
+        run: flutter pub get --enforce-lockfile
+
+      - name: Generate localizations
+        run: flutter gen-l10n
+
+      - name: Generate code (build_runner)
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test --no-pub
+
   android:
     name: Build and sign Android APKs
-    needs: validate
+    needs:
+      - validate
+      - test
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -171,7 +209,9 @@ jobs:
 
   windows:
     name: Build Windows installer
-    needs: validate
+    needs:
+      - validate
+      - test
     runs-on: windows-2022
     steps:
       - name: Check out source
@@ -207,9 +247,10 @@ jobs:
 
   release:
     name: Publish GX Preview prerelease
-    if: ${{ always() && needs.validate.result == 'success' && needs.android.result == 'success' && needs.windows.result == 'success' }}
+    if: ${{ always() && needs.validate.result == 'success' && needs.test.result == 'success' && needs.android.result == 'success' && needs.windows.result == 'success' }}
     needs:
       - validate
+      - test
       - android
       - windows
     runs-on: ubuntu-latest

@@ -86,3 +86,23 @@ Get-ChildItem -Path "ci_logs" -Recurse -Filter "*.txt" | ForEach-Object {
 }
 Remove-Item "ci_logs.zip", "ci_logs" -Recurse -Force
 ```
+
+---
+
+## 4. Preview Release SOP & CI/CD Iron Rules
+
+To guarantee release stability and prevent untested code deployment, every release MUST strictly adhere to the **Double Defense** protocol:
+
+1. **Rule 1: Remote CI Must Pass First (CI-First Gate)**
+   - When code modifications are complete, push commits to `develop` (`git push origin develop`).
+   - Monitor the remote GitHub Actions `CI` workflow (`.github/workflows/ci.yaml`).
+   - **Never push a release tag (`gx-v*`) until the `CI` workflow run on `develop` is 100% GREEN (`success`).**
+
+2. **Rule 2: Never Push Branch & Tag Concurrently**
+   - Branch pushes and release tag pushes must be strictly serialized.
+   - Pushing tags simultaneously bypasses the CI feedback loop and leads to broken release attempts.
+
+3. **Rule 3: CD release Workflow Embedded Quality Gate**
+   - The CD workflow (`.github/workflows/gx-preview-release.yaml`) contains an independent `test` job executing `flutter analyze` and `flutter test`.
+   - The `android`, `windows`, and `release` publishing jobs strictly depend on `test`. If tests fail in the cloud environment, the release is immediately blocked.
+
