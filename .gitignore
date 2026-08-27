@@ -54,6 +54,8 @@ release.sh
 CLAUDE.md
 .claude/
 AGENTS.md
+AGENTS.local.md
+*.local.md
 
 macos/DerivedData/
 
