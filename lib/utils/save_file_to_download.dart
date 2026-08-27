@@ -44,6 +44,7 @@ Future<String?> saveFileToDownload(
       }
       return outputFile;
     case AnxPlatformEnum.windows:
+    case AnxPlatformEnum.linux:
       await _writeOrCopyFile(
         fileSavePath,
         bytes: bytes,

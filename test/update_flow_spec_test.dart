@@ -2,6 +2,7 @@ import 'package:anx_reader/enums/update_channel.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/utils/app_version.dart';
 import 'package:anx_reader/utils/check_update.dart';
+import 'package:anx_reader/utils/platform_utils.dart';
 import 'package:anx_reader/widgets/update/update_dialog.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -190,6 +191,12 @@ void main() {
       expect(find.text('取消'), findsOneWidget);
       expect(find.text('通过 GitHub'), findsOneWidget);
       expect(find.byIcon(Icons.open_in_new), findsOneWidget);
+    });
+
+    test('Scenario: AnxPlatformEnum contains linux and handles desktop platforms', () {
+      expect(AnxPlatformEnum.values, contains(AnxPlatformEnum.linux));
+      expect(AnxPlatformEnum.values, contains(AnxPlatformEnum.windows));
+      expect(AnxPlatformEnum.values, contains(AnxPlatformEnum.macos));
     });
   });
 }

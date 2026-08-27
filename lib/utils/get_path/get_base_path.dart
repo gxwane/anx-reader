@@ -53,6 +53,8 @@ Future<String> getAnxDocumentsPath() async {
       return (await getApplicationSupportDirectory()).path;
     case AnxPlatformEnum.ios:
       return (await getApplicationSupportDirectory()).path;
+    case AnxPlatformEnum.linux:
+      return (await getApplicationSupportDirectory()).path;
   }
 }
 
