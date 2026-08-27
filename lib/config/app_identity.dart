@@ -4,6 +4,8 @@ abstract final class AppIdentity {
   static const String releasesUrl = '$repositoryUrl/releases';
   static const String releasesApiUrl =
       'https://api.github.com/repos/gxwane/anx-reader/releases/latest';
+  static const String releasesListApiUrl =
+      'https://api.github.com/repos/gxwane/anx-reader/releases';
   static const String documentationUrl = '$repositoryUrl/tree/develop/docs';
   static const String troubleshootingUrl =
       '$repositoryUrl/blob/develop/docs/troubleshooting.md';

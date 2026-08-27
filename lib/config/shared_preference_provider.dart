@@ -21,6 +21,7 @@ import 'package:anx_reader/enums/ai_panel_position.dart';
 import 'package:anx_reader/enums/ai_chat_display_mode.dart';
 import 'package:anx_reader/enums/bgimg_fit.dart';
 import 'package:anx_reader/enums/code_highlight_theme.dart';
+import 'package:anx_reader/enums/update_channel.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/bgimg.dart';
@@ -430,6 +431,16 @@ class Prefs extends ChangeNotifier {
     String? lastShowUpdateStr = prefs.getString('lastShowUpdate');
     if (lastShowUpdateStr == null) return DateTime(1970, 1, 1);
     return DateTime.parse(lastShowUpdateStr);
+  }
+
+  set updateChannel(UpdateChannel channel) {
+    prefs.setString('update_channel', channel.code);
+    notifyListeners();
+  }
+
+  UpdateChannel get updateChannel {
+    final code = prefs.getString('update_channel');
+    return UpdateChannel.fromCode(code);
   }
 
   set pageTurningType(int type) {
