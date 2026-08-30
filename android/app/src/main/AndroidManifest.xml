@@ -56,26 +56,114 @@
                 android:name="flutterEmbedding"
                 android:value="2" />
 
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.SEND_MULTIPLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
-            </intent-filter>
+            <!-- 1. Explicit eBook MIME types for ACTION_VIEW (EPUB, MOBI, AZW3, FB2, TXT, PDF) -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="file" />
+                <data android:scheme="content" />
                 <data android:scheme="http" />
                 <data android:scheme="https" />
+                <!-- EPUB -->
+                <data android:mimeType="application/epub+zip" />
+                <data android:mimeType="application/x-epub" />
+                <data android:mimeType="application/epub" />
+                <!-- PDF -->
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/x-pdf" />
+                <!-- TXT -->
+                <data android:mimeType="text/plain" />
+                <!-- MOBI -->
+                <data android:mimeType="application/x-mobipocket-ebook" />
+                <data android:mimeType="application/x-mobi" />
+                <data android:mimeType="application/mobi" />
+                <!-- AZW3 / AZW -->
+                <data android:mimeType="application/vnd.amazon.ebook" />
+                <data android:mimeType="application/x-azw3" />
+                <data android:mimeType="application/x-azw" />
+                <data android:mimeType="application/x-azw3-ebook" />
+                <!-- FB2 -->
+                <data android:mimeType="application/x-fictionbook+xml" />
+                <data android:mimeType="application/x-fictionbook" />
+                <data android:mimeType="application/fb2" />
+                <data android:mimeType="application/x-fb2" />
+                <data android:mimeType="text/fb2+xml" />
+            </intent-filter>
+
+            <!-- 2. File extension pathPattern matching for generic file/content URIs without explicit MIME -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
                 <data android:scheme="content" />
-                <data android:host="*" />
+                <!-- EPUB -->
+                <data android:pathPattern=".*\\.epub" />
+                <data android:pathPattern=".*\\.EPUB" />
+                <!-- MOBI -->
+                <data android:pathPattern=".*\\.mobi" />
+                <data android:pathPattern=".*\\.MOBI" />
+                <!-- AZW3 / AZW -->
+                <data android:pathPattern=".*\\.azw3" />
+                <data android:pathPattern=".*\\.AZW3" />
+                <data android:pathPattern=".*\\.azw" />
+                <data android:pathPattern=".*\\.AZW" />
+                <!-- FB2 -->
+                <data android:pathPattern=".*\\.fb2" />
+                <data android:pathPattern=".*\\.FB2" />
+                <!-- TXT -->
+                <data android:pathPattern=".*\\.txt" />
+                <data android:pathPattern=".*\\.TXT" />
+                <!-- PDF -->
+                <data android:pathPattern=".*\\.pdf" />
+                <data android:pathPattern=".*\\.PDF" />
+            </intent-filter>
+
+            <!-- 3. Octet-stream MIME with eBook extension pathPattern (for file managers that use application/octet-stream) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/octet-stream" />
+                <data android:mimeType="application/octetstream" />
+                <!-- EPUB -->
+                <data android:pathPattern=".*\\.epub" />
+                <data android:pathPattern=".*\\.EPUB" />
+                <!-- MOBI -->
+                <data android:pathPattern=".*\\.mobi" />
+                <data android:pathPattern=".*\\.MOBI" />
+                <!-- AZW3 / AZW -->
+                <data android:pathPattern=".*\\.azw3" />
+                <data android:pathPattern=".*\\.AZW3" />
+                <data android:pathPattern=".*\\.azw" />
+                <data android:pathPattern=".*\\.AZW" />
+                <!-- FB2 -->
+                <data android:pathPattern=".*\\.fb2" />
+                <data android:pathPattern=".*\\.FB2" />
+                <!-- TXT -->
+                <data android:pathPattern=".*\\.txt" />
+                <data android:pathPattern=".*\\.TXT" />
+                <!-- PDF -->
+                <data android:pathPattern=".*\\.pdf" />
+                <data android:pathPattern=".*\\.PDF" />
+            </intent-filter>
+
+            <!-- 4. System Share Target Intent Filter (SEND / SEND_MULTIPLE) -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/epub+zip" />
+                <data android:mimeType="application/x-epub" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="application/x-mobipocket-ebook" />
+                <data android:mimeType="application/vnd.amazon.ebook" />
+                <data android:mimeType="application/x-fictionbook+xml" />
+                <data android:mimeType="application/octet-stream" />
             </intent-filter>
 
             <intent-filter>
