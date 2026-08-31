@@ -7,6 +7,7 @@ import 'package:anx_reader/dao/book.dart';
 import 'package:anx_reader/dao/book_note.dart';
 import 'package:anx_reader/enums/page_turn_mode.dart';
 import 'package:anx_reader/enums/reading_info.dart';
+import 'package:anx_reader/enums/reading_status.dart';
 import 'package:anx_reader/enums/translation_mode.dart';
 import 'package:anx_reader/enums/writing_mode.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
@@ -1134,6 +1135,12 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     book.readingPercentage = clampedPercentage;
     percentage = clampedPercentage;
     resumePercentage = clampedResumePercentage;
+
+    if (book.status == ReadingStatus.unread && clampedPercentage > 0.01) {
+      book.status = ReadingStatus.reading;
+      book.startReadingTime ??= DateTime.now();
+    }
+
     await bookDao.updateBook(book);
     if (mounted) {
       ref.read(bookListProvider.notifier).refresh();

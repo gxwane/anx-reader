@@ -842,8 +842,27 @@
   "tagsEditOrRemoveHint": "Long press or right-click to edit or delete tags\nColors indicate whether the tag is attached to the book",
   "bookshelfFilterFinished": "Finished",
   "bookshelfFilterReading": "Reading",
-  "bookshelfFilterNotStarted": "Not started",
+  "bookshelfFilterNotStarted": "Unread",
+  "bookshelfFilterAbandoned": "Abandoned",
   "bookshelfFilterTagsTooltip": "Filter tags",
+  "readingStatusUnread": "Unread",
+  "readingStatusReading": "Reading",
+  "readingStatusFinished": "Finished",
+  "readingStatusAbandoned": "Abandoned",
+  "readingStatusMarkUnread": "Mark as unread",
+  "readingStatusMarkReading": "Mark as reading",
+  "readingStatusMarkFinished": "Mark as finished",
+  "readingStatusMarkAbandoned": "Mark as abandoned",
+  "readingStatusReread": "Reread",
+  "readingStatusCardTitle": "Reading Status",
+  "readingStatusReadCount": "Read {count} times",
+  "@readingStatusReadCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "settingsNarrateTtsService": "TTS Service",
   "settingsNarrateAliyunTts": "Aliyun",
   "settingsNarrateAzureTts": "Microsoft Azure",

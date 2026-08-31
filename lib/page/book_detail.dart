@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:anx_reader/dao/book.dart';
 import 'package:anx_reader/dao/reading_time.dart';
 import 'package:anx_reader/enums/hint_key.dart';
+import 'package:anx_reader/enums/reading_status.dart';
 import 'package:anx_reader/enums/sync_direction.dart';
 import 'package:anx_reader/enums/sync_trigger.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
@@ -27,6 +28,7 @@ import 'package:anx_reader/widgets/highlight_digit.dart';
 import 'package:anx_reader/widgets/hint/hint_banner.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -701,6 +703,159 @@ class _BookDetailState extends ConsumerState<BookDetail> {
       );
     }
 
+    Widget buildReadingStatusSelector() {
+      final status = _book.status;
+      final items = [
+        (
+          ReadingStatus.unread,
+          L10n.of(context).readingStatusUnread,
+          Icons.bookmark_border_outlined,
+        ),
+        (
+          ReadingStatus.reading,
+          L10n.of(context).readingStatusReading,
+          Icons.auto_stories_outlined,
+        ),
+        (
+          ReadingStatus.finished,
+          L10n.of(context).readingStatusFinished,
+          Icons.check_circle_outline,
+        ),
+        (
+          ReadingStatus.abandoned,
+          L10n.of(context).readingStatusAbandoned,
+          Icons.cancel_outlined,
+        ),
+      ];
+
+      return FilledContainer(
+        width: MediaQuery.of(context).size.width,
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  L10n.of(context).readingStatusCardTitle,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                if (_book.readCount > 0)
+                  Text(
+                    L10n.of(context).readingStatusReadCount(_book.readCount),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: items.map((item) {
+                final isSelected = status == item.$1;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                    child: Material(
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withAlpha(120),
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () async {
+                          if (status == item.$1) return;
+                          HapticFeedback.selectionClick();
+                          final newStatus = item.$1;
+                          final now = DateTime.now();
+                          DateTime? start = _book.startReadingTime;
+                          DateTime? finish = _book.finishReadingTime;
+                          int count = _book.readCount;
+
+                          if (newStatus == ReadingStatus.reading) {
+                            start ??= now;
+                          } else if (newStatus == ReadingStatus.finished) {
+                            finish = now;
+                            if (status != ReadingStatus.finished) {
+                              count += 1;
+                            }
+                          }
+
+                          final updated = _book.copyWith(
+                            status: newStatus,
+                            startReadingTime: start,
+                            finishReadingTime: finish,
+                            readCount: count,
+                            updateTime: now,
+                          );
+
+                          setState(() {
+                            _book = updated;
+                          });
+
+                          await bookDao.updateBook(updated);
+                          ref.read(bookListProvider.notifier).refresh();
+                          Sync().syncData(SyncDirection.upload, ref,
+                              trigger: SyncTrigger.auto);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 9),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                item.$3,
+                                size: 16,
+                                color: isSelected
+                                    ? Theme.of(context)
+                                        .colorScheme
+                                        .onPrimaryContainer
+                                    : Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  item.$2,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    color: isSelected
+                                        ? Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer
+                                        : Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      );
+    }
+
     Widget buildMoreDetail() {
       Widget buildReadingDetail() {
         return FutureBuilder<List<ReadingTime>>(
@@ -824,6 +979,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                                   children: [
                                     buildBookBaseDetail(
                                         constraints.maxWidth / 2 - 20),
+                                    buildReadingStatusSelector(),
                                     buildTagEditor(),
                                     buildEditButton(),
                                     const SizedBox(height: 5),
@@ -846,6 +1002,7 @@ class _BookDetailState extends ConsumerState<BookDetail> {
                           return Column(
                             children: [
                               buildBookBaseDetail(constraints.maxWidth),
+                              buildReadingStatusSelector(),
                               buildTagEditor(),
                               buildEditButton(),
                               const SizedBox(height: 5),

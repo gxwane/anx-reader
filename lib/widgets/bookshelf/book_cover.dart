@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:anx_reader/enums/reading_status.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:flutter/material.dart';
 
@@ -119,6 +120,54 @@ class BookCover extends StatelessWidget {
             ),
           );
         },
+      );
+    }
+
+    if (book.status == ReadingStatus.abandoned) {
+      child = ColorFiltered(
+        colorFilter: const ColorFilter.mode(
+          Colors.grey,
+          BlendMode.saturation,
+        ),
+        child: Opacity(
+          opacity: 0.82,
+          child: child,
+        ),
+      );
+    } else if (book.status == ReadingStatus.finished) {
+      final badgeSize =
+          (width != null ? (width! * 0.18).clamp(12.0, 18.0) : 14.0);
+      child = Stack(
+        fit: StackFit.expand,
+        children: [
+          child,
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Container(
+              padding: const EdgeInsets.all(2.5),
+              decoration: BoxDecoration(
+                color: Theme.of(context)
+                    .colorScheme
+                    .primaryContainer
+                    .withAlpha(235),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(40),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Icon(
+                Icons.check,
+                size: badgeSize,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
       );
     }
 

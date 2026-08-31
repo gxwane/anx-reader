@@ -80,19 +80,7 @@ class BookList extends _$BookList {
   }
 
   bool _matchesStatus(Book book, ReadingStatusFilter status) {
-    const notStartThreshold = 0.02;
-    const finishedThreshold = 0.98;
-    switch (status) {
-      case ReadingStatusFilter.none:
-        return true;
-      case ReadingStatusFilter.finished:
-        return book.readingPercentage >= finishedThreshold;
-      case ReadingStatusFilter.reading:
-        return book.readingPercentage > notStartThreshold &&
-            book.readingPercentage < finishedThreshold;
-      case ReadingStatusFilter.notStarted:
-        return book.readingPercentage <= notStartThreshold;
-    }
+    return matchesReadingStatus(book, status);
   }
 
   Future<List<List<Book>>> _buildWithFilters({String? query}) async {

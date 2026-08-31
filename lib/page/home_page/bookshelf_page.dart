@@ -133,16 +133,6 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
     Widget buildFilterBar() {
       final statusChips = [
         _StatusChip(
-          label: L10n.of(context).bookshelfFilterFinished,
-          selected: statusFilter == ReadingStatusFilter.finished,
-          onTap: () {
-            ref
-                .read(readingStatusFilterNotifierProvider.notifier)
-                .toggle(ReadingStatusFilter.finished);
-            ref.read(bookListProvider.notifier).refresh();
-          },
-        ),
-        _StatusChip(
           label: L10n.of(context).bookshelfFilterReading,
           selected: statusFilter == ReadingStatusFilter.reading,
           onTap: () {
@@ -154,11 +144,31 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
         ),
         _StatusChip(
           label: L10n.of(context).bookshelfFilterNotStarted,
-          selected: statusFilter == ReadingStatusFilter.notStarted,
+          selected: statusFilter == ReadingStatusFilter.unread,
           onTap: () {
             ref
                 .read(readingStatusFilterNotifierProvider.notifier)
-                .toggle(ReadingStatusFilter.notStarted);
+                .toggle(ReadingStatusFilter.unread);
+            ref.read(bookListProvider.notifier).refresh();
+          },
+        ),
+        _StatusChip(
+          label: L10n.of(context).bookshelfFilterFinished,
+          selected: statusFilter == ReadingStatusFilter.finished,
+          onTap: () {
+            ref
+                .read(readingStatusFilterNotifierProvider.notifier)
+                .toggle(ReadingStatusFilter.finished);
+            ref.read(bookListProvider.notifier).refresh();
+          },
+        ),
+        _StatusChip(
+          label: L10n.of(context).bookshelfFilterAbandoned,
+          selected: statusFilter == ReadingStatusFilter.abandoned,
+          onTap: () {
+            ref
+                .read(readingStatusFilterNotifierProvider.notifier)
+                .toggle(ReadingStatusFilter.abandoned);
             ref.read(bookListProvider.notifier).refresh();
           },
         ),

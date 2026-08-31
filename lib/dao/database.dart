@@ -13,7 +13,7 @@ import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Current app database version
-const int currentDbVersion = 7;
+const int currentDbVersion = 8;
 
 const createBookSQL = '''
 CREATE TABLE tb_books (
@@ -426,6 +426,38 @@ class DBHelper {
             VALUES (?, '...', 0, datetime('now'), datetime('now'))
           ''', [groupId]);
         }
+        continue case7;
+      case7:
+      case 7:
+        // add reading status and reading lifecycle columns to tb_books
+        await db.execute(
+            "ALTER TABLE tb_books ADD COLUMN reading_status INTEGER DEFAULT 0");
+        await db.execute(
+            "ALTER TABLE tb_books ADD COLUMN start_reading_time TEXT");
+        await db.execute(
+            "ALTER TABLE tb_books ADD COLUMN finish_reading_time TEXT");
+        await db.execute(
+            "ALTER TABLE tb_books ADD COLUMN read_count INTEGER DEFAULT 0");
+
+        // Backfill initial reading status from reading_percentage for existing books
+        await db.execute('''
+          UPDATE tb_books 
+          SET reading_status = 2, 
+              finish_reading_time = update_time, 
+              read_count = 1 
+          WHERE reading_percentage >= 0.95
+        ''');
+        await db.execute('''
+          UPDATE tb_books 
+          SET reading_status = 1, 
+              start_reading_time = create_time 
+          WHERE reading_percentage > 0.02 AND reading_percentage < 0.95
+        ''');
+        await db.execute('''
+          UPDATE tb_books 
+          SET reading_status = 0 
+          WHERE reading_percentage <= 0.02
+        ''');
     }
 
     if (oldVersion != 0 && Prefs().webdavStatus) {

@@ -1,3 +1,4 @@
+import 'package:anx_reader/enums/reading_status.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
 
 class Book {
@@ -13,24 +14,33 @@ class Book {
   double rating;
   int groupId;
   String? md5;
+  ReadingStatus status;
+  DateTime? startReadingTime;
+  DateTime? finishReadingTime;
+  int readCount;
   DateTime createTime;
   DateTime updateTime;
 
-  Book(
-      {required this.id,
-      required this.title,
-      required this.coverPath,
-      required this.filePath,
-      required this.lastReadPosition,
-      required this.readingPercentage,
-      required this.author,
-      required this.isDeleted,
-      this.description,
-      required this.rating,
-      this.groupId = 0,
-      this.md5,
-      required this.createTime,
-      required this.updateTime});
+  Book({
+    required this.id,
+    required this.title,
+    required this.coverPath,
+    required this.filePath,
+    required this.lastReadPosition,
+    required this.readingPercentage,
+    required this.author,
+    required this.isDeleted,
+    this.description,
+    required this.rating,
+    this.groupId = 0,
+    this.md5,
+    this.status = ReadingStatus.unread,
+    this.startReadingTime,
+    this.finishReadingTime,
+    this.readCount = 0,
+    required this.createTime,
+    required this.updateTime,
+  });
 
   factory Book.mock() {
     return Book(
@@ -43,6 +53,8 @@ class Book {
       author: 'Anx',
       isDeleted: false,
       rating: 0,
+      status: ReadingStatus.unread,
+      readCount: 0,
       createTime: DateTime.now(),
       updateTime: DateTime.now(),
     );
@@ -69,6 +81,10 @@ class Book {
       'rating': rating,
       'group_id': groupId,
       'file_md5': md5,
+      'reading_status': status.value,
+      'start_reading_time': startReadingTime?.toIso8601String(),
+      'finish_reading_time': finishReadingTime?.toIso8601String(),
+      'read_count': readCount,
       'create_time': createTime.toIso8601String(),
       'update_time': updateTime.toIso8601String(),
     };
@@ -87,6 +103,10 @@ class Book {
     double? rating,
     int? groupId,
     String? md5,
+    ReadingStatus? status,
+    DateTime? startReadingTime,
+    DateTime? finishReadingTime,
+    int? readCount,
     DateTime? createTime,
     DateTime? updateTime,
   }) {
@@ -103,6 +123,10 @@ class Book {
       rating: rating ?? this.rating,
       groupId: groupId ?? this.groupId,
       md5: md5 ?? this.md5,
+      status: status ?? this.status,
+      startReadingTime: startReadingTime ?? this.startReadingTime,
+      finishReadingTime: finishReadingTime ?? this.finishReadingTime,
+      readCount: readCount ?? this.readCount,
       createTime: createTime ?? this.createTime,
       updateTime: updateTime ?? this.updateTime,
     );
@@ -122,8 +146,17 @@ class Book {
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
       groupId: map['group_id'] as int? ?? 0,
       md5: map['file_md5'] as String?,
+      status: ReadingStatus.fromValue(map['reading_status'] as int?),
+      startReadingTime: map['start_reading_time'] != null
+          ? DateTime.tryParse(map['start_reading_time'] as String)
+          : null,
+      finishReadingTime: map['finish_reading_time'] != null
+          ? DateTime.tryParse(map['finish_reading_time'] as String)
+          : null,
+      readCount: (map['read_count'] as int?) ?? 0,
       createTime: DateTime.parse(map['create_time'] as String),
       updateTime: DateTime.parse(map['update_time'] as String),
     );
   }
 }
+
