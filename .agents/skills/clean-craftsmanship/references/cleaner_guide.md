@@ -59,8 +59,31 @@ Navigator.of(context).pop();
 
 ---
 
-## 3. Cleaner 质检清单 (Cleaner Checklist)
+## 3. Cleaner 强制交付物：函数量化审计表 (Mandatory Artifact)
 
-- [ ] 运行 `fvm flutter analyze --no-fatal-infos` 确认 0 compilation errors/warnings。
-- [ ] 检查所有新增函数是否符合小函数（$\le 30$ 行）与单一职责（SRP）。
-- [ ] 确认没有引入冗余的抽象层或过度设计。
+> [!IMPORTANT]
+> **Cleaner 阶段的唯一完成证明是在回复中输出以下填写完整的审计表。**
+> 仅运行 `fvm flutter analyze` 通过不等于完成 Cleaner。所有被新增/修改的函数必须逐行核算。
+> 存在任何 ❌ FAIL 项必须立即重构直至全为 ✅ PASS，才能进入 Hardener 阶段。
+
+### 极简圈复杂度记分规则（Agent 计算标准）
+
+起始分 **1**，每出现以下关键词各 **+1**：
+- 条件分支：`if`、`else if`、`switch case`、三元运算符 `? :`
+- 循环结构：`for`、`for-in`、`while`、`do-while`
+- 异常捕获：`catch`
+- 逻辑与空判断：`&&`、`||`、`??`
+
+### 必须在回复中输出的表格模板：
+
+```
+### 🧹 Cleaner Gate 4 产出物：函数量化审计表
+
+| 目标文件 | 函数/方法名 | 行数 (≤30) | 圈复杂度 (≤10) | CRAP 预估 (≤30) | 坏味道/重构动作 | 判定 |
+| :--- | :--- | :---: | :---: | :---: | :--- | :---: |
+| `lib/.../xxx.dart` | `methodName()` | 12 | 2 | 2.0 | 无 | ✅ PASS |
+| `lib/.../yyy.dart` | `buildBody()` | 45 | 8 | 8.0 | 拆分为 `_buildX` + `_buildY` | ❌→✅ |
+
+**静态分析：**
+`fvm flutter analyze --no-fatal-infos` → 0 errors, 0 warnings
+```

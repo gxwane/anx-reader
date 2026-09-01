@@ -82,3 +82,5 @@ testWidgets('Tapping setting tile navigates to subpage', (WidgetTester tester) a
 - [ ] 每一个 Gherkin 规约场景都有对应的单元/Widget 测试覆盖。
 - [ ] 运行 `fvm flutter test` 全部通过（Green）。
 - [ ] 生产代码仅包含使测试通过的最简必要逻辑，无多余未测代码。
+- [ ] **→ 交接至 Cleaner**：立即对新写的每个函数逐个计算行数与圈复杂度，输出《函数量化审计表》（Gate 4）。
+- [ ] **→ 交接至 Hardener**：为核心逻辑至少设计 2 个突变体，若发现突变存活须立即返回 Coder 补充精准断言（Gate 5）。
