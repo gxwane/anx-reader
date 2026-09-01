@@ -55,7 +55,11 @@ class _DeleteConfirmState extends State<DeleteConfirm> {
       );
     } else {
       // Icon button mode with default icons
+      final deleteText = widget.deleteText ?? L10n.of(context).commonDelete;
+      final confirmText = widget.confirmText ?? L10n.of(context).commonConfirm;
+
       return IconButton(
+        tooltip: isDelete ? confirmText : deleteText,
         onPressed: () {
           if (isDelete) {
             widget.delete();

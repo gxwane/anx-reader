@@ -24,6 +24,7 @@ import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:anx_reader/widgets/delete_confirm.dart';
 import 'package:anx_reader/widgets/markdown/styled_markdown.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:skeletonizer/skeletonizer.dart';
@@ -51,15 +52,30 @@ class AiChatStream extends ConsumerStatefulWidget {
 
 class AiChatStreamState extends ConsumerState<AiChatStream> {
   final TextEditingController inputController = TextEditingController();
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final FocusNode _focusNode = FocusNode();
   Stream<List<ChatMessage>>? _messageStream;
   StreamController<List<ChatMessage>>? _messageController;
   StreamSubscription<List<ChatMessage>>? _messageSubscription;
   final ScrollController _scrollController = ScrollController();
   bool _isStreaming = false;
+  bool _showHistory = false;
+  bool _isUserScrolledUp = false;
   late List<String> _suggestedPrompts;
   late List<String> _starterPrompts;
   double _fontSize = 14.0;
+
+  void _openHistory() {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _showHistory = true;
+    });
+  }
+
+  void _closeHistory() {
+    setState(() {
+      _showHistory = false;
+    });
+  }
 
   List<Map<String, String>> _getQuickPrompts(BuildContext context) {
     return [
@@ -114,6 +130,7 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
 
   @override
   void dispose() {
+    _focusNode.dispose();
     inputController.dispose();
     _messageSubscription?.cancel();
     _messageController?.close();
@@ -159,13 +176,11 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
   }
 
   void _scrollToBottom() {
+    if (_isUserScrolledUp) return;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
       }
     });
   }
@@ -173,40 +188,27 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
   Widget _buildHistoryDrawer(BuildContext context) {
     final historyState = ref.watch(aiHistoryProvider);
     return SafeArea(
-      child: Column(
-        children: [
-          ListTile(
-            title: Text(L10n.of(context).conversationHistory),
-            trailing: DeleteConfirm(
-              delete: () => _confirmClearHistory(context),
-              deleteIcon: Icon(Icons.delete_sweep),
-            ),
-          ),
-          Expanded(
-            child: historyState.when(
-              data: (items) {
-                if (items.isEmpty) {
-                  return Center(
-                    child: Text(L10n.of(context).noConversationTip),
-                  );
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
-                  itemBuilder: (context, index) {
-                    final entry = items[index];
-                    return _buildHistoryTile(context, entry);
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(
-                child: Text(L10n.of(context).failedToLoadHistoryTip),
-              ),
-            ),
-          ),
-        ],
+      child: historyState.when(
+        data: (items) {
+          if (items.isEmpty) {
+            return Center(
+              child: Text(L10n.of(context).noConversationTip),
+            );
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: items.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 6),
+            itemBuilder: (context, index) {
+              final entry = items[index];
+              return _buildHistoryTile(context, entry);
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(
+          child: Text(L10n.of(context).failedToLoadHistoryTip),
+        ),
       ),
     );
   }
@@ -219,12 +221,13 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     final title = _deriveTitle(entry);
     final subtitle = _buildHistorySubtitle(provider, entry);
 
-    return FilledContainer(
-      margin: EdgeInsets.symmetric(horizontal: 8),
-      padding: EdgeInsets.all(8),
-      radius: 15,
-      child: GestureDetector(
-        onTap: () => _handleHistoryTap(context, entry),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _handleHistoryTap(context, entry),
+      child: FilledContainer(
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        padding: const EdgeInsets.all(8),
+        radius: 15,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -235,22 +238,24 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
             ),
             Row(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                    Text(
-                      _formatTimestamp(entry.updatedAt),
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                      Text(
+                        _formatTimestamp(entry.updatedAt),
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                    ],
+                  ),
                 ),
-                Spacer(),
+                const SizedBox(width: 8),
                 Column(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -331,10 +336,10 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
 
     setState(() {
       _messageStream = null;
-      // reset state when switching service
+      _showHistory = false;
+      _isUserScrolledUp = false;
     });
 
-    Navigator.of(context).pop();
     _scrollToBottom();
   }
 
@@ -371,6 +376,9 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     final message = inputController.text.trim();
     inputController.clear();
 
+    _isUserScrolledUp = false;
+    _focusNode.requestFocus();
+
     _messageSubscription?.cancel();
     _messageController?.close();
 
@@ -386,6 +394,8 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
       _messageStream = controller.stream;
       _isStreaming = true;
     });
+
+    _scrollToBottom();
 
     _messageSubscription = stream.listen(
       (event) {
@@ -539,61 +549,243 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     );
   }
 
-  ChatMessage? _getLastAssistantMessage() {
-    final messages = ref.watch(aiChatProvider).asData?.value;
-    if (messages == null || messages.isEmpty) {
-      return null;
-    }
-
-    for (int i = messages.length - 1; i >= 0; i--) {
-      if (messages[i] is AIChatMessage) {
-        return messages[i];
-      }
-    }
-    return null;
-  }
-
   @override
   Widget build(BuildContext context) {
+    return PopScope(
+      canPop: !_showHistory,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && _showHistory) _closeHistory();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: _showHistory
+            ? _buildHistoryAppBar(context)
+            : _buildChatAppBar(context),
+        body: EnvVar.isAppStore &&
+                Prefs().shouldShowHint(HintKey.aiDataSharingConsent)
+            ? _buildDataSharingConsent(context)
+            : _buildAnimatedBody(context),
+      ),
+    );
+  }
+
+  PreferredSizeWidget _buildHistoryAppBar(BuildContext context) {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        tooltip: L10n.of(context).historyBack,
+        onPressed: _closeHistory,
+      ),
+      title: Text(L10n.of(context).conversationHistory),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add_comment_outlined),
+          tooltip: L10n.of(context).aiChat,
+          onPressed: () {
+            _clearMessage();
+            _closeHistory();
+          },
+        ),
+        DeleteConfirm(
+          delete: () => _confirmClearHistory(context),
+          deleteIcon: const Icon(Icons.delete_sweep),
+        ),
+        if (widget.trailing != null && widget.trailing!.isNotEmpty)
+          widget.trailing!.last,
+      ],
+    );
+  }
+
+  PreferredSizeWidget _buildChatAppBar(BuildContext context) {
+    return AppBar(
+      title: Text(L10n.of(context).aiChat),
+      leading: IconButton(
+        icon: const Icon(Icons.history),
+        tooltip: L10n.of(context).history,
+        onPressed: _openHistory,
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.add_comment_outlined),
+          tooltip: L10n.of(context).aiChat,
+          onPressed: _clearMessage,
+        ),
+        Builder(
+          builder: (context) => IconButton(
+            icon: const Icon(Icons.format_size),
+            tooltip: L10n.of(context).aiChatFontSize,
+            onPressed: () => _showFontSizeMenu(context),
+          ),
+        ),
+        if (widget.trailing != null) ...widget.trailing!,
+      ],
+    );
+  }
+
+  Widget _buildAnimatedBody(BuildContext context) {
+    return ClipRect(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+        child: _showHistory
+            ? KeyedSubtree(
+                key: const ValueKey('ai_history_view'),
+                child: _buildHistoryDrawer(context),
+              )
+            : KeyedSubtree(
+                key: const ValueKey('ai_chat_view'),
+                child: _buildChatBody(context),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildChatBody(BuildContext context) {
     final quickPrompts = _getQuickPrompts(context);
     final allProviders = ref.watch(aiProvidersProvider);
     final enabledProviders = allProviders.where((p) => p.enabled).toList();
     final currentProvider = _currentProvider(enabledProviders);
     final selectedId = Prefs().selectedAiService;
+    return Column(
+      children: [
+        Expanded(child: _buildMessageArea(context)),
+        _buildInputBox(context, quickPrompts, currentProvider, enabledProviders, selectedId),
+      ],
+    );
+  }
 
-    var aiService = PopupMenuButton<String>(
-      enabled: !_isStreaming,
-      onSelected: _onProviderSelected,
-      itemBuilder: (context) {
-        return enabledProviders.map((provider) {
-          final isSelected = provider.id == selectedId;
-          final label = _modelLabel(provider);
-          final logo = _providerLogo(provider);
-          return PopupMenuItem<String>(
-            value: provider.id,
-            child: Row(
+  Widget _buildMessageArea(BuildContext context) {
+    final currentMessages = ref.watch(aiChatProvider).asData?.value ?? const [];
+
+    if (_messageStream != null) {
+      return StreamBuilder<List<ChatMessage>>(
+        initialData: currentMessages,
+        stream: _messageStream,
+        builder: (context, snapshot) {
+          final messages = snapshot.data ?? currentMessages;
+          return messages.isEmpty
+              ? _buildEmptyState(context)
+              : _buildMessageList(messages);
+        },
+      );
+    }
+    return ref.watch(aiChatProvider).when(
+      data: (messages) => messages.isEmpty
+          ? _buildEmptyState(context)
+          : _buildMessageList(messages),
+      loading: () => Skeletonizer.zone(child: Bone.multiText()),
+      error: (error, stack) => Center(child: Text('error: $error')),
+    );
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    final theme = Theme.of(context);
+
+    Widget buildQuickChipColumn() {
+      if (widget.quickPromptChips.isEmpty) return const SizedBox.shrink();
+      final chips = <Widget>[];
+      for (var i = 0; i < widget.quickPromptChips.length; i++) {
+        final chip = widget.quickPromptChips[i];
+        chips.add(
+          Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 0 : 8.0),
+            child: ActionChip(
+              avatar: Icon(chip.icon, size: 18),
+              label: Text(chip.label),
+              onPressed: () {
+                inputController.text = chip.prompt;
+                _sendMessage();
+              },
+            ),
+          ),
+        );
+      }
+      return Positioned(
+        right: 16,
+        bottom: 16,
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.3,
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: chips),
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        if (widget.quickPromptChips.isEmpty)
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (logo != null) logo else const SizedBox(width: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    label.isNotEmpty
-                        ? '${provider.title} · $label'
-                        : provider.title,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                Text(L10n.of(context).tryAQuickPrompt,
+                    style: theme.textTheme.titleMedium),
+                const SizedBox(height: 12),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _suggestedPrompts
+                      .map((prompt) => ActionChip(
+                            label: Text(prompt),
+                            onPressed: () {
+                              inputController.text = prompt;
+                              _sendMessage();
+                            },
+                          ))
+                      .toList(growable: false),
                 ),
-                if (isSelected) const Icon(Icons.check, size: 16),
               ],
             ),
-          );
-        }).toList(growable: false);
-      },
+          ),
+        buildQuickChipColumn(),
+      ],
+    );
+  }
+
+  Widget _buildInputBox(
+    BuildContext context,
+    List<Map<String, String>> quickPrompts,
+    AiProvider? currentProvider,
+    List<AiProvider> enabledProviders,
+    String selectedId,
+  ) {
+    final aiService = PopupMenuButton<String>(
+      enabled: !_isStreaming,
+      onSelected: _onProviderSelected,
+      itemBuilder: (context) => enabledProviders.map((provider) {
+        final isSelected = provider.id == selectedId;
+        final label = _modelLabel(provider);
+        final logo = _providerLogo(provider);
+        return PopupMenuItem<String>(
+          value: provider.id,
+          child: Row(
+            children: [
+              if (logo != null) logo else const SizedBox(width: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label.isNotEmpty ? '${provider.title} · $label' : provider.title,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isSelected) const Icon(Icons.check, size: 16),
+            ],
+          ),
+        );
+      }).toList(growable: false),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_providerLogo(currentProvider) != null)
-            _providerLogo(currentProvider)!,
+          if (_providerLogo(currentProvider) != null) _providerLogo(currentProvider)!,
           const SizedBox(width: 6),
           Flexible(
             child: Text(
@@ -614,37 +806,31 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
         ],
       ),
     );
-    Widget inputBox = FilledContainer(
+    return FilledContainer(
       padding: const EdgeInsets.all(4),
       radius: 15,
       child: SafeArea(
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                SizedBox.shrink(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    reverse: true,
-                    child: Row(
-                      spacing: 8,
-                      children: quickPrompts.map((prompt) {
-                        return ActionChip(
-                          // labelPadding: EdgeInsets.all(0),
-                          label: Text(prompt['label']!),
-                          onPressed: () => _useQuickPrompt(prompt['prompt']!),
-                        );
-                      }).toList(),
-                    ),
-                  ),
+            SizedBox(
+              width: double.infinity,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  spacing: 8,
+                  children: quickPrompts
+                      .map((p) => ActionChip(
+                            label: Text(p['label']!),
+                            onPressed: () => _useQuickPrompt(p['prompt']!),
+                          ))
+                      .toList(),
                 ),
-              ],
+              ),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             TextField(
               controller: inputController,
+              focusNode: _focusNode,
               decoration: InputDecoration(
                 isDense: true,
                 hintText: L10n.of(context).aiHintInputPlaceholder,
@@ -655,7 +841,7 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => _sendMessage(),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -676,7 +862,8 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
                               currentModel: currentProvider.model,
                             );
                             if (selected != null &&
-                                selected != currentProvider.model) {
+                                selected != currentProvider.model &&
+                                context.mounted) {
                               ref
                                   .read(aiProvidersProvider.notifier)
                                   .updateProvider(
@@ -697,152 +884,6 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
           ],
         ),
       ),
-    );
-
-    Widget buildEmptyState() {
-      final theme = Theme.of(context);
-
-      Widget buildQuickChipColumn() {
-        if (widget.quickPromptChips.isEmpty) {
-          return const SizedBox.shrink();
-        }
-
-        final chips = <Widget>[];
-        for (var i = 0; i < widget.quickPromptChips.length; i++) {
-          final chip = widget.quickPromptChips[i];
-          chips.add(
-            Padding(
-              padding: EdgeInsets.only(top: i == 0 ? 0 : 8.0),
-              child: ActionChip(
-                avatar: Icon(chip.icon, size: 18),
-                label: Text(chip.label),
-                onPressed: () {
-                  inputController.text = chip.prompt;
-                  _sendMessage();
-                },
-              ),
-            ),
-          );
-        }
-
-        return Positioned(
-          right: 16,
-          bottom: 16,
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.3,
-            child: SingleChildScrollView(
-              // scrollDirection: Axis.horizontal,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: chips,
-              ),
-            ),
-          ),
-        );
-      }
-
-      return Stack(
-        children: [
-          if (widget.quickPromptChips.isEmpty)
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    L10n.of(context).tryAQuickPrompt,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    alignment: WrapAlignment.center,
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _suggestedPrompts
-                        .map(
-                          (prompt) => ActionChip(
-                            label: Text(prompt),
-                            onPressed: () {
-                              inputController.text = prompt;
-                              _sendMessage();
-                            },
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
-                ],
-              ),
-            ),
-          buildQuickChipColumn(),
-        ],
-      );
-    }
-
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: Text(L10n.of(context).aiChat),
-        leading: IconButton(
-          icon: const Icon(Icons.insert_drive_file),
-          tooltip: L10n.of(context).history,
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_document),
-            onPressed: _clearMessage,
-          ),
-          Builder(
-            builder: (context) => IconButton(
-              icon: const Icon(Icons.more_vert),
-              onPressed: () => _showFontSizeMenu(context),
-            ),
-          ),
-          if (widget.trailing != null) ...widget.trailing!,
-        ],
-      ),
-      drawer: Drawer(
-        child: _buildHistoryDrawer(context),
-      ),
-      body: EnvVar.isAppStore &&
-              Prefs().shouldShowHint(HintKey.aiDataSharingConsent)
-          ? _buildDataSharingConsent(context)
-          : Column(
-              children: [
-                Expanded(
-                  child: _messageStream != null
-                      ? StreamBuilder<List<ChatMessage>>(
-                          stream: _messageStream,
-                          builder: (context, snapshot) {
-                            if (!snapshot.hasData) {
-                              return Skeletonizer.zone(child: Bone.multiText());
-                            }
-
-                            final messages = snapshot.data!;
-                            if (messages.isEmpty) {
-                              return buildEmptyState();
-                            }
-
-                            return _buildMessageList(messages);
-                          },
-                        )
-                      : ref.watch(aiChatProvider).when(
-                            data: (messages) {
-                              if (messages.isEmpty) {
-                                return buildEmptyState();
-                              }
-
-                              return _buildMessageList(messages);
-                            },
-                            loading: () =>
-                                Skeletonizer.zone(child: Bone.multiText()),
-                            error: (error, stack) =>
-                                Center(child: Text('error: $error')),
-                          ),
-                ),
-                inputBox,
-              ],
-            ),
     );
   }
 
@@ -901,28 +942,71 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
   }
 
   Widget _buildMessageList(List<ChatMessage> messages) {
-    return ListView.builder(
-      controller: _scrollController,
-      itemCount: messages.length,
-      itemBuilder: (context, index) {
-        final message = messages[index];
-        final isStreaming =
-            _messageStream != null && index == messages.length - 1;
-        return _buildMessageItem(message, index, isStreaming);
+    int lastAssistantIndex = -1;
+    for (int i = messages.length - 1; i >= 0; i--) {
+      if (messages[i] is AIChatMessage) {
+        lastAssistantIndex = i;
+        break;
+      }
+    }
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (notification is UserScrollNotification) {
+          if (notification.direction == ScrollDirection.forward) {
+            _isUserScrolledUp = true;
+          }
+        } else if (notification is ScrollUpdateNotification) {
+          if (notification.dragDetails != null) {
+            if ((notification.scrollDelta ?? 0) < 0) {
+              _isUserScrolledUp = true;
+            }
+            final metrics = notification.metrics;
+            final isNearBottom =
+                (metrics.maxScrollExtent - metrics.pixels) <= 36;
+            if (isNearBottom) {
+              _isUserScrolledUp = false;
+            }
+          }
+        }
+        return false;
       },
+      child: Scrollbar(
+        controller: _scrollController,
+        interactive: true,
+        thickness: 6.0,
+        radius: const Radius.circular(3),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            children: [
+              for (int index = 0; index < messages.length; index++)
+                _buildMessageItem(
+                  messages[index],
+                  index,
+                  _messageStream != null && index == messages.length - 1,
+                  isLastAssistant: index == lastAssistantIndex,
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildMessageItem(
     ChatMessage message,
     int index,
-    bool isStreaming,
-  ) {
+    bool isStreaming, {
+    required bool isLastAssistant,
+  }) {
     final isUser = message is HumanChatMessage;
     final content = chatMessageDisplayContent(message);
     final parsed = parseReasoningContent(content);
     final isLongMessage = content.length > 300;
-    final lastAssistantMessage = _getLastAssistantMessage();
+    final hasContent = content.trim().isNotEmpty;
+    final isThisMessageStreaming = isStreaming && _isStreaming;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -955,21 +1039,24 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
                 children: [
                   isUser
                       ? _buildCollapsibleText(content, isLongMessage)
-                      : _buildAssistantTimeline(parsed, isStreaming),
-                  if (!isUser)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        if (identical(message, lastAssistantMessage))
+                      : _buildAssistantTimeline(parsed, isThisMessageStreaming),
+                  if (!isUser && !isThisMessageStreaming && hasContent)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          if (isLastAssistant)
+                            TextButton(
+                              onPressed: _regenerateLastMessage,
+                              child: Text(L10n.of(context).aiRegenerate),
+                            ),
                           TextButton(
-                            onPressed: _regenerateLastMessage,
-                            child: Text(L10n.of(context).aiRegenerate),
+                            onPressed: () => _copyMessageContent(content),
+                            child: Text(L10n.of(context).commonCopy),
                           ),
-                        TextButton(
-                          onPressed: () => _copyMessageContent(content),
-                          child: Text(L10n.of(context).commonCopy),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -1054,6 +1141,12 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
         widgets.add(const SizedBox(height: 8));
       }
       widgets.addAll(answerWidgets);
+      if (isStreaming) {
+        widgets.add(Align(
+          alignment: Alignment.centerLeft,
+          child: _BlinkingCursor(height: _fontSize),
+        ));
+      }
     } else if (widgets.isEmpty && isStreaming) {
       widgets.add(Skeletonizer.zone(child: Bone.multiText()));
     }
@@ -1101,6 +1194,9 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     final theme = Theme.of(context);
     final accentColor = theme.colorScheme.secondary.withValues(alpha: 0.82);
     final subtleColor = theme.colorScheme.secondary.withValues(alpha: 0.68);
+    final maxHeight =
+        (MediaQuery.sizeOf(context).height * 0.32).clamp(160.0, 260.0);
+
     return Theme(
       data: theme.copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
@@ -1126,24 +1222,10 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
           ),
         ),
         children: [
-          Container(
-            margin: const EdgeInsets.only(left: 7),
-            padding: const EdgeInsets.only(left: 12),
-            decoration: BoxDecoration(
-              border: Border(
-                left: BorderSide(
-                  color: subtleColor.withValues(alpha: 0.55),
-                  width: 1,
-                ),
-              ),
-            ),
-            child: Opacity(
-              opacity: 0.9,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: children,
-              ),
-            ),
+          _ThinkingScrollContainer(
+            maxHeight: maxHeight,
+            subtleColor: subtleColor,
+            children: children,
           ),
         ],
       ),
@@ -1245,3 +1327,110 @@ class _CollapsibleTextState extends State<_CollapsibleText> {
     );
   }
 }
+
+class _ThinkingScrollContainer extends StatefulWidget {
+  const _ThinkingScrollContainer({
+    required this.maxHeight,
+    required this.subtleColor,
+    required this.children,
+  });
+
+  final double maxHeight;
+  final Color subtleColor;
+  final List<Widget> children;
+
+  @override
+  State<_ThinkingScrollContainer> createState() =>
+      _ThinkingScrollContainerState();
+}
+
+class _ThinkingScrollContainerState extends State<_ThinkingScrollContainer> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 7),
+      padding: const EdgeInsets.only(left: 12),
+      constraints: BoxConstraints(maxHeight: widget.maxHeight),
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            color: widget.subtleColor.withValues(alpha: 0.55),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Scrollbar(
+        controller: _scrollController,
+        thumbVisibility: true,
+        thickness: 4.0,
+        radius: const Radius.circular(2),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const ClampingScrollPhysics(),
+          child: Opacity(
+            opacity: 0.9,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: widget.children,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BlinkingCursor extends StatefulWidget {
+  const _BlinkingCursor({this.height = 14.0});
+  final double height;
+
+  @override
+  State<_BlinkingCursor> createState() => _BlinkingCursorState();
+}
+
+class _BlinkingCursorState extends State<_BlinkingCursor>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RepaintBoundary(
+      child: FadeTransition(
+        opacity: _controller,
+        child: Container(
+          width: 3.0,
+          height: widget.height,
+          margin: const EdgeInsets.only(left: 2.0, top: 2.0),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary,
+            borderRadius: BorderRadius.circular(1.5),
+          ),
+        ),
+      ),
+    );
+  }
+}
+

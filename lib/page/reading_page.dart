@@ -564,6 +564,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
           });
         },
         icon: const Icon(Icons.close),
+        tooltip: L10n.of(context).historyClose,
       ),
     ];
   }

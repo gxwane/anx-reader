@@ -102,7 +102,8 @@ class History extends EventTarget {
 const languageInfo = lang => {
   if (!lang) return {}
   try {
-    const canonical = Intl.getCanonicalLocales(lang)[0] ?? 'en'
+    const canonical =
+      Intl.getCanonicalLocales(String(lang).replace(/_/g, '-'))[0] ?? 'en'
     const locale = new Intl.Locale(canonical)
     const isCJK = ['zh', 'ja', 'kr'].includes(locale.language)
     const direction = (locale.getTextInfo?.() ?? locale.textInfo)?.direction
