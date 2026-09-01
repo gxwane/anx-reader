@@ -1,3 +1,5 @@
+import { getOpenCCConverter } from './chinese-converter.js'
+
 const decodeExcerptEntities = value => value
   .replace(/&nbsp;/gi, ' ')
   .replace(/&amp;/gi, '&')
@@ -16,12 +18,22 @@ export const normalizeAnnotationExcerpt = value => typeof value === 'string'
 
 const compactExcerpt = value => value.replace(/\s+/g, '')
 
+const normalizeChineseText = value => {
+  const t2s = getOpenCCConverter('t2s')
+  return t2s ? t2s(value) : value
+}
+
 const rangeMatchesExcerpt = (range, expectedExcerpt) => {
   if (!range || range.collapsed) return false
   try {
     const actualExcerpt = normalizeAnnotationExcerpt(range.toString())
-    return actualExcerpt === expectedExcerpt
-      || compactExcerpt(actualExcerpt) === compactExcerpt(expectedExcerpt)
+    if (actualExcerpt === expectedExcerpt
+      || compactExcerpt(actualExcerpt) === compactExcerpt(expectedExcerpt)) {
+      return true
+    }
+    const actualSimp = compactExcerpt(normalizeChineseText(actualExcerpt))
+    const expectedSimp = compactExcerpt(normalizeChineseText(expectedExcerpt))
+    return actualSimp.length > 0 && actualSimp === expectedSimp
   } catch {
     return false
   }

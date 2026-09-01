@@ -29,6 +29,12 @@ class _ReadingMoreSettingsState extends State<ReadingMoreSettings> {
       const iconStyle = TextStyle(fontSize: 16, fontWeight: FontWeight.bold);
       return StatefulBuilder(
         builder: (context, setState) {
+          final mode = Prefs().readingRules.convertChineseMode;
+          final isTrad = mode == ConvertChineseMode.s2t ||
+              mode == ConvertChineseMode.s2tw ||
+              mode == ConvertChineseMode.s2hk;
+          final activeTradMode = isTrad ? mode : ConvertChineseMode.s2t;
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -56,14 +62,15 @@ class _ReadingMoreSettingsState extends State<ReadingMoreSettings> {
                           icon: const Text("繁", style: iconStyle),
                         ),
                       ],
-                      selected: {Prefs().readingRules.convertChineseMode},
+                      selected: {isTrad ? ConvertChineseMode.s2t : mode},
                       onSelectionChanged: (value) {
                         setState(() {
-                          // Prefs().readingRules.convertChineseMode =
-                          //     ConvertChineseMode.values.byName(value.first);
+                          final newMode = value.first == ConvertChineseMode.s2t
+                              ? activeTradMode
+                              : value.first;
                           Prefs().readingRules = Prefs()
                               .readingRules
-                              .copyWith(convertChineseMode: value.first);
+                              .copyWith(convertChineseMode: newMode);
                           epubPlayerKey.currentState
                               ?.changeReadingRules(Prefs().readingRules);
                         });
@@ -72,18 +79,58 @@ class _ReadingMoreSettingsState extends State<ReadingMoreSettings> {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  const Icon(Icons.error_outline),
-                  Expanded(
-                    child: Text(
-                      L10n.of(context).readingPageConvertChineseTips,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+              if (isTrad)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Row(
+                    children: [
+                      ActionChip(
+                        label: const Text("通用"),
+                        avatar: mode == ConvertChineseMode.s2t
+                            ? const Icon(Icons.check, size: 16)
+                            : null,
+                        onPressed: () {
+                          setState(() {
+                            Prefs().readingRules = Prefs().readingRules.copyWith(
+                                convertChineseMode: ConvertChineseMode.s2t);
+                            epubPlayerKey.currentState
+                                ?.changeReadingRules(Prefs().readingRules);
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ActionChip(
+                        label: const Text("台湾"),
+                        avatar: mode == ConvertChineseMode.s2tw
+                            ? const Icon(Icons.check, size: 16)
+                            : null,
+                        onPressed: () {
+                          setState(() {
+                            Prefs().readingRules = Prefs().readingRules.copyWith(
+                                convertChineseMode: ConvertChineseMode.s2tw);
+                            epubPlayerKey.currentState
+                                ?.changeReadingRules(Prefs().readingRules);
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ActionChip(
+                        label: const Text("香港"),
+                        avatar: mode == ConvertChineseMode.s2hk
+                            ? const Icon(Icons.check, size: 16)
+                            : null,
+                        onPressed: () {
+                          setState(() {
+                            Prefs().readingRules = Prefs().readingRules.copyWith(
+                                convertChineseMode: ConvertChineseMode.s2hk);
+                            epubPlayerKey.currentState
+                                ?.changeReadingRules(Prefs().readingRules);
+                          });
+                        },
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
             ],
           );
         },
