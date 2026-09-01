@@ -313,6 +313,33 @@ class DBHelper {
     return dbTime;
   }
 
+  /// Safely add a column to a table if it does not already exist (Idempotent Migration)
+  static Future<void> addColumnIfNotExists(
+    DatabaseExecutor db,
+    String table,
+    String column,
+    String columnDef,
+  ) async {
+    try {
+      final columns = await db.rawQuery('PRAGMA table_info($table)');
+      final exists = columns.any((c) =>
+          c['name']?.toString().toLowerCase() == column.toLowerCase());
+      if (!exists) {
+        await db.execute('ALTER TABLE $table ADD COLUMN $column $columnDef');
+        AnxLog.info('Database: added column $column to $table');
+      }
+    } catch (e) {
+      if (e.toString().contains('duplicate column name') ||
+          e.toString().contains('already exists')) {
+        AnxLog.info(
+            'Database: column $column already exists in $table, skipping');
+      } else {
+        AnxLog.warning('Database: error adding column $column to $table: $e');
+        rethrow;
+      }
+    }
+  }
+
   Future<void> onUpgradeDatabase(
       Database db, int oldVersion, int newVersion) async {
     AnxLog.info('Database: upgrade database from $oldVersion to $newVersion');
@@ -330,7 +357,7 @@ class DBHelper {
       case1:
       case 1:
         // add a column (rating) to tb_books
-        await db.execute('ALTER TABLE tb_books ADD COLUMN rating REAL');
+        await addColumnIfNotExists(db, 'tb_books', 'rating', 'REAL');
         // remove '/data/user/0/com.anxcye.anx_reader/app_flutter/' from file_path & cover_path
         await db.execute(
             "UPDATE tb_books SET file_path = REPLACE(file_path, '/data/user/0/com.anxcye.anx_reader/app_flutter/', '')");
@@ -356,26 +383,31 @@ class DBHelper {
         final basePath = getBasePath('');
         final fileDir = Directory('$basePath/file');
         final coverDir = Directory('$basePath/cover');
-        fileDir.listSync().forEach((element) {
-          if (element is File) {
-            final path = element.path;
-            String pathAfterReplace = path.replaceAll(' ', '_');
-            int endIndex =
-                (pathAfterReplace.length < 72) ? pathAfterReplace.length : 72;
-            final newPath = '${pathAfterReplace.substring(0, endIndex)}.epub';
-            element.rename(newPath);
-          }
-        });
-        coverDir.listSync().forEach((element) {
-          if (element is File) {
-            final path = element.path;
-            String pathAfterReplace = path.replaceAll(' ', '_');
-            int endIndex =
-                (pathAfterReplace.length < 72) ? pathAfterReplace.length : 72;
-            final newPath = '${pathAfterReplace.substring(0, endIndex)}.png';
-            element.rename(newPath);
-          }
-        });
+        if (fileDir.existsSync()) {
+          fileDir.listSync().forEach((element) {
+            if (element is File) {
+              final path = element.path;
+              String pathAfterReplace = path.replaceAll(' ', '_');
+              int endIndex =
+                  (pathAfterReplace.length < 72) ? pathAfterReplace.length : 72;
+              final newPath =
+                  '${pathAfterReplace.substring(0, endIndex)}.epub';
+              element.rename(newPath);
+            }
+          });
+        }
+        if (coverDir.existsSync()) {
+          coverDir.listSync().forEach((element) {
+            if (element is File) {
+              final path = element.path;
+              String pathAfterReplace = path.replaceAll(' ', '_');
+              int endIndex =
+                  (pathAfterReplace.length < 72) ? pathAfterReplace.length : 72;
+              final newPath = '${pathAfterReplace.substring(0, endIndex)}.png';
+              element.rename(newPath);
+            }
+          });
+        }
         continue case3;
       case3:
       case 3:
@@ -392,24 +424,24 @@ class DBHelper {
       case4:
       case 4:
         // add a column (group_id) to tb_books, and set all group_id to 0 default
-        await db.execute("ALTER TABLE tb_books ADD COLUMN group_id INTEGER");
-        await db.execute("UPDATE tb_books SET group_id = 0");
+        await addColumnIfNotExists(db, 'tb_books', 'group_id', 'INTEGER');
+        await db.execute("UPDATE tb_books SET group_id = 0 WHERE group_id IS NULL");
         continue case5;
       case5:
       case 5:
         // add a column (reader_note) to tb_notes, null default
-        await db.execute("ALTER TABLE tb_notes ADD COLUMN reader_note TEXT");
+        await addColumnIfNotExists(db, 'tb_notes', 'reader_note', 'TEXT');
         continue case6;
       case6:
       case 6:
         // create groups table and migrate existing data
         await db.execute(createGroupSQL);
         // add a column (file_md5) to tb_books
-        await db.execute("ALTER TABLE tb_books ADD COLUMN file_md5 TEXT");
+        await addColumnIfNotExists(db, 'tb_books', 'file_md5', 'TEXT');
 
         // Insert root group
         await db.execute(
-            "INSERT INTO tb_groups (id, name, parent_id, create_time, update_time) VALUES (0, 'Root', NULL, datetime('now'), datetime('now'))");
+            "INSERT OR IGNORE INTO tb_groups (id, name, parent_id, create_time, update_time) VALUES (0, 'Root', NULL, datetime('now'), datetime('now'))");
 
         // Get all unique group_ids from books
         final List<Map<String, dynamic>> uniqueGroups = await db.rawQuery('''
@@ -422,7 +454,7 @@ class DBHelper {
         for (var i = 0; i < uniqueGroups.length; i++) {
           final groupId = uniqueGroups[i]['group_id'];
           await db.execute('''
-            INSERT INTO tb_groups (id, name, parent_id, create_time, update_time)
+            INSERT OR IGNORE INTO tb_groups (id, name, parent_id, create_time, update_time)
             VALUES (?, '...', 0, datetime('now'), datetime('now'))
           ''', [groupId]);
         }
@@ -430,14 +462,14 @@ class DBHelper {
       case7:
       case 7:
         // add reading status and reading lifecycle columns to tb_books
-        await db.execute(
-            "ALTER TABLE tb_books ADD COLUMN reading_status INTEGER DEFAULT 0");
-        await db.execute(
-            "ALTER TABLE tb_books ADD COLUMN start_reading_time TEXT");
-        await db.execute(
-            "ALTER TABLE tb_books ADD COLUMN finish_reading_time TEXT");
-        await db.execute(
-            "ALTER TABLE tb_books ADD COLUMN read_count INTEGER DEFAULT 0");
+        await addColumnIfNotExists(
+            db, 'tb_books', 'reading_status', 'INTEGER DEFAULT 0');
+        await addColumnIfNotExists(
+            db, 'tb_books', 'start_reading_time', 'TEXT');
+        await addColumnIfNotExists(
+            db, 'tb_books', 'finish_reading_time', 'TEXT');
+        await addColumnIfNotExists(
+            db, 'tb_books', 'read_count', 'INTEGER DEFAULT 0');
 
         // Backfill initial reading status from reading_percentage for existing books
         await db.execute('''
@@ -445,23 +477,27 @@ class DBHelper {
           SET reading_status = 2, 
               finish_reading_time = update_time, 
               read_count = 1 
-          WHERE reading_percentage >= 0.95
+          WHERE reading_percentage >= 0.95 AND (reading_status IS NULL OR reading_status = 0)
         ''');
         await db.execute('''
           UPDATE tb_books 
           SET reading_status = 1, 
               start_reading_time = create_time 
-          WHERE reading_percentage > 0.02 AND reading_percentage < 0.95
+          WHERE reading_percentage > 0.02 AND reading_percentage < 0.95 AND (reading_status IS NULL OR reading_status = 0)
         ''');
         await db.execute('''
           UPDATE tb_books 
           SET reading_status = 0 
-          WHERE reading_percentage <= 0.02
+          WHERE reading_status IS NULL
         ''');
     }
 
-    if (oldVersion != 0 && Prefs().webdavStatus) {
-      updatedDB = true;
+    try {
+      if (oldVersion != 0 && Prefs().webdavStatus) {
+        updatedDB = true;
+      }
+    } catch (_) {
+      // Prefs may not be initialized in test environments
     }
   }
 }

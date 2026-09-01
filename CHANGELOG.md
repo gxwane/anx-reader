@@ -7,6 +7,11 @@
 
 ---
 
+## [0.1.0-preview.4] - 2026-09-01
+
+### 修复
+- 数据库迁移幂等性加固（SQLite 启动防崩溃）：引入 `addColumnIfNotExists` 防御性列迁移机制，在字段已提前存在或迁移中断重入时自动跳过，杜绝 SQLite `duplicate column name` 导致的启动异常退出。
+
 ## [0.1.0-preview.3] - 2026-08-31
 
 ### 新增
