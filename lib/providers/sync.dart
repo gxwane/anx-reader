@@ -38,12 +38,28 @@ part 'sync.g.dart';
 @Riverpod(keepAlive: true)
 class Sync extends _$Sync {
   static final Sync _instance = Sync._internal();
+  static StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
+  static Timer? _debounceTimer;
 
   factory Sync() {
     return _instance;
   }
 
   Sync._internal();
+
+  /// Starts listening for network recovery to automatically drain pending sync queue.
+  static void initConnectivityListener() {
+    _connectivitySubscription?.cancel();
+    _connectivitySubscription =
+        Connectivity().onConnectivityChanged.listen((results) {
+      if (results.any((r) => r != ConnectivityResult.none)) {
+        _debounceTimer?.cancel();
+        _debounceTimer = Timer(const Duration(seconds: 5), () {
+          Sync().processPendingSyncQueue();
+        });
+      }
+    });
+  }
 
   @override
   SyncStateModel build() {
@@ -504,6 +520,14 @@ class Sync extends _$Sync {
     final mgr = progressSyncManager;
     if (mgr == null) return;
     await mgr.mergeRemoteNotes(book);
+  }
+
+  /// Drains any offline pending sync books in the background.
+  Future<void> processPendingSyncQueue() async {
+    if (!Prefs().webdavStatus) return;
+    final mgr = progressSyncManager;
+    if (mgr == null) return;
+    await mgr.drainPendingQueue(BookDao());
   }
 
   Future<void> uploadFile(

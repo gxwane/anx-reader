@@ -60,6 +60,7 @@ Future<void> main() async {
     AnxLog.init();
     AnxError.init();
     await DBHelper().initDB();
+    Sync.initConnectivityListener();
   }
 
   Server().start();
@@ -238,6 +239,7 @@ class _MyAppState extends ConsumerState<MyApp>
       if (AnxPlatform.isIOS) {
         Server().start();
       }
+      ref.read(syncProvider.notifier).processPendingSyncQueue();
     }
   }
 
