@@ -15,7 +15,7 @@ class BookNoteDao extends BaseDao {
 
   /// Helper to build type filter SQL
   static String get _typeFilter =>
-      "type IN ('${annotationTypes.join("', '")}')";
+      "type IN ('${annotationTypes.join("', '")}') AND (is_deleted = 0 OR is_deleted IS NULL)";
 
   Future<int> save(BookNote bookNote) async {
     if (bookNote.id != null) {
@@ -103,8 +103,12 @@ class BookNoteDao extends BaseDao {
   }
 
   Future<void> deleteBookNoteById(int id) async {
-    await delete(
+    await update(
       table,
+      {
+        'is_deleted': 1,
+        'update_time': DateTime.now().toIso8601String(),
+      },
       where: 'id = ?',
       whereArgs: [id],
     );
@@ -129,6 +133,8 @@ class BookNoteDao extends BaseDao {
     final where = <String>[];
     final whereArgs = <Object?>[];
     final query = keyword?.trim();
+
+    where.add('(is_deleted = 0 OR is_deleted IS NULL)');
 
     // Filter by types (defaults to annotation types if not specified)
     final filterTypes = types ?? annotationTypes;

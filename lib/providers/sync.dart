@@ -12,9 +12,12 @@ import 'package:anx_reader/models/sync_state_model.dart';
 import 'package:anx_reader/providers/book_list.dart';
 import 'package:anx_reader/providers/sync_status.dart';
 import 'package:anx_reader/providers/tb_groups.dart';
+import 'package:anx_reader/models/sync/book_progress_payload.dart';
 import 'package:anx_reader/service/sync/sync_client_factory.dart';
 import 'package:anx_reader/service/sync/sync_client_base.dart';
 import 'package:anx_reader/service/sync/sync_local_change_detector.dart';
+import 'package:anx_reader/service/sync/database_merger.dart';
+import 'package:anx_reader/service/sync/progress_sync_manager.dart';
 import 'package:anx_reader/service/database_sync_manager.dart';
 import 'package:anx_reader/dao/database.dart';
 import 'package:anx_reader/utils/get_path/databases_path.dart';
@@ -41,9 +44,6 @@ class Sync extends _$Sync {
   }
 
   Sync._internal();
-
-  // Flag to prevent multiple sync direction dialogs
-  bool _isShowingDirectionDialog = false;
 
   @override
   SyncStateModel build() {
@@ -138,86 +138,16 @@ class Sync extends _$Sync {
         await client.readProps(AppIdentity.syncPath(remoteDbFileName));
     final databasePath = await getAnxDataBasesPath();
     final localDbPath = join(databasePath, 'app_database.db');
-    io.File localDb = io.File(localDbPath);
 
     // Use getLatestModTime to include WAL file modification time
     final localDbTime = DBHelper.getLatestModTime(localDbPath);
     AnxLog.info('localDbTime: $localDbTime, remoteDbTime: ${remoteDb?.mTime}');
 
-    // Less than 5s difference, no sync needed
-    if (remoteDb != null &&
-        localDbTime.difference(remoteDb.mTime!).inSeconds.abs() < 5) {
-      return null;
-    }
-
     if (remoteDb == null) {
       return SyncDirection.upload;
     }
 
-    if (requestedDirection == SyncDirection.both) {
-      if (Prefs().lastUploadBookDate == null ||
-          Prefs()
-                  .lastUploadBookDate!
-                  .difference(remoteDb.mTime!)
-                  .inSeconds
-                  .abs() >
-              5) {
-        return await _showSyncDirectionDialog(localDb, remoteDb);
-      }
-    }
-
     return requestedDirection;
-  }
-
-  Future<SyncDirection?> _showSyncDirectionDialog(
-      io.File localDb, RemoteFile remoteDb) async {
-    // Prevent multiple dialogs from showing simultaneously
-    if (_isShowingDirectionDialog) {
-      AnxLog.info('Sync direction dialog already showing, skipping');
-      return null;
-    }
-
-    _isShowingDirectionDialog = true;
-    try {
-      return await showDialog<SyncDirection>(
-        context: navigatorKey.currentContext!,
-        barrierDismissible: false, // Prevent dismissing by tapping outside
-        builder: (context) => AlertDialog(
-          title: Text(L10n.of(context).commonAttention),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(L10n.of(context).webdavSyncDirection),
-              SizedBox(height: 10),
-              Text(
-                  '${L10n.of(context).bookSyncStatusLocalUpdateTime} ${localDb.lastModifiedSync()}'),
-              Text(
-                  '${L10n.of(context).syncRemoteDataUpdateTime} ${remoteDb.mTime}'),
-            ],
-          ),
-          actionsOverflowDirection: VerticalDirection.up,
-          actionsOverflowAlignment: OverflowBarAlignment.center,
-          actionsOverflowButtonSpacing: 10,
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(SyncDirection.upload);
-              },
-              child: Text(L10n.of(context).webdavUpload),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(context).pop(SyncDirection.download);
-              },
-              child: Text(L10n.of(context).webdavDownload),
-            ),
-          ],
-        ),
-      );
-    } finally {
-      _isShowingDirectionDialog = false;
-    }
   }
 
   Future<void> _showDatabaseVersionMismatchDialog(int remoteVersion) async {
@@ -499,19 +429,41 @@ class Sync extends _$Sync {
           break;
 
         case SyncDirection.both:
-          // determineSyncDirection guarantees remote is unchanged since last
-          // sync when we reach here. Only upload if local has new changes.
+          final remoteChanged = Prefs().lastUploadBookDate == null ||
+              (remoteDb?.mTime != null &&
+                  Prefs()
+                          .lastUploadBookDate!
+                          .difference(remoteDb!.mTime!)
+                          .inSeconds
+                          .abs() >
+                      5);
+
           final localChanged =
               SyncLocalChangeDetector.hasLocalChangedSinceLastSync(
             currentLocalTime: DBHelper.getLatestModTime(localDbPath),
             lastSyncedLocalDbTime: Prefs().lastSyncedLocalDbTime,
           );
-          if (remoteDb == null || localChanged) {
+
+          if (remoteDb != null && remoteChanged) {
+            AnxLog.info(
+                'Sync(both): Remote DB changed, performing non-destructive merge');
+            final merged = await DatabaseMerger.mergeFromRemote(
+              client: client,
+              remoteDbFileName: remoteDbFileName,
+            );
+            if (merged) {
+              localTimeToRecord =
+                  await _uploadDatabaseSnapshot(remoteDbFileName, localDbPath);
+              try {
+                ref.read(bookListProvider.notifier).refresh();
+              } catch (_) {}
+            }
+          } else if (remoteDb == null || localChanged) {
             localTimeToRecord =
                 await _uploadDatabaseSnapshot(remoteDbFileName, localDbPath);
           } else {
             AnxLog.info(
-                'Sync(both): local unchanged since last sync, skipping DB sync');
+                'Sync(both): Neither local nor remote changed, skipping DB sync');
           }
           break;
       }
@@ -521,6 +473,37 @@ class Sync extends _$Sync {
       AnxLog.severe('Failed to sync database\n$e');
       rethrow;
     }
+  }
+
+  ProgressSyncManager? get progressSyncManager =>
+      _syncClient != null ? ProgressSyncManager(_syncClient!) : null;
+
+  /// Background dispatch for single-book progress micro-sync
+  Future<void> syncBookProgress(Book book) async {
+    final mgr = progressSyncManager;
+    if (mgr == null) return;
+    await mgr.uploadBookProgress(book);
+  }
+
+  /// Fetches remote progress for a book without blocking UI
+  Future<BookProgressPayload?> fetchBookProgress(String fileMd5) async {
+    final mgr = progressSyncManager;
+    if (mgr == null) return null;
+    return await mgr.fetchRemoteProgress(fileMd5);
+  }
+
+  /// Background dispatch for single-book notes micro-sync
+  Future<void> syncBookNotes(Book book) async {
+    final mgr = progressSyncManager;
+    if (mgr == null) return;
+    await mgr.uploadBookNotes(book);
+  }
+
+  /// Merges remote notes into local book
+  Future<void> mergeBookNotes(Book book) async {
+    final mgr = progressSyncManager;
+    if (mgr == null) return;
+    await mgr.mergeRemoteNotes(book);
   }
 
   Future<void> uploadFile(

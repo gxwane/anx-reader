@@ -9,6 +9,7 @@ class BookNote {
   String? readerNote;
   DateTime? createTime;
   DateTime updateTime;
+  bool isDeleted;
 
   void setId(int id) {
     this.id = id;
@@ -25,6 +26,7 @@ class BookNote {
     this.readerNote,
     this.createTime,
     required this.updateTime,
+    this.isDeleted = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -37,6 +39,7 @@ class BookNote {
       'type': type,
       'color': color,
       'reader_note': readerNote,
+      'is_deleted': isDeleted ? 1 : 0,
       'create_time': createTime?.toIso8601String(),
       'update_time': updateTime.toIso8601String(),
     };
@@ -65,6 +68,7 @@ class BookNote {
       type: map['type'] as String? ?? '',
       color: map['color'] as String? ?? '',
       readerNote: map['reader_note'] as String?,
+      isDeleted: (map['is_deleted'] as int? ?? 0) == 1,
       createTime:
           createTimeString != null ? DateTime.tryParse(createTimeString) : null,
       updateTime: updateTimeString != null

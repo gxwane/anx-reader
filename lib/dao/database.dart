@@ -13,7 +13,7 @@ import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Current app database version
-const int currentDbVersion = 8;
+const int currentDbVersion = 9;
 
 const createBookSQL = '''
 CREATE TABLE tb_books (
@@ -71,6 +71,8 @@ CREATE TABLE tb_notes (
   chapter TEXT,
   type TEXT,
   color TEXT,
+  reader_note TEXT,
+  is_deleted INTEGER DEFAULT 0,
   create_time TEXT,
   update_time TEXT
 )
@@ -322,6 +324,10 @@ class DBHelper {
   ) async {
     try {
       final columns = await db.rawQuery('PRAGMA table_info($table)');
+      if (columns.isEmpty) {
+        AnxLog.info('Database: table $table does not exist, skipping column add');
+        return;
+      }
       final exists = columns.any((c) =>
           c['name']?.toString().toLowerCase() == column.toLowerCase());
       if (!exists) {
@@ -490,6 +496,12 @@ class DBHelper {
           SET reading_status = 0 
           WHERE reading_status IS NULL
         ''');
+        continue case8;
+      case8:
+      case 8:
+        // add is_deleted column to tb_notes for tombstone soft deletion
+        await addColumnIfNotExists(
+            db, 'tb_notes', 'is_deleted', 'INTEGER DEFAULT 0');
     }
 
     try {

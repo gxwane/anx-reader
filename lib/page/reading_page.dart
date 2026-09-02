@@ -6,8 +6,6 @@ import 'package:anx_reader/dao/reading_time.dart';
 import 'package:anx_reader/dao/theme.dart';
 import 'package:anx_reader/enums/ai_panel_position.dart';
 import 'package:anx_reader/enums/ai_chat_display_mode.dart';
-import 'package:anx_reader/enums/sync_direction.dart';
-import 'package:anx_reader/enums/sync_trigger.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/ai_quick_prompt_chip.dart';
@@ -123,6 +121,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _requestReaderFocus();
+        _checkRemoteProgressAndNotes();
         // _attachVolumeKeyListener();
       }
     });
@@ -139,10 +138,53 @@ class ReadingPageState extends ConsumerState<ReadingPage>
     super.initState();
   }
 
+  Future<void> _checkRemoteProgressAndNotes() async {
+    final md5 = _book.md5;
+    if (md5 == null || md5.isEmpty || !Prefs().webdavStatus) return;
+
+    final initialPercentage = _book.readingPercentage;
+    final initialPosition = _book.lastReadPosition;
+
+    try {
+      Sync().mergeBookNotes(_book);
+
+      final remote = await Sync().fetchBookProgress(md5);
+      if (remote == null || !mounted) return;
+
+      if (remote.updatedAt.isAfter(_book.updateTime) &&
+          (remote.readingPercentage - initialPercentage).abs() > 0.01 &&
+          remote.lastReadPosition.isNotEmpty &&
+          remote.lastReadPosition != initialPosition) {
+        final percentText =
+            '${(remote.readingPercentage * 100).toStringAsFixed(1)}%';
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${L10n.of(context).syncRemoteDataUpdateTime}: $percentText (${remote.deviceName})',
+            ),
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: L10n.of(context).commonOk,
+              onPressed: () {
+                if (!mounted) return;
+                epubPlayerKey.currentState?.goToCfi(remote.lastReadPosition);
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      AnxLog.info('ReadingPage: Check remote progress ignored: $e');
+    }
+  }
+
   @override
   void dispose() {
     if (!isAppShuttingDown) {
-      Sync().syncData(SyncDirection.upload, ref, trigger: SyncTrigger.auto);
+      Sync().syncBookProgress(_book);
+      Sync().syncBookNotes(_book);
     }
     _readTimeWatch.stop();
     _awakeTimer?.cancel();
