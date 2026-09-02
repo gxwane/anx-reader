@@ -183,8 +183,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
   @override
   void dispose() {
     if (!isAppShuttingDown) {
-      Sync().syncBookProgress(_book);
-      Sync().syncBookNotes(_book);
+      Sync().syncBookOnExit(_book);
     }
     _readTimeWatch.stop();
     _awakeTimer?.cancel();

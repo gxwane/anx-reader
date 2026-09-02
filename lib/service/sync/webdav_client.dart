@@ -206,14 +206,6 @@ class WebdavClient extends SyncClientBase {
     void Function(int sent, int total)? onProgress,
     CancelToken? cancelToken,
   }) async {
-    if (replace) {
-      try {
-        await remove(_safeEncodePath(remotePath));
-      } catch (e) {
-        AnxLog.severe('Failed to remove file\n$e');
-      }
-    }
-
     await _client.writeFromFile(
       localPath,
       _safeEncodePath(remotePath),

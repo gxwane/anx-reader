@@ -1,4 +1,5 @@
 import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:anx_reader/utils/log/common.dart';
 import 'package:synchronized/synchronized.dart';
 
 /// Thread-safe persistent queue for tracking books that have pending micro-sync
@@ -12,7 +13,8 @@ class OfflineSyncQueue {
     try {
       final list = Prefs().prefs.getStringList(_key) ?? [];
       return list.map(int.tryParse).whereType<int>().toSet();
-    } catch (_) {
+    } catch (e) {
+      AnxLog.warning('OfflineSyncQueue: Failed to read pending book IDs: $e');
       return {};
     }
   }
@@ -28,7 +30,9 @@ class OfflineSyncQueue {
                 current.map((id) => id.toString()).toList(),
               );
         }
-      } catch (_) {}
+      } catch (e) {
+        AnxLog.warning('OfflineSyncQueue: Failed to add pending book $bookId: $e');
+      }
     });
   }
 
@@ -43,7 +47,9 @@ class OfflineSyncQueue {
                 current.map((id) => id.toString()).toList(),
               );
         }
-      } catch (_) {}
+      } catch (e) {
+        AnxLog.warning('OfflineSyncQueue: Failed to remove pending book $bookId: $e');
+      }
     });
   }
 
@@ -52,7 +58,9 @@ class OfflineSyncQueue {
     await _lock.synchronized(() async {
       try {
         await Prefs().prefs.remove(_key);
-      } catch (_) {}
+      } catch (e) {
+        AnxLog.warning('OfflineSyncQueue: Failed to clear queue: $e');
+      }
     });
   }
 }

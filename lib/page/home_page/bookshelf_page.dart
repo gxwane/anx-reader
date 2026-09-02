@@ -11,6 +11,7 @@ import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/tag.dart';
 import 'package:anx_reader/providers/book_list.dart';
 import 'package:anx_reader/providers/book_filters.dart';
+import 'package:anx_reader/providers/sync.dart';
 import 'package:anx_reader/providers/tags.dart';
 import 'package:anx_reader/service/book.dart';
 import 'package:anx_reader/page/search/search_page.dart';
@@ -428,100 +429,113 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
                 lockedIndices.add(i);
               }
             }
-            return books.isEmpty
-                ? const Center(child: BookshelfTips())
-                : ReorderableBuilder(
-                    // lock all index of books
-                    lockedIndices: lockedIndices,
-                    enableDraggable: true,
-                    longPressDelay: AnxPlatform.isDesktop
-                        ? Duration.zero
-                        : const Duration(milliseconds: 300),
-                    onReorder: (ReorderedListFunction reorderedListFunction) {},
-                    scrollController: _scrollController,
-                    onDragStarted: (index) {
-                      if (books[index].length == 1) {
-                        if (!AnxPlatform.isDesktop) {
-                          showBottomSheet(
-                            context: context,
-                            builder: (context) =>
-                                BookBottomSheet(book: books[index].first),
-                          );
+            return RefreshIndicator(
+              onRefresh: () async {
+                await ref.read(syncProvider.notifier).syncBookshelfProgress();
+              },
+              child: books.isEmpty
+                  ? SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: SizedBox(
+                        height: 400,
+                        child: const Center(child: BookshelfTips()),
+                      ),
+                    )
+                  : ReorderableBuilder(
+                      // lock all index of books
+                      lockedIndices: lockedIndices,
+                      enableDraggable: true,
+                      longPressDelay: AnxPlatform.isDesktop
+                          ? Duration.zero
+                          : const Duration(milliseconds: 300),
+                      onReorder: (ReorderedListFunction reorderedListFunction) {},
+                      scrollController: _scrollController,
+                      onDragStarted: (index) {
+                        if (books[index].length == 1) {
+                          if (!AnxPlatform.isDesktop) {
+                            showBottomSheet(
+                              context: context,
+                              builder: (context) =>
+                                  BookBottomSheet(book: books[index].first),
+                            );
+                          }
+                          for (int i = 0; i < books.length; i++) {
+                            if (i != index) {
+                              lockedIndices.add(i);
+                            }
+                          }
                         }
+                      },
+                      onDragEnd: (index) {
+                        // remove all books from lockedIndices
+                        lockedIndices = [];
                         for (int i = 0; i < books.length; i++) {
-                          if (i != index) {
+                          if (books[i].length != 1) {
                             lockedIndices.add(i);
                           }
                         }
-                      }
-                    },
-                    onDragEnd: (index) {
-                      // remove all books from lockedIndices
-                      lockedIndices = [];
-                      for (int i = 0; i < books.length; i++) {
-                        if (books[i].length != 1) {
-                          lockedIndices.add(i);
-                        }
-                      }
-                      setState(() {});
-                    },
-                    children: [
-                      ...books.map(
-                        (book) {
-                          final topLevelKey = ValueKey<String>(
-                            book.first.id.toString(),
-                          );
-                          return book.length == 1
-                              ? CustomDraggable(
-                                  key: topLevelKey,
-                                  data: book.first,
-                                  child: BookFolder(
-                                      books: book,
-                                      onOpenBookSheet: AnxPlatform.isDesktop
-                                          ? openBookSheet
-                                          : null),
-                                )
-                              : BookFolder(
-                                  key: topLevelKey,
-                                  books: book,
-                                  onOpenBookSheet: AnxPlatform.isDesktop
-                                      ? openBookSheet
-                                      : null,
-                                );
-                        },
-                      ),
-                    ],
-                    builder: (children) {
-                      return LayoutBuilder(builder: (context, constraints) {
-                        return Column(
-                          children: [
-                            HintBanner(
-                                icon: const Icon(Icons.copy),
-                                hintKey: HintKey.dragAndDropToCreateFolder,
-                                margin: EdgeInsets.fromLTRB(20, 0, 20, 5),
-                                child: Text(L10n.of(context)
-                                    .dragAndDropToCreateFolderHint)),
-                            Expanded(
-                              child: GridView(
-                                key: _gridViewKey,
-                                controller: _scrollController,
-                                padding:
-                                    const EdgeInsets.fromLTRB(20, 12, 20, 80),
-                                gridDelegate:
-                                    SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: constraints.maxWidth ~/
-                                      Prefs().bookCoverWidth,
-                                  childAspectRatio: 1 / 2.1,
-                                  mainAxisSpacing: 30,
-                                  crossAxisSpacing: 20,
+                        setState(() {});
+                      },
+                      children: [
+                        ...books.map(
+                          (book) {
+                            final topLevelKey = ValueKey<String>(
+                              book.first.id.toString(),
+                            );
+                            return book.length == 1
+                                ? CustomDraggable(
+                                    key: topLevelKey,
+                                    data: book.first,
+                                    child: BookFolder(
+                                        books: book,
+                                        onOpenBookSheet: AnxPlatform.isDesktop
+                                            ? openBookSheet
+                                            : null),
+                                  )
+                                : BookFolder(
+                                    key: topLevelKey,
+                                    books: book,
+                                    onOpenBookSheet: AnxPlatform.isDesktop
+                                        ? openBookSheet
+                                        : null,
+                                  );
+                          },
+                        ),
+                      ],
+                      builder: (children) {
+                        return LayoutBuilder(builder: (context, constraints) {
+                          return Column(
+                            children: [
+                              HintBanner(
+                                  icon: const Icon(Icons.copy),
+                                  hintKey: HintKey.dragAndDropToCreateFolder,
+                                  margin: const EdgeInsets.fromLTRB(20, 0, 20, 5),
+                                  child: Text(L10n.of(context)
+                                      .dragAndDropToCreateFolderHint)),
+                              Expanded(
+                                child: GridView(
+                                  key: _gridViewKey,
+                                  controller: _scrollController,
+                                  physics:
+                                      const AlwaysScrollableScrollPhysics(),
+                                  padding:
+                                      const EdgeInsets.fromLTRB(20, 12, 20, 80),
+                                  gridDelegate:
+                                      SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: constraints.maxWidth ~/
+                                        Prefs().bookCoverWidth,
+                                    childAspectRatio: 1 / 2.1,
+                                    mainAxisSpacing: 30,
+                                    crossAxisSpacing: 20,
+                                  ),
+                                  children: children,
                                 ),
-                                children: children,
                               ),
-                            ),
-                          ],
-                        );
-                      });
-                    });
+                            ],
+                          );
+                        });
+                      }),
+            );
           },
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, stack) => Center(child: Text(error.toString())),

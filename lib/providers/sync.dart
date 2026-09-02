@@ -515,6 +515,21 @@ class Sync extends _$Sync {
     await mgr.uploadBookNotes(book);
   }
 
+  /// Consolidated single-channel sequential sync for progress and notes upon exiting a book.
+  Future<void> syncBookOnExit(Book book) async {
+    if (!Prefs().webdavStatus) return;
+    final mgr = progressSyncManager;
+    if (mgr == null) return;
+    await mgr.syncBookOnExit(book);
+  }
+
+  /// Immediately flushes any pending debounced index updates.
+  Future<void> flushPendingIndexUpdates() async {
+    final client = _syncClient;
+    if (client == null) return;
+    await ProgressSyncManager.flushPendingIndexUpdates(client);
+  }
+
   /// Merges remote notes into local book
   Future<void> mergeBookNotes(Book book) async {
     final mgr = progressSyncManager;
@@ -528,6 +543,22 @@ class Sync extends _$Sync {
     final mgr = progressSyncManager;
     if (mgr == null) return;
     await mgr.drainPendingQueue(BookDao());
+  }
+
+  /// Instant single-request synchronization for all bookshelf reading progress
+  /// from [sync/latest_progress.json]. If any books are updated, refreshes [bookListProvider].
+  Future<void> syncBookshelfProgress() async {
+    if (!Prefs().webdavStatus) return;
+    final mgr = progressSyncManager;
+    if (mgr == null) return;
+    try {
+      final hasUpdates = await mgr.syncBookshelfProgress(BookDao());
+      if (hasUpdates) {
+        ref.read(bookListProvider.notifier).refresh();
+      }
+    } catch (e) {
+      AnxLog.warning('Sync: Failed to sync bookshelf progress: $e');
+    }
   }
 
   Future<void> uploadFile(

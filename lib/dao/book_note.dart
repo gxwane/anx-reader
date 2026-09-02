@@ -17,7 +17,16 @@ class BookNoteDao extends BaseDao {
   static String get _typeFilter =>
       "type IN ('${annotationTypes.join("', '")}') AND (is_deleted = 0 OR is_deleted IS NULL)";
 
+  /// In-memory dirty tracker for book notes to enable event-driven micro-sync.
+  static final Set<int> _dirtyBookIds = {};
+
+  static void markDirty(int bookId) => _dirtyBookIds.add(bookId);
+  static bool isDirty(int bookId) => _dirtyBookIds.contains(bookId);
+  static void markClean(int bookId) => _dirtyBookIds.remove(bookId);
+  static void clearAllDirty() => _dirtyBookIds.clear();
+
   Future<int> save(BookNote bookNote) async {
+    markDirty(bookNote.bookId);
     if (bookNote.id != null) {
       await updateBookNoteById(bookNote);
       return bookNote.id!;
@@ -56,6 +65,7 @@ class BookNoteDao extends BaseDao {
   }
 
   Future<void> updateBookNoteById(BookNote bookNote) async {
+    markDirty(bookNote.bookId);
     await update(
       table,
       bookNote.toMap(),
@@ -103,6 +113,10 @@ class BookNoteDao extends BaseDao {
   }
 
   Future<void> deleteBookNoteById(int id) async {
+    try {
+      final note = await selectBookNoteById(id);
+      markDirty(note.bookId);
+    } catch (_) {}
     await update(
       table,
       {
@@ -115,6 +129,7 @@ class BookNoteDao extends BaseDao {
   }
 
   Future<int> deleteAllNotesByBookId(int bookId) async {
+    markDirty(bookId);
     return await update(
       table,
       {

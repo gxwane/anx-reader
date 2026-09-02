@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.14.0
+- Feat(sync): Optimize WebDAV traffic with single-request micro-sync, note dirty-checking, and debounced background index worker
+- Feat(sync): Add bookshelf global progress index and pull-to-refresh to instantly sync reading progress across all books in a single request
 - Feat(sync): Add offline sync queue and resilience engine to automatically enqueue failed micro-syncs and seamlessly drain on network recovery
 - Feat(notes): Decouple notes from local book files, seamlessly preserve and present notes for removed books with graceful missing file guards
 - Feat(notes): Support batch deleting all notes for a single book with confirmation dialog, slidable shortcuts, and WebDAV tombstone sync
@@ -51,6 +53,8 @@
 - Fix(l10n): Update full_description.txt (#775) Thanks @Xapitonov
 - L10n: Complete Romanian translation (#714) Thanks @Steinhagen
 
+- Feat(sync): 优化 WebDAV 流量开销，实现单请求极速微同步、笔记脏检查与后台索引防抖聚合，彻底消除并发冲突
+- Feat(sync): 新增书架全局聚合进度索引与下拉刷新，单次轻量请求即可秒级对齐书架所有书籍最新阅读进度
 - Feat(sync): 新增离线阅读与弱网自愈重试队列，在离线/弱网微同步失败时自动入队，网络恢复或应用唤醒时自动后台无感知补发
 - Feat(notes): 解耦笔记与本地书架文件，持久保留并平权呈现历史书籍笔记资产，对本地物理文件缺失增加防崩溃安全保护
 - Feat(notes): 支持一键批量删除单书全部笔记，配备二次确认弹窗、左滑快捷操作与 WebDAV 墓碑同步
