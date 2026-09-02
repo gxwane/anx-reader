@@ -94,3 +94,10 @@ For non-trivial features, refactorings, and architectural fixes, activate the de
 For platform packaging and autonomous GitHub CI diagnostic procedures, refer to:
 - [**`docs/packaging_and_ci.md`**](docs/packaging_and_ci.md) (Android APK/AAB builds, Windows Inno Setup installer, CI automation scripts, and Section 4: Preview Release SOP & CI/CD Iron Rules).
 - **Mandatory Release Protocol**: Always ensure remote `develop` CI passes 100% green before creating or pushing release tags. Never push branch commits and release tags concurrently.
+
+---
+
+## 8. Documentation & Changelog Requirements
+
+- **User-Facing Changes**: For any feature implementation, bug fix, or UI change, you MUST update both `CHANGELOG.md` (root, following Keep a Changelog) and `assets/CHANGELOG.md` (in-app bilingual EN/ZH format) before requesting commit confirmation or creating a commit.
+- **Internal Only Changes**: Do NOT update changelogs for pure internal refactors, test additions, or chore tasks that have zero user-facing impact.
