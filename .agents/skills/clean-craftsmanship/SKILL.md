@@ -87,7 +87,7 @@ Instead of relying solely on manual, line-by-line human inspection of AI-generat
 
 ---
 
-## Standard Execution Gates (7 Gates)
+## Standard Execution Gates (8 Gates)
 
 When working on a feature or bugfix with this skill, each Gate requires a concrete deliverable before proceeding to the next:
 
@@ -98,4 +98,5 @@ When working on a feature or bugfix with this skill, each Gate requires a concre
 - [ ] **Gate 5 (Hardener Mutation)**: ✅ **《变异消灭证据日志》已在回复中完整输出，击杀率 100%。**
 - [ ] **Gate 6 (Gauntlet Gate)**: `powershell .\scripts\verify_gauntlet.ps1` 全绿通过。
 - [ ] **Gate 7 (User Visual Test)**: UI/阅读器引擎变更已邀请用户进行运行时手动验证，用户明确确认后方可 commit。
+- [ ] **Gate 8 (Documentation & Delivery)**: 面向用户的变更已同步更新 `CHANGELOG.md` 与 `assets/CHANGELOG.md`（纯内部重构跳过），确认无误后方可执行 commit。
 
