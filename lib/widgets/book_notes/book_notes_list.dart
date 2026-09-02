@@ -7,6 +7,7 @@ import 'package:anx_reader/models/book_notes_state.dart';
 import 'package:anx_reader/page/reading_page.dart';
 import 'package:anx_reader/providers/book_notes.dart';
 import 'package:anx_reader/service/book.dart';
+import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/widgets/book_notes/book_note_tile.dart';
 import 'package:anx_reader/widgets/book_share/excerpt_share_service.dart';
 import 'package:anx_reader/widgets/delete_confirm.dart';
@@ -347,7 +348,11 @@ class BookNotesList extends ConsumerWidget {
           if (reading) {
             epubPlayerKey.currentState?.goToCfi(bookNote.cfi);
           } else {
-            pushToReadingPage(ref, context, book, cfi: bookNote.cfi);
+            if (book.isDeleted) {
+              AnxToast.show(L10n.of(context).notesBookDeletedCannotOpenTip);
+            } else {
+              pushToReadingPage(ref, context, book, cfi: bookNote.cfi);
+            }
           }
         }
       },

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/constants/note_annotations.dart';
 import 'package:anx_reader/dao/book_note.dart';
@@ -5,6 +7,8 @@ import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/book_note.dart';
 import 'package:anx_reader/models/book_notes_state.dart';
 import 'package:anx_reader/providers/bookmark.dart';
+import 'package:anx_reader/providers/notes_statistics.dart';
+import 'package:anx_reader/providers/sync.dart';
 import 'package:flutter/material.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -264,6 +268,19 @@ class BookNotesController extends _$BookNotesController {
     ref.read(BookmarkProvider(book.id).notifier).refreshBookmarks();
 
     await refresh();
+  }
+
+  Future<void> deleteAllNotes() async {
+    await bookNoteDao.deleteAllNotesByBookId(book.id);
+    ref.read(BookmarkProvider(book.id).notifier).refreshBookmarks();
+
+    try {
+      unawaited(ref.read(syncProvider.notifier).syncBookNotes(book));
+    } catch (_) {}
+
+    await refresh();
+    ref.read(notesStatisticsProvider.notifier).refresh();
+    ref.read(bookIdAndNotesProvider.notifier).refresh();
   }
 
   List<BookNote> notesForExport({

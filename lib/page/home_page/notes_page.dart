@@ -1,10 +1,12 @@
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/page/book_notes_page.dart';
+import 'package:anx_reader/providers/book_notes.dart';
 import 'package:anx_reader/providers/notes_page_current_book.dart';
 import 'package:anx_reader/providers/notes_statistics.dart';
 import 'package:anx_reader/utils/date/convert_seconds.dart';
 import 'package:anx_reader/utils/date/relative_time_formatter.dart';
+import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/widgets/book_notes/notes_import_flow.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
@@ -12,6 +14,7 @@ import 'package:anx_reader/widgets/highlight_digit.dart';
 import 'package:anx_reader/widgets/tips/notes_tips.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 class NotesPage extends ConsumerStatefulWidget {
   const NotesPage({super.key, this.controller});
@@ -240,89 +243,209 @@ class _NotesPageState extends ConsumerState<NotesPage> {
       fontSize: 14,
       color: Colors.grey,
     );
-    return GestureDetector(
-      onTap: () {
-        if (isMobile) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => BookNotesPage(
-                      book: book,
-                      numberOfNotes: numberOfNotes,
-                      isMobile: true,
-                    )),
-          );
-        } else {
-          ref
-              .read(notesPageCurrentBookProvider.notifier)
-              .setData(book, numberOfNotes);
-        }
-      },
-      child: FilledContainer(
-        margin: const EdgeInsets.only(top: 8, left: 15, right: 15),
-        padding: const EdgeInsets.all(8.0),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, left: 15, right: 15),
+      child: Slidable(
+        key: ValueKey(book.id),
+        endActionPane: ActionPane(
+          motion: const BehindMotion(),
+          extentRatio: 0.25,
           children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  highlightDigit(
-                    context,
-                    L10n.of(context).notesNotes(numberOfNotes),
-                    textStyle,
-                    digitStyle,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(book.title, style: titleStyle),
-                  const SizedBox(height: 18),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        Icon(Icons.access_time, size: 16, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          convertSeconds(readingTime),
-                          style: readingTimeStyle,
-                        ),
-                        Text(" | ", style: readingTimeStyle),
-                        Icon(Icons.bar_chart, size: 16, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${(book.readingPercentage * 100).toStringAsFixed(1)}%',
-                          style: readingTimeStyle,
-                        ),
-                        Text(" | ", style: readingTimeStyle),
-                        Text(
-                          RelativeTimeFormatter.format(
-                            DateTime.tryParse(latestTime),
-                          ),
-                          style: readingTimeStyle,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Expanded(child: SizedBox()),
-            Hero(
-              tag: isMobile
-                  ? book.coverFullPath
-                  : '${book.coverFullPath}notMobile',
-              child: BookCover(
-                book: book,
-                height: 130,
-                width: 90,
-                radius: 20,
-              ),
+            SlidableAction(
+              onPressed: (context) =>
+                  _confirmDeleteBookNotes(context, book, numberOfNotes),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+              icon: Icons.delete_outline,
+              label: L10n.of(context).commonDelete,
+              borderRadius: BorderRadius.circular(16),
             ),
           ],
         ),
+        child: GestureDetector(
+          onSecondaryTapUp: (details) {
+            _showContextMenu(
+              context,
+              details.globalPosition,
+              book,
+              numberOfNotes,
+            );
+          },
+          onTap: () {
+            if (isMobile) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => BookNotesPage(
+                          book: book,
+                          numberOfNotes: numberOfNotes,
+                          isMobile: true,
+                        )),
+              );
+            } else {
+              ref
+                  .read(notesPageCurrentBookProvider.notifier)
+                  .setData(book, numberOfNotes);
+            }
+          },
+          child: FilledContainer(
+            margin: EdgeInsets.zero,
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      highlightDigit(
+                        context,
+                        L10n.of(context).notesNotes(numberOfNotes),
+                        textStyle,
+                        digitStyle,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(book.title, style: titleStyle),
+                      const SizedBox(height: 18),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            Icon(Icons.access_time, size: 16, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              convertSeconds(readingTime),
+                              style: readingTimeStyle,
+                            ),
+                            Text(" | ", style: readingTimeStyle),
+                            Icon(Icons.bar_chart, size: 16, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${(book.readingPercentage * 100).toStringAsFixed(1)}%',
+                              style: readingTimeStyle,
+                            ),
+                            Text(" | ", style: readingTimeStyle),
+                            Text(
+                              RelativeTimeFormatter.format(
+                                DateTime.tryParse(latestTime),
+                              ),
+                              style: readingTimeStyle,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Expanded(child: SizedBox()),
+                Hero(
+                  tag: isMobile
+                      ? book.coverFullPath
+                      : '${book.coverFullPath}notMobile',
+                  child: BookCover(
+                    book: book,
+                    height: 130,
+                    width: 90,
+                    radius: 20,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
+    );
+  }
+
+  Future<void> _confirmDeleteBookNotes(
+    BuildContext context,
+    Book book,
+    int numberOfNotes,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(L10n.of(context).notesDeleteAllTitle),
+        content: Text(
+          L10n.of(context).notesDeleteAllDialogContent(
+            book.title,
+            numberOfNotes,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(L10n.of(context).commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(L10n.of(context).commonDelete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await ref
+          .read(bookNotesControllerProvider(book).notifier)
+          .deleteAllNotes();
+      if (mounted) {
+        AnxToast.show(
+          L10n.of(context).notesDeleteAllSuccess(book.title),
+        );
+        final currentBook = ref.read(notesPageCurrentBookProvider).valueOrNull;
+        if (currentBook?.book.id == book.id) {
+          ref.invalidate(notesPageCurrentBookProvider);
+        }
+      }
+    }
+  }
+
+  void _showContextMenu(
+    BuildContext context,
+    Offset position,
+    Book book,
+    int numberOfNotes,
+  ) {
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy,
+        position.dx + 1,
+        position.dy + 1,
+      ),
+      items: [
+        PopupMenuItem(
+          onTap: () {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _confirmDeleteBookNotes(context, book, numberOfNotes);
+              }
+            });
+          },
+          child: Row(
+            children: [
+              Icon(
+                Icons.delete_outline,
+                color: Theme.of(context).colorScheme.error,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                L10n.of(context).notesDeleteAllTitle,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

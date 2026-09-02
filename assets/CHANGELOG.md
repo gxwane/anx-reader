@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.14.0
+- Feat(notes): Decouple notes from local book files, seamlessly preserve and present notes for removed books with graceful missing file guards
+- Feat(notes): Support batch deleting all notes for a single book with confirmation dialog, slidable shortcuts, and WebDAV tombstone sync
 - Feat(sync): Redesign WebDAV sync with per-book micro-sync, non-destructive record merge, and non-blocking progress hints
 - Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 - Fix(translate): Remove legacy Microsoft reverse-engineered translation service and migrate saved full-text translation preference to Microsoft Azure API
@@ -48,6 +50,8 @@
 - Fix(l10n): Update full_description.txt (#775) Thanks @Xapitonov
 - L10n: Complete Romanian translation (#714) Thanks @Steinhagen
 
+- Feat(notes): 解耦笔记与本地书架文件，持久保留并平权呈现历史书籍笔记资产，对本地物理文件缺失增加防崩溃安全保护
+- Feat(notes): 支持一键批量删除单书全部笔记，配备二次确认弹窗、左滑快捷操作与 WebDAV 墓碑同步
 - Feat(sync): 全面重构 WebDAV 同步引擎，支持单书毫秒级微同步、多端记录无损合流与非阻塞进度提示
 - Fix(sync): 修复 WebDAV 双向同步在下载远端数据库后反复触发误上传的乒乓循环问题
 - Feat(ai): AI 支持单独的思考内容字段，并在聊天与流式界面中以轻量可折叠方式展示思考过程 (#787)

@@ -91,14 +91,20 @@ class BookDao extends BaseDao {
     );
   }
 
-  Future<List<Book>> selectBooksByIds(List<int> ids) async {
+  Future<List<Book>> selectBooksByIds(
+    List<int> ids, {
+    bool includeDeleted = true,
+  }) async {
     if (ids.isEmpty) {
       return const [];
     }
 
     final placeholders = List.filled(ids.length, '?').join(',');
+    final whereClause = includeDeleted
+        ? 'id IN ($placeholders)'
+        : 'is_deleted = 0 AND id IN ($placeholders)';
     return rawQueryList(
-      'SELECT * FROM $table WHERE is_deleted = 0 AND id IN ($placeholders)',
+      'SELECT * FROM $table WHERE $whereClause',
       arguments: ids,
       mapper: Book.fromDb,
     );

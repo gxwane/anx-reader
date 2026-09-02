@@ -951,5 +951,26 @@
   "aiChatFontSize": "Font Size",
   "aiModelSwitchTitle": "Switch Model",
   "aiModelEnterManually": "Enter model name",
-  "aiModelOrSelectBelow": "Or select from list:"
+  "aiModelOrSelectBelow": "Or select from list:",
+  "notesBookDeletedCannotOpenTip": "Book file removed, cannot jump to context. Please re-import the book.",
+  "notesDeleteAllTitle": "Delete All Notes",
+  "notesDeleteAllDialogContent": "Are you sure you want to delete all {count} notes for \"{title}\"? This action cannot be undone.",
+  "@notesDeleteAllDialogContent": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "notesDeleteAllSuccess": "All notes for \"{title}\" have been deleted",
+  "@notesDeleteAllSuccess": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  }
 }

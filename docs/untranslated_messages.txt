@@ -37,7 +37,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "de": [
@@ -78,7 +82,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "es": [
@@ -119,7 +127,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "fr": [
@@ -160,7 +172,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "it": [
@@ -201,7 +217,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "ja": [
@@ -242,7 +262,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "ko": [
@@ -283,7 +307,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "pt": [
@@ -324,7 +352,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "ro": [
@@ -365,7 +397,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "ru": [
@@ -406,7 +442,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "tr": [
@@ -447,7 +487,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "zh": [
@@ -508,7 +552,11 @@
     "translateBaidu",
     "translateTencent",
     "translateVolcengine",
-    "translateAliyun"
+    "translateAliyun",
+    "notesBookDeletedCannotOpenTip",
+    "notesDeleteAllTitle",
+    "notesDeleteAllDialogContent",
+    "notesDeleteAllSuccess"
   ],
 
   "zh_TW": [
