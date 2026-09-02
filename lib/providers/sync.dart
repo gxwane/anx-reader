@@ -14,6 +14,7 @@ import 'package:anx_reader/providers/sync_status.dart';
 import 'package:anx_reader/providers/tb_groups.dart';
 import 'package:anx_reader/service/sync/sync_client_factory.dart';
 import 'package:anx_reader/service/sync/sync_client_base.dart';
+import 'package:anx_reader/service/sync/sync_local_change_detector.dart';
 import 'package:anx_reader/service/database_sync_manager.dart';
 import 'package:anx_reader/dao/database.dart';
 import 'package:anx_reader/utils/get_path/databases_path.dart';
@@ -405,115 +406,117 @@ class Sync extends _$Sync {
     ref.read(syncStatusProvider.notifier).refresh();
   }
 
+  /// Upload a VACUUM INTO snapshot of the local DB to the remote server.
+  /// Captures [localDbPath] mtime BEFORE snapshot creation so that any
+  /// writes that arrive during the upload are not mistakenly marked as synced.
+  Future<DateTime> _uploadDatabaseSnapshot(
+    String remoteDbFileName,
+    String localDbPath,
+  ) async {
+    final preUploadLocalTime = DBHelper.getLatestModTime(localDbPath);
+    final snapshotPath = await DBHelper.prepareUploadSnapshot();
+    try {
+      await uploadFile(snapshotPath, AppIdentity.syncPath(remoteDbFileName));
+    } finally {
+      final snapshotFile = io.File(snapshotPath);
+      if (snapshotFile.existsSync()) await snapshotFile.delete();
+    }
+    return preUploadLocalTime;
+  }
+
+  /// Download and validate the remote DB; returns false if the download failed
+  /// or the remote DB does not exist (also shows the appropriate dialog).
+  Future<bool> _safeDownloadDatabase(
+    SyncClientBase client,
+    String remoteDbFileName,
+    RemoteFile? remoteDb,
+  ) async {
+    if (remoteDb == null) {
+      await _showSyncAbortedDialog();
+      return false;
+    }
+    final result = await DatabaseSyncManager.safeDownloadDatabase(
+      client: client,
+      remoteDbFileName: remoteDbFileName,
+      onProgress: (received, total) {
+        changeState(state.copyWith(
+          direction: SyncDirection.download,
+          fileName: remoteDbFileName,
+          isSyncing: received < total,
+          count: received,
+          total: total,
+        ));
+      },
+    );
+    if (!result.isSuccess) {
+      await DatabaseSyncManager.showSyncErrorDialog(result);
+      AnxLog.severe('Database sync failed: ${result.message}');
+      return false;
+    }
+    return true;
+  }
+
+  /// Persist last-sync timestamps after a successful database sync operation.
+  Future<void> _updateSyncTimestamps(
+    SyncClientBase client,
+    String remoteDbFileName,
+    DateTime localTimeToRecord,
+  ) async {
+    final newRemoteDb =
+        await client.readProps(AppIdentity.syncPath(remoteDbFileName));
+    if (newRemoteDb != null) {
+      Prefs().lastUploadBookDate = newRemoteDb.mTime;
+      Prefs().lastSyncedLocalDbTime = localTimeToRecord;
+    }
+  }
+
   Future<void> syncDatabase(SyncDirection direction) async {
     final client = _syncClient;
     if (client == null) return;
 
-    String remoteDbFileName = 'database$currentDbVersion.db';
-    RemoteFile? remoteDb =
+    final remoteDbFileName = 'database$currentDbVersion.db';
+    final remoteDb =
         await client.readProps(AppIdentity.syncPath(remoteDbFileName));
-
     final databasePath = await getAnxDataBasesPath();
     final localDbPath = join(databasePath, 'app_database.db');
-    io.File localDb = io.File(localDbPath);
+
+    // localTimeToRecord defaults to current mtime (download/skip paths).
+    // Upload paths override it via _uploadDatabaseSnapshot return value.
+    DateTime localTimeToRecord = DBHelper.getLatestModTime(localDbPath);
 
     try {
       switch (direction) {
         case SyncDirection.upload:
-          // Use VACUUM INTO to create a snapshot, avoiding database locking/closing
-          final snapshotPath = await DBHelper.prepareUploadSnapshot();
-          try {
-            await uploadFile(
-              snapshotPath,
-              AppIdentity.syncPath(remoteDbFileName),
-            );
-          } finally {
-            // Clean up snapshot file
-            final snapshotFile = io.File(snapshotPath);
-            if (snapshotFile.existsSync()) {
-              await snapshotFile.delete();
-            }
-          }
+          localTimeToRecord =
+              await _uploadDatabaseSnapshot(remoteDbFileName, localDbPath);
           break;
 
         case SyncDirection.download:
-          if (remoteDb != null) {
-            // Use safe database download method
-            final result = await DatabaseSyncManager.safeDownloadDatabase(
-              client: client,
-              remoteDbFileName: remoteDbFileName,
-              onProgress: (received, total) {
-                changeState(state.copyWith(
-                  direction: SyncDirection.download,
-                  fileName: remoteDbFileName,
-                  isSyncing: received < total,
-                  count: received,
-                  total: total,
-                ));
-              },
-            );
-
-            if (!result.isSuccess) {
-              await DatabaseSyncManager.showSyncErrorDialog(result);
-              AnxLog.severe('Database sync failed: ${result.message}');
-              // Don't throw exception, let sync continue with file sync
-              return;
-            }
-          } else {
-            await _showSyncAbortedDialog();
-            return;
-          }
+          final ok =
+              await _safeDownloadDatabase(client, remoteDbFileName, remoteDb);
+          if (!ok) return;
+          localTimeToRecord = DBHelper.getLatestModTime(localDbPath);
           break;
 
         case SyncDirection.both:
-          if (remoteDb == null ||
-              remoteDb.mTime!.isBefore(localDb.lastModifiedSync())) {
-            // Use VACUUM INTO to create a snapshot, avoiding database locking/closing
-            final snapshotPath = await DBHelper.prepareUploadSnapshot();
-            try {
-              await uploadFile(
-                snapshotPath,
-                AppIdentity.syncPath(remoteDbFileName),
-              );
-            } finally {
-              // Clean up snapshot file
-              final snapshotFile = io.File(snapshotPath);
-              if (snapshotFile.existsSync()) {
-                await snapshotFile.delete();
-              }
-            }
-          } else if (remoteDb.mTime!.isAfter(localDb.lastModifiedSync())) {
-            // Use safe database download method
-            final result = await DatabaseSyncManager.safeDownloadDatabase(
-              client: client,
-              remoteDbFileName: remoteDbFileName,
-              onProgress: (received, total) {
-                changeState(state.copyWith(
-                  direction: SyncDirection.download,
-                  fileName: remoteDbFileName,
-                  isSyncing: received < total,
-                  count: received,
-                  total: total,
-                ));
-              },
-            );
-
-            if (!result.isSuccess) {
-              await DatabaseSyncManager.showSyncErrorDialog(result);
-              AnxLog.severe('Database sync failed: ${result.message}');
-              // Don't throw exception, let sync continue with file sync
-              return;
-            }
+          // determineSyncDirection guarantees remote is unchanged since last
+          // sync when we reach here. Only upload if local has new changes.
+          final localChanged =
+              SyncLocalChangeDetector.hasLocalChangedSinceLastSync(
+            currentLocalTime: DBHelper.getLatestModTime(localDbPath),
+            lastSyncedLocalDbTime: Prefs().lastSyncedLocalDbTime,
+          );
+          if (remoteDb == null || localChanged) {
+            localTimeToRecord =
+                await _uploadDatabaseSnapshot(remoteDbFileName, localDbPath);
+          } else {
+            AnxLog.info(
+                'Sync(both): local unchanged since last sync, skipping DB sync');
           }
           break;
       }
 
-      // Update last sync time
-      RemoteFile? newRemoteDb =
-          await client.readProps(AppIdentity.syncPath(remoteDbFileName));
-      if (newRemoteDb != null) {
-        Prefs().lastUploadBookDate = newRemoteDb.mTime;
-      }
+      await _updateSyncTimestamps(client, remoteDbFileName, localTimeToRecord);
     } catch (e) {
       AnxLog.severe('Failed to sync database\n$e');
       rethrow;

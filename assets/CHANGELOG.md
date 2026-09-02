@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.14.0
+- Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 - Fix(translate): Remove legacy Microsoft reverse-engineered translation service and migrate saved full-text translation preference to Microsoft Azure API
 - Fix(l10n): Remove legacy Microsoft translation localization entries
 - Feat(ai): Support separate AI reasoning content with lightweight collapsible thinking UI in chat and stream views (#787)
@@ -46,6 +47,7 @@
 - Fix(l10n): Update full_description.txt (#775) Thanks @Xapitonov
 - L10n: Complete Romanian translation (#714) Thanks @Steinhagen
 
+- Fix(sync): 修复 WebDAV 双向同步在下载远端数据库后反复触发误上传的乒乓循环问题
 - Feat(ai): AI 支持单独的思考内容字段，并在聊天与流式界面中以轻量可折叠方式展示思考过程 (#787)
 - Fix(translate): 移除旧版 Microsoft 逆向翻译服务，并将已保存的全文翻译偏好迁移到 Microsoft Azure API
 - Fix(l10n): 移除旧版 Microsoft 翻译相关本地化条目

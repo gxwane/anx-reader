@@ -1297,6 +1297,25 @@ class Prefs extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The local DB mtime recorded at the end of the last successful sync
+  /// (upload or download). Used in [Sync.syncDatabase] to detect whether
+  /// the local database has genuinely changed since the last sync, preventing
+  /// false-positive uploads after a download (ping-pong loop fix).
+  DateTime? get lastSyncedLocalDbTime {
+    final s = prefs.getString('lastSyncedLocalDbTime');
+    if (s == null) return null;
+    return DateTime.parse(s);
+  }
+
+  set lastSyncedLocalDbTime(DateTime? date) {
+    if (date == null) {
+      prefs.remove('lastSyncedLocalDbTime');
+    } else {
+      prefs.setString('lastSyncedLocalDbTime', date.toIso8601String());
+    }
+    notifyListeners();
+  }
+
   int get lastServerPort {
     return prefs.getInt('lastServerPort') ?? 0;
   }
