@@ -921,5 +921,9 @@
   "aiModelSwitchTitle": "切換模型",
   "aiModelEnterManually": "輸入模型名稱",
   "aiModelOrSelectBelow": "或從列表中選擇：",
-  "aiChatFontSize": "字體大小"
+  "aiChatFontSize": "字體大小",
+  "notesBookDeletedCannotOpenTip": "原書籍檔案已移除，無法跳轉到原文。請重新匯入該書。",
+  "notesDeleteAllTitle": "刪除全部筆記",
+  "notesDeleteAllDialogContent": "確定要刪除《{title}》的全部 {count} 條筆記嗎？此操作不可撤銷。",
+  "notesDeleteAllSuccess": "已刪除《{title}》的全部筆記"
 }

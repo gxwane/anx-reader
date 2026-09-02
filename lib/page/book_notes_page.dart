@@ -8,10 +8,12 @@ import 'package:anx_reader/widgets/book_notes/book_notes_list.dart';
 import 'package:anx_reader/widgets/book_notes/notes_import_flow.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/page/book_detail.dart';
+import 'package:anx_reader/providers/book_notes.dart';
+import 'package:anx_reader/providers/notes_page_current_book.dart';
+import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:anx_reader/widgets/highlight_digit.dart';
 import 'package:anx_reader/widgets/icon_and_text.dart';
-import 'package:anx_reader/providers/book_notes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -45,15 +47,31 @@ class _BookNotesPageState extends ConsumerState<BookNotesPage> {
       child: LayoutBuilder(builder: (context, constraints) {
         if (constraints.maxWidth > 500) {
           return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      book.title,
-                      style: titleStyle,
-                      maxLines: 1,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            book.title,
+                            style: titleStyle,
+                            maxLines: 1,
+                          ),
+                        ),
+                        if (!widget.isMobile)
+                          IconButton(
+                            icon: Icon(
+                              Icons.delete_outline,
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                            tooltip: L10n.of(context).notesDeleteAllTitle,
+                            onPressed: () => _confirmDeleteAllNotes(context),
+                          ),
+                      ],
                     ),
                     notesStatistic(context, numberOfNotes, book),
                     const SizedBox(
@@ -78,15 +96,31 @@ class _BookNotesPageState extends ConsumerState<BookNotesPage> {
           return Column(
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          book.title,
-                          style: titleStyle,
-                          maxLines: 2,
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                book.title,
+                                style: titleStyle,
+                                maxLines: 2,
+                              ),
+                            ),
+                            if (!widget.isMobile)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                                tooltip: L10n.of(context).notesDeleteAllTitle,
+                                onPressed: () => _confirmDeleteAllNotes(context),
+                              ),
+                          ],
                         ),
                         notesStatistic(context, numberOfNotes, book),
                         const SizedBox(
@@ -388,6 +422,50 @@ class _BookNotesPageState extends ConsumerState<BookNotesPage> {
     ]);
   }
 
+  Future<void> _confirmDeleteAllNotes(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(L10n.of(context).notesDeleteAllTitle),
+        content: Text(
+          L10n.of(context).notesDeleteAllDialogContent(
+            widget.book.title,
+            widget.numberOfNotes,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(L10n.of(context).commonCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(L10n.of(context).commonDelete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await ref
+          .read(bookNotesControllerProvider(widget.book).notifier)
+          .deleteAllNotes();
+      if (mounted) {
+        AnxToast.show(
+          L10n.of(context).notesDeleteAllSuccess(widget.book.title),
+        );
+        if (widget.isMobile) {
+          Navigator.pop(context);
+        } else {
+          ref.invalidate(notesPageCurrentBookProvider);
+        }
+      }
+    }
+  }
+
   Widget notesStatistic(BuildContext context, int numberOfNotes, Book book) {
     TextStyle digitStyle = TextStyle(
       fontSize: 28,
@@ -421,6 +499,13 @@ class _BookNotesPageState extends ConsumerState<BookNotesPage> {
       appBar: widget.isMobile
           ? AppBar(
               title: Text(widget.book.title),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: L10n.of(context).notesDeleteAllTitle,
+                  onPressed: () => _confirmDeleteAllNotes(context),
+                ),
+              ],
             )
           : null,
       extendBodyBehindAppBar: true,

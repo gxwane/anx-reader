@@ -110,6 +110,14 @@ class BookNoteDao extends BaseDao {
     );
   }
 
+  Future<int> deleteAllNotesByBookId(int bookId) {
+    return delete(
+      table,
+      where: 'book_id = ?',
+      whereArgs: [bookId],
+    );
+  }
+
   Future<List<BookNote>> searchBookNotes(String keyword) {
     final query = keyword.trim();
     if (query.isEmpty) {

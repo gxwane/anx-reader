@@ -11,6 +11,9 @@ class NotesPageCurrentBook extends _$NotesPageCurrentBook {
   @override
   Future<CurrentNotesDetail> build() async {
     final idAndNotes = await ref.watch(bookIdAndNotesProvider.future);
+    if (idAndNotes.isEmpty) {
+      throw StateError('No notes available');
+    }
 
     Book book = await bookDao.selectBookById(idAndNotes[0]['bookId']!);
 

@@ -1,6 +1,8 @@
 # Changelog
 
 ## 1.14.0
+- Feat(notes): Decouple notes from local book files, seamlessly preserve and present notes for removed books with graceful missing file guards
+- Feat(notes): Support batch deleting all notes for a single book with confirmation dialog and slidable shortcuts
 - Fix(translate): Remove legacy Microsoft reverse-engineered translation service and migrate saved full-text translation preference to Microsoft Azure API
 - Fix(l10n): Remove legacy Microsoft translation localization entries
 - Feat(ai): Support separate AI reasoning content with lightweight collapsible thinking UI in chat and stream views (#787)
@@ -46,6 +48,8 @@
 - Fix(l10n): Update full_description.txt (#775) Thanks @Xapitonov
 - L10n: Complete Romanian translation (#714) Thanks @Steinhagen
 
+- Feat(notes): 解耦笔记与本地书架文件，持久保留并平权呈现历史书籍笔记资产，对本地物理文件缺失增加防崩溃安全保护
+- Feat(notes): 支持一键批量删除单书全部笔记，配备二次确认弹窗与左滑快捷操作
 - Feat(ai): AI 支持单独的思考内容字段，并在聊天与流式界面中以轻量可折叠方式展示思考过程 (#787)
 - Fix(translate): 移除旧版 Microsoft 逆向翻译服务，并将已保存的全文翻译偏好迁移到 Microsoft Azure API
 - Fix(l10n): 移除旧版 Microsoft 翻译相关本地化条目
