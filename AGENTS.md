@@ -24,6 +24,7 @@ Anx Reader is a cross-platform Flutter e-book reader with EPUB/MOBI/AZW3/FB2/TXT
     └── <db_name>.db                          # Tier 4: Non-destructive DB snapshot merge
     ```
 - `lib/service/notes/`: PKM Markdown formatting, YAML Frontmatter, Dataview tags, and cross-platform filename sanitization.
+- `lib/service/font/`: Font asset subsystem, OpenType/TrueType/TTC random-access stream parser (<64KB read), PostScript stable ID contract, and JIT lazy Flutter engine loading.
 - `lib/providers/`: Riverpod reactive state management.
 - `lib/service/book_player/`: Local HTTP server and Foliate-js bridge.
 - `lib/page/`, `lib/widgets/`: UI presentation layer.

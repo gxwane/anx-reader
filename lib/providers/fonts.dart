@@ -181,7 +181,7 @@ class FontDownloads extends _$FontDownloads {
         };
       } finally {
         // refresh font list
-        ref.watch(fontListProvider.notifier).refresh();
+        ref.read(fontListProvider.notifier).refresh();
       }
     }
   }

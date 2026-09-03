@@ -25,7 +25,7 @@ String generateUrl(
   bookStyle ??= Prefs().bookStyle;
   textColor ??= readTheme.textColor;
   fontName ??= Prefs().font.name;
-  fontPath ??= Prefs().font.path;
+  fontPath ??= Prefs().font.getWebUrl(Server().port);
   backgroundColor ??= readTheme.backgroundColor;
   importing ??= false;
 
