@@ -9,6 +9,7 @@
 - Feat(notes): Decouple notes from local book files, seamlessly preserve and present notes for removed books with graceful missing file guards
 - Feat(notes): Support batch deleting all notes for a single book with confirmation dialog, slidable shortcuts, and WebDAV tombstone sync
 - Feat(sync): Redesign WebDAV sync with per-book micro-sync, non-destructive record merge, and non-blocking progress hints
+- Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
 - Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 - Fix(translate): Remove legacy Microsoft reverse-engineered translation service and migrate saved full-text translation preference to Microsoft Azure API
 - Fix(l10n): Remove legacy Microsoft translation localization entries
