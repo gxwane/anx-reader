@@ -74,6 +74,66 @@ class BookNoteDao extends BaseDao {
     );
   }
 
+  /// Atomically updates relocated notes to new CFIs and creates tombstones
+  /// for old CFIs in a single transaction, preventing WebDAV zombie resurrection.
+  Future<void> batchUpdateCfiWithTombstones(
+    int bookId,
+    List<Map<String, dynamic>> items,
+  ) async {
+    if (items.isEmpty) return;
+    markDirty(bookId);
+    final now = DateTime.now().toUtc().toIso8601String();
+
+    await transaction((txn) async {
+      for (final item in items) {
+        final id = (item['id'] as num?)?.toInt();
+        if (id == null) continue;
+        final oldCfi = item['oldCfi']?.toString() ?? '';
+        final newCfi = item['newCfi']?.toString() ?? '';
+        final prefix = item['prefix']?.toString();
+        final suffix = item['suffix']?.toString();
+        if (newCfi.isEmpty) continue;
+
+        final originalRows = await txn.query(
+          table,
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        if (originalRows.isEmpty) continue;
+        final original = originalRows.first;
+
+        await txn.update(
+          table,
+          {
+            'cfi': newCfi,
+            if (prefix != null) 'context_prefix': prefix,
+            if (suffix != null) 'context_suffix': suffix,
+            'update_time': now,
+          },
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+
+        if (oldCfi.isNotEmpty && oldCfi != newCfi) {
+          await txn.insert(
+            table,
+            {
+              'book_id': original['book_id'] ?? bookId,
+              'content': original['content'] ?? '',
+              'cfi': oldCfi,
+              'chapter': original['chapter'] ?? '',
+              'type': original['type'] ?? 'highlight',
+              'color': original['color'] ?? '',
+              'is_deleted': 1,
+              'create_time': original['create_time'],
+              'update_time': now,
+            },
+          );
+        }
+      }
+    });
+  }
+
   Future<BookNote> selectBookNoteById(int id) async {
     final note = await querySingle(
       table,

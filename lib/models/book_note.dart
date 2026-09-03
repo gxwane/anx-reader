@@ -7,6 +7,8 @@ class BookNote {
   String type;
   String color;
   String? readerNote;
+  String? contextPrefix;
+  String? contextSuffix;
   DateTime? createTime;
   DateTime updateTime;
   bool isDeleted;
@@ -24,6 +26,8 @@ class BookNote {
     required this.type,
     required this.color,
     this.readerNote,
+    this.contextPrefix,
+    this.contextSuffix,
     this.createTime,
     required this.updateTime,
     this.isDeleted = false,
@@ -39,6 +43,8 @@ class BookNote {
       'type': type,
       'color': color,
       'reader_note': readerNote,
+      'context_prefix': contextPrefix,
+      'context_suffix': contextSuffix,
       'is_deleted': isDeleted ? 1 : 0,
       'create_time': createTime?.toIso8601String(),
       'update_time': updateTime.toIso8601String(),
@@ -52,6 +58,8 @@ class BookNote {
       'value': cfi,
       'type': type,
       'color': '#$color',
+      'contextPrefix': contextPrefix,
+      'contextSuffix': contextSuffix,
     };
   }
 
@@ -68,6 +76,8 @@ class BookNote {
       type: map['type'] as String? ?? '',
       color: map['color'] as String? ?? '',
       readerNote: map['reader_note'] as String?,
+      contextPrefix: map['context_prefix'] as String?,
+      contextSuffix: map['context_suffix'] as String?,
       isDeleted: (map['is_deleted'] as int? ?? 0) == 1,
       createTime:
           createTimeString != null ? DateTime.tryParse(createTimeString) : null,

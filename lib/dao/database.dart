@@ -13,7 +13,7 @@ import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Current app database version
-const int currentDbVersion = 9;
+const int currentDbVersion = 10;
 
 const createBookSQL = '''
 CREATE TABLE tb_books (
@@ -73,6 +73,8 @@ CREATE TABLE tb_notes (
   color TEXT,
   reader_note TEXT,
   is_deleted INTEGER DEFAULT 0,
+  context_prefix TEXT,
+  context_suffix TEXT,
   create_time TEXT,
   update_time TEXT
 )
@@ -502,6 +504,17 @@ class DBHelper {
         // add is_deleted column to tb_notes for tombstone soft deletion
         await addColumnIfNotExists(
             db, 'tb_notes', 'is_deleted', 'INTEGER DEFAULT 0');
+        continue case9;
+      case9:
+      case 9:
+        // add context_prefix and context_suffix to tb_notes for context fingerprinting
+        await addColumnIfNotExists(
+            db, 'tb_notes', 'context_prefix', 'TEXT');
+        await addColumnIfNotExists(
+            db, 'tb_notes', 'context_suffix', 'TEXT');
+        continue case10;
+      case10:
+      case 10:
     }
 
     try {

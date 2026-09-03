@@ -7,6 +7,7 @@ import { Overlayer } from './overlayer.js'
 import { isGeneratedBacklinkHref, isNumberedNoteMarker } from './noteref.js'
 import { collapse, compare, fromRange, toRange } from './epubcfi.js'
 import {
+  buildRangeFingerprint,
   normalizeAnnotationExcerpt as normalizeExternalText,
   repairAnnotationTarget,
 } from './annotation-target.js'
@@ -172,6 +173,72 @@ const findTextRange = (doc, query, preferredOffset = 0) => {
   const range = createTextRange(doc, offsets.start, offsets.end)
   if (!range) return null
   return { range, offset: offsets.start }
+}
+
+const findAllExternalTextOffsets = (text, query) => {
+  const results = []
+  if (!text || !query) return results
+
+  let searchFrom = 0
+  while (true) {
+    const found = text.indexOf(query, searchFrom)
+    if (found < 0) break
+    results.push({ start: found, end: found + query.length })
+    searchFrom = found + Math.max(1, query.length)
+  }
+  if (results.length > 0) return results
+
+  const normalizedQuery = normalizeExternalText(query)
+  if (!normalizedQuery) return results
+
+  const index = buildNormalizedIndex(text)
+  const { normalized, offsets } = index
+  searchFrom = 0
+  while (true) {
+    const found = normalized.indexOf(normalizedQuery, searchFrom)
+    if (found < 0) break
+    const start = offsets[found]
+    const end = (offsets[found + normalizedQuery.length - 1] ?? start) + 1
+    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+      results.push({ start, end })
+    }
+    searchFrom = found + Math.max(1, normalizedQuery.length)
+  }
+  if (results.length > 0) return results
+
+  const compactQuery = normalizedQuery.replace(/\s+/g, '')
+  const compactIndex = buildNormalizedIndex(text, { compact: true })
+  searchFrom = 0
+  while (true) {
+    const found = compactIndex.normalized.indexOf(compactQuery, searchFrom)
+    if (found < 0) break
+    const start = compactIndex.offsets[found]
+    const end = (compactIndex.offsets[found + compactQuery.length - 1] ?? start) + 1
+    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
+      results.push({ start, end })
+    }
+    searchFrom = found + Math.max(1, compactQuery.length)
+  }
+  return results
+}
+
+const findAllTextRanges = (doc, query) => {
+  const body = getDocumentBody(doc)
+  const normalizedQuery = normalizeExternalText(query)
+  if (!body || !normalizedQuery) return []
+
+  const text = body.textContent ?? ''
+  if (!text) return []
+
+  const offsetPairs = findAllExternalTextOffsets(text, query)
+  const ranges = []
+  for (const pair of offsetPairs) {
+    const range = createTextRange(doc, pair.start, pair.end)
+    if (range) {
+      ranges.push({ range, offset: pair.start })
+    }
+  }
+  return ranges
 }
 
 const makeExternalTextAnchor = (query, preferredOffset = 0) => doc =>
@@ -433,6 +500,7 @@ const handleSelection = (view, doc, index) => {
   }
 
   const contextText = buildRangeContextText(range);
+  const { prefix: contextPrefix, suffix: contextSuffix } = buildRangeFingerprint(range);
 
   onSelectionEnd({
     index,
@@ -441,7 +509,9 @@ const handleSelection = (view, doc, index) => {
     cfi,
     pos: position,
     text,
-    contextText
+    contextText,
+    contextPrefix,
+    contextSuffix,
   });
 };
 
@@ -1640,7 +1710,7 @@ class Reader {
     })
   }
 
-  async #normalizeAnnotationTarget(value, getDocument, expectedExcerpt) {
+  async #normalizeAnnotationTarget(value, getDocument, expectedExcerpt, prefix, suffix) {
     try {
       let normalizedTarget
       if (isAnxLocation(value)) {
@@ -1653,13 +1723,16 @@ class Reader {
       const repairedTarget = await repairAnnotationTarget({
         target: normalizedTarget,
         excerpt: expectedExcerpt,
+        prefix,
+        suffix,
         resolveTarget: target => this.view.resolveNavigation(target),
         getDocument,
+        findAllExcerptRanges: findAllTextRanges,
         findExcerptRange: findTextRange,
         createTarget: (index, range) => this.view.getCFI(index, range),
       })
       if (repairedTarget !== normalizedTarget) {
-        console.info('[Annotations] Recovered stale target from saved excerpt')
+        console.info('[Annotations] Recovered stale target from saved excerpt & context fingerprint')
       }
       return repairedTarget
     } catch (e) {
@@ -1683,24 +1756,36 @@ class Reader {
       return documentPromises.get(index)
     }
 
+    const relocatedList = []
     const prepared = await Promise.all(annos.map(async anno => {
-      const { value, type, color, note } = anno
+      const { value, type, color, note, contextPrefix, contextSuffix } = anno
       const annotation = {
         id: anno.id,
         value,
         type,
         color,
-        note
+        note,
+        contextPrefix,
+        contextSuffix,
       }
       const expectedExcerpt = type === 'bookmark' ? null : note
       const normalizedTarget = await this.#normalizeAnnotationTarget(
-        value, getDocument, expectedExcerpt)
+        value, getDocument, expectedExcerpt, contextPrefix, contextSuffix)
       if (normalizedTarget == null && !isAnxLocation(value)) {
         console.warn('[Annotations] Skipping unresolved legacy target:', value)
         return null
       }
       if (normalizedTarget && normalizedTarget !== value) {
         this.normalizedAnnotationTargets.set(value, normalizedTarget)
+        if (anno.id) {
+          relocatedList.push({
+            id: anno.id,
+            oldCfi: value,
+            newCfi: normalizedTarget,
+            prefix: contextPrefix,
+            suffix: contextSuffix,
+          })
+        }
       }
       return annotation
     }))
@@ -1708,6 +1793,11 @@ class Reader {
     for (const annotation of prepared) {
       if (!annotation) continue
       this.addAnnotation(annotation)
+    }
+
+    if (relocatedList.length > 0) {
+      console.info(`[Annotations] Batch relocating ${relocatedList.length} annotations to Flutter`)
+      callFlutter('onAnnotationsRelocated', relocatedList)
     }
 
     const pendingInitialTarget = this.#pendingInitialTarget

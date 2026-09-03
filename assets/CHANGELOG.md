@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.14.0
+- Feat(reader): Add W3C Web Annotation context fingerprinting and fuzzy relocation to auto-heal broken note coordinates across book layout changes and editions
 - Feat(sync): Support auto-mirroring reading notes to WebDAV in Markdown format with YAML frontmatter for Obsidian and PKM tools
 - Feat(sync): Optimize WebDAV traffic with single-request micro-sync, note dirty-checking, and debounced background index worker
 - Feat(sync): Add bookshelf global progress index and pull-to-refresh to instantly sync reading progress across all books in a single request
@@ -54,6 +55,7 @@
 - Fix(l10n): Update full_description.txt (#775) Thanks @Xapitonov
 - L10n: Complete Romanian translation (#714) Thanks @Steinhagen
 
+- Feat(reader): 引入 W3C 规范上下文指纹与模糊自愈重定位算法，在电子书重新排版或版本更新导致 CFI 坐标失效时毫秒级自动纠偏，并配备 WebDAV 防僵尸墓碑机制
 - Feat(sync): 支持将划线笔记自动镜像导出为 Markdown 格式（含 YAML Frontmatter）至 WebDAV，无缝联动 Obsidian 与 PKM 知识库
 - Feat(sync): 优化 WebDAV 流量开销，实现单请求极速微同步、笔记脏检查与后台索引防抖聚合，彻底消除并发冲突
 - Feat(sync): 新增书架全局聚合进度索引与下拉刷新，单次轻量请求即可秒级对齐书架所有书籍最新阅读进度

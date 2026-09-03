@@ -25,6 +25,7 @@ import 'package:anx_reader/page/book_player/image_viewer.dart';
 import 'package:anx_reader/page/home_page.dart';
 import 'package:anx_reader/page/reading_page.dart';
 import 'package:anx_reader/providers/book_list.dart';
+import 'package:anx_reader/providers/book_notes.dart';
 import 'package:anx_reader/providers/book_search_bridge.dart';
 import 'package:anx_reader/providers/book_toc.dart';
 import 'package:anx_reader/providers/bookmark.dart';
@@ -168,6 +169,8 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   bool bookmarkExists = false;
   WritingModeEnum writingMode = WritingModeEnum.horizontalTb;
   String? _lastSelectionContextText;
+  String? _lastSelectionContextPrefix;
+  String? _lastSelectionContextSuffix;
   bool _selectionClearLocked = false;
   bool _selectionClearPending = false;
   _ActiveAiBookSearch? _activeAiBookSearch;
@@ -849,6 +852,12 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
           final rawContextText = location['contextText']?.toString();
           _lastSelectionContextText =
               (rawContextText?.trim().isEmpty ?? true) ? null : rawContextText;
+          final rawPrefix = location['contextPrefix']?.toString();
+          _lastSelectionContextPrefix =
+              (rawPrefix?.trim().isEmpty ?? true) ? null : rawPrefix;
+          final rawSuffix = location['contextSuffix']?.toString();
+          _lastSelectionContextSuffix =
+              (rawSuffix?.trim().isEmpty ?? true) ? null : rawSuffix;
           double left = (location['pos']['left'] as num).toDouble();
           double top = (location['pos']['top'] as num).toDouble();
           double right = (location['pos']['right'] as num).toDouble();
@@ -865,6 +874,8 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
             footnote,
             writingMode.isVertical ? Axis.vertical : Axis.horizontal,
             contextText: _lastSelectionContextText,
+            contextPrefix: _lastSelectionContextPrefix,
+            contextSuffix: _lastSelectionContextSuffix,
           );
         });
     controller.addJavaScriptHandler(
@@ -875,6 +886,8 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
             return;
           }
           _lastSelectionContextText = null;
+          _lastSelectionContextPrefix = null;
+          _lastSelectionContextSuffix = null;
           removeOverlay();
         });
     controller.addJavaScriptHandler(
@@ -905,6 +918,12 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
           final rawContextText = annotation['contextText']?.toString();
           _lastSelectionContextText =
               (rawContextText?.trim().isEmpty ?? true) ? null : rawContextText;
+          final rawPrefix = annotation['annotation']['contextPrefix']?.toString();
+          _lastSelectionContextPrefix =
+              (rawPrefix?.trim().isEmpty ?? true) ? null : rawPrefix;
+          final rawSuffix = annotation['annotation']['contextSuffix']?.toString();
+          _lastSelectionContextSuffix =
+              (rawSuffix?.trim().isEmpty ?? true) ? null : rawSuffix;
           double left = (annotation['pos']['left'] as num).toDouble();
           double top = (annotation['pos']['top'] as num).toDouble();
           double right = (annotation['pos']['right'] as num).toDouble();
@@ -921,6 +940,8 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
             false,
             writingMode.isVertical ? Axis.vertical : Axis.horizontal,
             contextText: _lastSelectionContextText,
+            contextPrefix: _lastSelectionContextPrefix,
+            contextSuffix: _lastSelectionContextSuffix,
           );
         });
     controller.addJavaScriptHandler(
@@ -947,6 +968,25 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
       handlerName: 'renderAnnotations',
       callback: (args) async {
         await renderAnnotations(controller);
+      },
+    );
+    controller.addJavaScriptHandler(
+      handlerName: 'onAnnotationsRelocated',
+      callback: (args) async {
+        if (args.isEmpty || args[0] is! List) return;
+        final list = (args[0] as List);
+        final converted = list
+            .whereType<Map>()
+            .map((item) => Map<String, dynamic>.from(item))
+            .toList();
+        if (converted.isEmpty) return;
+        AnxLog.info(
+            'EpubPlayer(${widget.book.id}): batch relocating ${converted.length} annotations');
+        await bookNoteDao.batchUpdateCfiWithTombstones(
+            widget.book.id, converted);
+        if (mounted) {
+          ref.invalidate(bookNotesControllerProvider(widget.book));
+        }
       },
     );
     controller.addJavaScriptHandler(

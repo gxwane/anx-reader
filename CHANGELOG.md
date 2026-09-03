@@ -13,6 +13,10 @@
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。
 
 ### 新增
+- **划线笔记跨格式坐标归一化与上下文指纹自愈重定位（W3C Context Fingerprint & Fuzzy Relocation）**：
+  - 划线时自动提取符合 W3C Web Annotation 规范的上下文指纹（前后各 32 字符），随笔记存入 SQLite 数据库（升级至 v10，具备幂等无损迁移）；
+  - 当电子书重排版、排版引擎微调或版本更新导致传统 CFI 坐标失效时，基于多候选扫描与非对称相似度评分模型（Dice-Sørensen Bigram，阈值 $\ge 0.7$）毫秒级自动重定位正确文本区间；
+  - 纠偏新坐标时通过单次 IPC 批量回写，并在同一 SQLite 事务中为旧坐标原子生成 WebDAV 墓碑标记（`is_deleted = 1`），彻底杜绝跨设备微同步时的僵尸笔记死灰复燃。
 - **个人知识库联动（PKM: Obsidian / Logseq 笔记 Markdown 自动镜像导出）**：
   - 支持在 WebDAV 同步设置中一键开启 Markdown 笔记自动镜像，在划线、写批注或退出阅读时，自动将笔记生成带标准 YAML Frontmatter 的 Markdown 格式并保存至 WebDAV 独立目录 `sync/markdown_notes/<书名> - <作者>.md`；
   - 深度兼容 Obsidian、Logseq、Notion 与 Dataview 元数据规范，包含书名、作者、封面 MD5、阅读状态、笔记总数与 `tags: [anx-reader, book-notes]`；
