@@ -1210,6 +1210,15 @@ class Prefs extends ChangeNotifier {
     return prefs.getBool('autoSync') ?? true;
   }
 
+  set autoExportMarkdownNotesToWebdav(bool status) {
+    prefs.setBool('autoExportMarkdownNotesToWebdav', status);
+    notifyListeners();
+  }
+
+  bool get autoExportMarkdownNotesToWebdav {
+    return prefs.getBool('autoExportMarkdownNotesToWebdav') ?? false;
+  }
+
   set readingInfo(ReadingInfoModel info) {
     prefs.setString('readingInfo', jsonEncode(info.toJson()));
     notifyListeners();

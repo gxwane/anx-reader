@@ -13,6 +13,10 @@
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。
 
 ### 新增
+- **个人知识库联动（PKM: Obsidian / Logseq 笔记 Markdown 自动镜像导出）**：
+  - 支持在 WebDAV 同步设置中一键开启 Markdown 笔记自动镜像，在划线、写批注或退出阅读时，自动将笔记生成带标准 YAML Frontmatter 的 Markdown 格式并保存至 WebDAV 独立目录 `sync/markdown_notes/<书名> - <作者>.md`；
+  - 深度兼容 Obsidian、Logseq、Notion 与 Dataview 元数据规范，包含书名、作者、封面 MD5、阅读状态、笔记总数与 `tags: [anx-reader, book-notes]`；
+  - 配备工业级跨平台文件名安全转义器（自动清洗 Windows 保留名与非法字符），并提供一键全量镜像历史笔记与带进度指示器的节流上传。
 - **WebDAV 解耦多粒度无损同步引擎完整重构**：
   - **网络流量削减与单请求极速微同步（Single-Request Dirty-Checked Micro-Sync）**：废除 WebDAV 上传前冗余的 `DELETE` 请求，严格遵循 RFC 4918 由 HTTP `PUT` 就地原子覆盖（削减 50% 写入网络往返）；在 `BookNoteDao` 引入轻量脏检查，仅当笔记真正修改时才上传笔记；全局索引 `latest_progress.json` 移入后台防抖批处理工作队列，实现 95% 日常阅读退出场景**仅需 1 次极速 HTTP PUT 请求（~240 字节，耗时 < 30ms）**，彻底消除连接重置与并发冲突；
   - **单书毫秒级微同步（Sidecar Sync）**：退出阅读页时秒级异步上传 ~300 字节轻量进度 JSON (`sync/progress/<md5>.json`) 与单书笔记集合，耗时 < 50ms，彻底将高频进度与庞大的 SQLite 数据库解耦，多设备阅读不同书籍在物理层天然零冲突；

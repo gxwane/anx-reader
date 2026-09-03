@@ -41,7 +41,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "de": [
@@ -86,7 +92,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "es": [
@@ -131,7 +143,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "fr": [
@@ -176,7 +194,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "it": [
@@ -221,7 +245,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "ja": [
@@ -266,7 +296,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "ko": [
@@ -311,7 +347,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "pt": [
@@ -356,7 +398,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "ro": [
@@ -401,7 +449,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "ru": [
@@ -446,7 +500,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "tr": [
@@ -491,7 +551,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "zh": [
@@ -556,7 +622,13 @@
     "notesBookDeletedCannotOpenTip",
     "notesDeleteAllTitle",
     "notesDeleteAllDialogContent",
-    "notesDeleteAllSuccess"
+    "notesDeleteAllSuccess",
+    "settingsSyncMarkdownNotesSection",
+    "settingsSyncAutoExportMarkdown",
+    "settingsSyncAutoExportMarkdownSubtitle",
+    "settingsSyncExportAllMarkdownNow",
+    "settingsSyncExportingMarkdown",
+    "settingsSyncExportAllMarkdownSuccess"
   ],
 
   "zh_TW": [

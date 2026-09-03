@@ -9,8 +9,10 @@ import 'package:anx_reader/dao/book_note.dart';
 import 'package:anx_reader/dao/database.dart';
 import 'package:anx_reader/enums/reading_status.dart';
 import 'package:anx_reader/models/book.dart';
+import 'package:anx_reader/models/book_note.dart';
 import 'package:anx_reader/models/sync/book_notes_payload.dart';
 import 'package:anx_reader/models/sync/book_progress_payload.dart';
+import 'package:anx_reader/service/notes/markdown_notes_formatter.dart';
 import 'package:anx_reader/service/sync/offline_sync_queue.dart';
 import 'package:anx_reader/service/sync/record_merger.dart';
 import 'package:anx_reader/service/sync/sync_client_base.dart';
@@ -28,6 +30,7 @@ class ProgressSyncManager {
 
   static const String progressDir = 'sync/progress';
   static const String notesDir = 'sync/notes';
+  static const String markdownNotesDir = 'sync/markdown_notes';
   static const String latestProgressFile = 'sync/latest_progress.json';
 
   static bool _isDraining = false;
@@ -198,6 +201,106 @@ class ProgressSyncManager {
     } finally {
       if (localFile.existsSync()) await localFile.delete();
     }
+
+    // Auto-mirror Markdown notes to WebDAV if enabled
+    if (Prefs().autoExportMarkdownNotesToWebdav) {
+      try {
+        final notes = rawNotes.map((m) => BookNote.fromDb(m)).toList();
+        await uploadMarkdownNotes(book, notes);
+      } catch (e) {
+        AnxLog.warning('ProgressSyncManager: Failed to auto-mirror markdown notes: $e');
+      }
+    }
+  }
+
+  bool _markdownDirEnsured = false;
+
+  Future<void> _ensureMarkdownNotesDir() async {
+    if (_markdownDirEnsured) return;
+    try {
+      await _client.mkdirAll(AppIdentity.syncPath(markdownNotesDir));
+      _markdownDirEnsured = true;
+    } catch (e) {
+      AnxLog.info('ProgressSyncManager: ensureMarkdownNotesDir: $e');
+    }
+  }
+
+  /// Formats and uploads Markdown notes for a book to [sync/markdown_notes/<title> - <author>.md].
+  /// If the book has no notes or all notes are deleted, removes the corresponding remote file.
+  Future<void> uploadMarkdownNotes(Book book, List<BookNote> notes) async {
+    final fileName =
+        MarkdownNotesFormatter.sanitizeFileName(book.title, author: book.author);
+    final remotePath = AppIdentity.syncPath('$markdownNotesDir/$fileName');
+
+    final activeNotes = notes
+        .where((n) => !n.isDeleted)
+        .toList();
+
+    if (activeNotes.isEmpty) {
+      try {
+        await _client.remove(remotePath);
+        AnxLog.info(
+            'ProgressSyncManager: Removed remote empty markdown notes: $fileName');
+      } catch (_) {
+        // Silently ignore 404/not found when deleting empty markdown note
+      }
+      return;
+    }
+
+    await _ensureMarkdownNotesDir();
+
+    final markdownContent =
+        MarkdownNotesFormatter.formatBookNotesToMarkdown(book, activeNotes);
+    final tempDir = await getAnxTempDir();
+    final localFile = io.File('${tempDir.path}/$fileName');
+    await localFile.writeAsString(markdownContent);
+
+    try {
+      await _client.uploadFile(localFile.path, remotePath, replace: true);
+      AnxLog.info(
+          'ProgressSyncManager: Uploaded markdown notes ($fileName) with ${activeNotes.length} notes');
+    } finally {
+      if (localFile.existsSync()) await localFile.delete();
+    }
+  }
+
+  /// Sequentially formats and uploads Markdown notes for all books with active notes.
+  /// Throttled to prevent triggering WebDAV server rate limits.
+  Future<int> exportAllMarkdownNotesToWebdav(
+    BookDao bookDao,
+    BookNoteDao noteDao, {
+    void Function(int current, int total)? onProgress,
+  }) async {
+    await _ensureMarkdownNotesDir();
+
+    final books = await bookDao.selectAllBooks();
+    final total = books.length;
+    int current = 0;
+    int exportedCount = 0;
+
+    for (final book in books) {
+      current++;
+      onProgress?.call(current, total);
+
+      final notes = await noteDao.selectBookNotesByBookId(book.id);
+      final activeNotes = notes
+          .where((n) => !n.isDeleted)
+          .toList();
+
+      if (activeNotes.isNotEmpty) {
+        try {
+          await uploadMarkdownNotes(book, activeNotes);
+          exportedCount++;
+          // Small cooldown between books to prevent WebDAV rate-limiting
+          await Future.delayed(const Duration(milliseconds: 100));
+        } catch (e) {
+          AnxLog.warning(
+              'ProgressSyncManager: Error mirroring notes for ${book.title}: $e');
+        }
+      }
+    }
+
+    return exportedCount;
   }
 
   /// Uploads all notes for a book (including tombstones) to [sync/notes/<file_md5>.json].

@@ -117,6 +117,34 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
           ],
         ),
         SettingsSection(
+          title: Text(L10n.of(context).settingsSyncMarkdownNotesSection),
+          tiles: [
+            SettingsTile.switchTile(
+              title: Text(L10n.of(context).settingsSyncAutoExportMarkdown),
+              description: Text(
+                L10n.of(context).settingsSyncAutoExportMarkdownSubtitle,
+                style: const TextStyle(fontSize: 12),
+              ),
+              leading: const Icon(Icons.note_alt_outlined),
+              initialValue: Prefs().autoExportMarkdownNotesToWebdav,
+              enabled: Prefs().webdavStatus,
+              onToggle: (bool value) {
+                setState(() {
+                  Prefs().autoExportMarkdownNotesToWebdav = value;
+                });
+              },
+            ),
+            SettingsTile.navigation(
+              title: Text(L10n.of(context).settingsSyncExportAllMarkdownNow),
+              leading: const Icon(Icons.drive_folder_upload_outlined),
+              enabled: Prefs().webdavStatus,
+              onPressed: (context) {
+                _exportAllMarkdownNotes(context);
+              },
+            ),
+          ],
+        ),
+        SettingsSection(
           title: Text(L10n.of(context).exportAndImport),
           tiles: [
             SettingsTile.navigation(
@@ -135,6 +163,54 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
         ),
       ],
     );
+  }
+
+  Future<void> _exportAllMarkdownNotes(BuildContext context) async {
+    if (!Prefs().webdavStatus) return;
+
+    final l10n = L10n.of(context);
+    final progressNotifier = ValueNotifier<(int current, int total)>((0, 0));
+
+    SmartDialog.show(
+      tag: 'markdown_export_progress',
+      builder: (context) => ValueListenableBuilder<(int, int)>(
+        valueListenable: progressNotifier,
+        builder: (context, progress, _) => SimpleDialog(
+          title: Center(
+            child: Text(
+              l10n.settingsSyncExportingMarkdown(progress.$1, progress.$2),
+              style: const TextStyle(fontSize: 16),
+            ),
+          ),
+          children: const [
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final exportedCount = await Sync().exportAllMarkdownNotesToWebdav(
+        onProgress: (curr, total) {
+          progressNotifier.value = (curr, total);
+        },
+      );
+
+      SmartDialog.dismiss(tag: 'markdown_export_progress');
+      if (mounted) {
+        AnxToast.show(l10n.settingsSyncExportAllMarkdownSuccess(exportedCount));
+      }
+    } catch (e) {
+      SmartDialog.dismiss(tag: 'markdown_export_progress');
+      if (mounted) {
+        AnxToast.show(l10n.commonFailed);
+      }
+    } finally {
+      progressNotifier.dispose();
+    }
   }
 
   void _showDataDialog(String title) {

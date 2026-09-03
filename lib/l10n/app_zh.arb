@@ -937,5 +937,11 @@
     "notesBookDeletedCannotOpenTip": "原书籍文件已移除，无法跳转到原文。请重新导入该书。",
     "notesDeleteAllTitle": "删除全部笔记",
     "notesDeleteAllDialogContent": "确定要删除《{title}》的全部 {count} 条笔记吗？此操作不可撤销。",
-    "notesDeleteAllSuccess": "已删除《{title}》的全部笔记"
+    "notesDeleteAllSuccess": "已删除《{title}》的全部笔记",
+    "settingsSyncMarkdownNotesSection": "Markdown 笔记镜像",
+    "settingsSyncAutoExportMarkdown": "自动镜像 Markdown 笔记到 WebDAV",
+    "settingsSyncAutoExportMarkdownSubtitle": "每次划线或退出阅读时，自动将笔记生成带 YAML Frontmatter 的 Markdown 保存至 sync/markdown_notes 目录，方便 Obsidian / Logseq 挂载",
+    "settingsSyncExportAllMarkdownNow": "立即全量镜像全部笔记到 WebDAV",
+    "settingsSyncExportingMarkdown": "正在镜像 Markdown 笔记 ({current}/{total})...",
+    "settingsSyncExportAllMarkdownSuccess": "已成功镜像 {count} 本图书的笔记到 WebDAV"
 }

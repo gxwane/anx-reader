@@ -29,6 +29,7 @@ import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
 import 'package:anx_reader/dao/book.dart';
+import 'package:anx_reader/dao/book_note.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -535,6 +536,19 @@ class Sync extends _$Sync {
     final mgr = progressSyncManager;
     if (mgr == null) return;
     await mgr.mergeRemoteNotes(book);
+  }
+
+  /// Exports/mirrors all active book notes to WebDAV Markdown files (Obsidian / PKM ready).
+  Future<int> exportAllMarkdownNotesToWebdav({
+    void Function(int current, int total)? onProgress,
+  }) async {
+    final mgr = progressSyncManager;
+    if (mgr == null) return 0;
+    return await mgr.exportAllMarkdownNotesToWebdav(
+      BookDao(),
+      BookNoteDao(),
+      onProgress: onProgress,
+    );
   }
 
   /// Drains any offline pending sync books in the background.

@@ -972,5 +972,28 @@
         "type": "String"
       }
     }
+  },
+  "settingsSyncMarkdownNotesSection": "Markdown Notes Mirroring",
+  "settingsSyncAutoExportMarkdown": "Auto-Mirror Markdown Notes to WebDAV",
+  "settingsSyncAutoExportMarkdownSubtitle": "Automatically generate formatted Markdown notes in sync/markdown_notes/ for Obsidian, Logseq, and PKM tools",
+  "settingsSyncExportAllMarkdownNow": "Mirror All Notes to WebDAV Now",
+  "settingsSyncExportingMarkdown": "Mirroring Markdown notes ({current}/{total})...",
+  "@settingsSyncExportingMarkdown": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsSyncExportAllMarkdownSuccess": "Successfully mirrored {count} books' notes to WebDAV",
+  "@settingsSyncExportAllMarkdownSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   }
 }

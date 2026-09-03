@@ -925,5 +925,11 @@
   "notesBookDeletedCannotOpenTip": "原書籍檔案已移除，無法跳轉到原文。請重新匯入該書。",
   "notesDeleteAllTitle": "刪除全部筆記",
   "notesDeleteAllDialogContent": "確定要刪除《{title}》的全部 {count} 條筆記嗎？此操作不可撤銷。",
-  "notesDeleteAllSuccess": "已刪除《{title}》的全部筆記"
+  "notesDeleteAllSuccess": "已刪除《{title}》的全部筆記",
+  "settingsSyncMarkdownNotesSection": "Markdown 筆記鏡像",
+  "settingsSyncAutoExportMarkdown": "自動鏡像 Markdown 筆記到 WebDAV",
+  "settingsSyncAutoExportMarkdownSubtitle": "每次劃線或結束閱讀時，自動將筆記產生帶 YAML Frontmatter 的 Markdown 儲存至 sync/markdown_notes 目錄，方便 Obsidian / Logseq 掛載",
+  "settingsSyncExportAllMarkdownNow": "立即全量鏡像全部筆記到 WebDAV",
+  "settingsSyncExportingMarkdown": "正在鏡像 Markdown 筆記 ({current}/{total})...",
+  "settingsSyncExportAllMarkdownSuccess": "已成功鏡像 {count} 本圖書的筆記到 WebDAV"
 }
