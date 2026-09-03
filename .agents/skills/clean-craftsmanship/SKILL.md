@@ -87,16 +87,31 @@ Instead of relying solely on manual, line-by-line human inspection of AI-generat
 
 ---
 
-## Standard Execution Gates (8 Gates)
+## Task Tiering & Pragmatic Fast-Track Matrix (任务分级与实用主义豁免矩阵)
+
+To prevent gate inflation and avoid bureaucratic paralysis on minor tasks, development is strictly triaged into three tiers:
+
+| Task Tier | Scope & Triggers | Required Quality Gates |
+| :--- | :--- | :--- |
+| **Tier A: Architecture & Critical Features** | Cross-module data flows, multi-tier sync topology, database schema changes, Reader core rendering/layout, major features. | **All 10 Gates are mandatory**, including Gate 2 (Independent Solution Audit) and Gate 8 (Independent PR Code Review). |
+| **Tier B: Standard Features & Bugfixes** | Regular UI pages, non-global Riverpod state, localized bugfixes without architectural impact. | **Standard TDD + Gauntlet**: Execute Gates 1, 3, 4, 5, 6, 7, 9, 10. **Exempt from independent subagent audits (Gates 2 & 8)**. |
+| **Tier C: Chore & Documentation Fast-Track** | Pure documentation, translations (l10n), unit test additions, CI script fixes, comment updates. | **Fast-Track**: Plan Artifact -> User Confirmation -> Execute -> Gauntlet Verification (`verify_gauntlet.ps1`) -> User Delivery. **Exempt from Gherkin, Mutation killing, and Subagent audits**. |
+
+---
+
+## Standard Execution Gates (10 Gates)
 
 When working on a feature or bugfix with this skill, each Gate requires a concrete deliverable before proceeding to the next:
 
-- [ ] **Gate 1 (Specifier)**: Gherkin Scenarios 已输出（Given-When-Then 完整）。
-- [ ] **Gate 2 (Architect)**: 架构层依赖方向合规已确认（无反向依赖）。
-- [ ] **Gate 3 (Coder TDD)**: Red→Green 已完成，`fvm flutter test` 全绿。
-- [ ] **Gate 4 (Cleaner Audit)**: ✅ **《函数量化审计表》已在回复中完整输出，无 ❌ FAIL 项。**
-- [ ] **Gate 5 (Hardener Mutation)**: ✅ **《变异消灭证据日志》已在回复中完整输出，击杀率 100%。**
-- [ ] **Gate 6 (Gauntlet Gate)**: `powershell .\scripts\verify_gauntlet.ps1` 全绿通过。
-- [ ] **Gate 7 (User Visual Test)**: UI/阅读器引擎变更已邀请用户进行运行时手动验证，用户明确确认后方可 commit。
-- [ ] **Gate 8 (Documentation & Delivery)**: 面向用户的变更已同步更新 `CHANGELOG.md` 与 `assets/CHANGELOG.md`（纯内部重构跳过），确认无误后方可执行 commit。
+- [ ] **Gate 1 (Specifier & Scenarios)**: Gherkin Scenarios 已输出（Given-When-Then 完整覆盖 Happy Path + 边界用例）。
+- [ ] **Gate 2 (Independent Solution Audit)**: 派发独立方案审计 Agent（Principal Solution Auditor）依据《四象限双轴清单》审查架构与 UX，签发通过结论。（**Tier A 强制，Tier B/C 豁免**）
+- [ ] **Gate 3 (Architect Boundary Guard)**: 明确确认清洁架构单向依赖合规（`models` -> `dao` -> `service` -> `providers` -> `page`）。
+- [ ] **Gate 4 (Coder TDD Red-Green)**: 先写失败测试（Red），再写最小实现（Green），`fvm flutter test` 全绿。
+- [ ] **Gate 5 (Cleaner Metrics Matrix)**: ✅ **《函数量化审计表》已在回复中完整输出，圈复杂度 $\le 10$，函数长度 $\le 30$ 行，无 ❌ FAIL 项。**
+- [ ] **Gate 6 (Hardener Mutation & Regression)**: ✅ **《变异消灭证据日志》已在回复中完整输出，变异击杀率 100%，Golden 快照无回归。**
+- [ ] **Gate 7 (Quality Gauntlet Automation)**: 本地自动化质量军规 `powershell .\scripts\verify_gauntlet.ps1` 4 道门禁 100% 绿灯。
+- [ ] **Gate 8 (Independent PR Code Review)**: 派发独立 PR 审计 Agent 走查源码，闭环修复中高危缺陷并取得明确的 **APPROVE ✅** 结论。（**Tier A 强制，Tier B/C 豁免**）
+- [ ] **Gate 9 (Architecture & Changelog Sync Invariant)**: 涉及架构/存储拓扑必须同步更新 `AGENTS.md`；面向用户的变更必须同步更新中英双语 `CHANGELOG.md` 与 `assets/CHANGELOG.md`。
+- [ ] **Gate 10 (User Visual Confirmation & Delivery)**: 向用户呈报完整交付与测试证据，获得用户明确指令后方可执行 `git commit`。
+
 
