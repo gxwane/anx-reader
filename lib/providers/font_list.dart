@@ -1,11 +1,8 @@
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/font_model.dart';
-import 'package:anx_reader/utils/font_parser.dart';
-import 'package:anx_reader/utils/get_path/get_base_path.dart';
-import 'package:flutter/services.dart';
+import 'package:anx_reader/service/font/font_service.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
-import 'dart:io';
 
 part 'font_list.g.dart';
 
@@ -17,41 +14,25 @@ class FontList extends _$FontList {
   }
 
   Future<List<FontModel>> loadFonts() async {
-    Directory fontDir = getFontDir();
-    List<FontModel> fontList = [
-      FontModel(
-        label: L10n.of(navigatorKey.currentContext!).systemFont,
-        name: 'system',
-        path: '',
-      ),
+    final context = navigatorKey.currentContext;
+    final systemFontLabel = context != null
+        ? L10n.of(context).systemFont
+        : 'System Font';
+    final followBookLabel = context != null
+        ? L10n.of(context).followBook
+        : 'Follow Book';
+
+    final localFonts = await FontService.instance.scanLocalFonts();
+
+    return [
+      FontModel.book(label: followBookLabel),
+      FontModel.systemUi(label: systemFontLabel),
+      ...localFonts,
     ];
-
-    for (int i = 0; i < fontDir.listSync().length; i++) {
-      File element = fontDir.listSync()[i] as File;
-      fontList.add(FontModel(
-        label: getFontNameFromFile(element),
-        name: 'customFont$i',
-        path: element.path.split(Platform.pathSeparator).last,
-      ));
-    }
-    for (var font in fontList) {
-      if (font.path.isEmpty) {
-        continue;
-      }
-
-      final fontLoader = FontLoader(font.path);
-      final fontData =
-          await File(getFontDir().path + Platform.pathSeparator + font.path)
-              .readAsBytes();
-
-      fontLoader.addFont(Future.value(fontData.buffer.asByteData()));
-
-      await fontLoader.load();
-    }
-    return fontList;
   }
 
   Future<void> refresh() async {
-    state = AsyncData(await loadFonts());
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => loadFonts());
   }
 }

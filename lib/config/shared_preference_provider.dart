@@ -565,12 +565,17 @@ class Prefs extends ChangeNotifier {
 
   FontModel get font {
     String? fontJson = prefs.getString('font');
-    BuildContext context = navigatorKey.currentContext!;
+    final context = navigatorKey.currentContext;
+    final defaultLabel =
+        context != null ? L10n.of(context).followBook : 'Follow Book';
     if (fontJson == null) {
-      return FontModel(
-          label: L10n.of(context).followBook, name: 'book', path: 'book');
+      return FontModel.book(label: defaultLabel);
     }
-    return FontModel.fromJson(fontJson);
+    try {
+      return FontModel.fromJson(fontJson);
+    } catch (_) {
+      return FontModel.book(label: defaultLabel);
+    }
   }
 
   set trueDarkMode(bool status) {
@@ -1458,13 +1463,21 @@ class Prefs extends ChangeNotifier {
 
   FontModel get excerptShareFont {
     String? fontJson = prefs.getString('excerptShareFont');
+    FontModel fallback() => FontModel.bundled(
+          label: 'Source Han Serif',
+          name: 'SourceHanSerif',
+          path: 'SourceHanSerifSC-Regular.otf',
+          postscriptName: 'SourceHanSerifCN-Regular',
+        );
+
     if (fontJson == null) {
-      return FontModel(
-          label: L10n.of(navigatorKey.currentContext!).systemFont,
-          name: 'customFont0',
-          path: 'SourceHanSerifSC-Regular.otf');
+      return fallback();
     }
-    return FontModel.fromJson(fontJson);
+    try {
+      return FontModel.fromJson(fontJson);
+    } catch (_) {
+      return fallback();
+    }
   }
 
   set excerptShareFont(FontModel font) {
