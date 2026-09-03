@@ -1136,9 +1136,11 @@ const getCSS = ({ fontSize,
     && fontName !== 'system'
     && /^https?:\/\//i.test(fontPath)
 
+  const safeFontName = fontName ? fontName.replace(/["\\]/g, '\\$&') : ''
+
   const fontFamily = fontName === 'book' ? '' :
-    fontName === 'system' ? 'font-family: system-ui !important;' :
-      `font-family: ${fontName} !important;`
+    fontName === 'system' ? 'font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;' :
+      `font-family: "${safeFontName}", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;`
 
   const writingModeCSS = writingMode === 'auto' ? '' : `writing-mode: ${writingMode} !important;`
   const androidQuoteCompatCSS = (!navigator.platform.includes('Mac')
@@ -1175,7 +1177,7 @@ const getCSS = ({ fontSize,
   return `
     @namespace epub "http://www.idpf.org/2007/ops";
     ${shouldInjectCustomFontFace ? `@font-face {
-      font-family: ${fontName};
+      font-family: "${safeFontName}";
       src: url('${fontPath}');
       font-display: swap;
     }` : ''}
@@ -1224,6 +1226,10 @@ const getCSS = ({ fontSize,
     * {
         // line-height: ${spacing}em !important;
         ${fontFamily}
+    }
+
+    pre, code, kbd, samp, pre *, code *, kbd *, samp * {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
     }
 
     ${useBookStyles ? '' : `
