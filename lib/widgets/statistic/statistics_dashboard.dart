@@ -33,7 +33,7 @@ class StatisticsDashboard extends ConsumerWidget {
             : LayoutBuilder(
                 builder: (context, constraints) {
                   final crossAxisUnits =
-                      _calculateColumnUnits(constraints.maxWidth);
+                      calculateColumnUnits(constraints.maxWidth);
                   return StaggeredReorderableView.customer(
                     columnNum: crossAxisUnits,
                     spacing: 10,
@@ -66,8 +66,9 @@ class StatisticsDashboard extends ConsumerWidget {
         .toList(growable: false);
   }
 
-  int _calculateColumnUnits(double width) {
-    return max(4, (width ~/ 200) * 2);
+  @visibleForTesting
+  static int calculateColumnUnits(double width) {
+    return max(4, (width ~/ 400) * 4);
   }
 
   Widget _buildEmptyState(BuildContext context, VoidCallback? onAddPressed) {

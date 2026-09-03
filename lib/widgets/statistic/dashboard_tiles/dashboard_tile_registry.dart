@@ -34,12 +34,12 @@ const List<StatisticsDashboardTileType> defaultStatisticsDashboardTiles = [
   StatisticsDashboardTileType.readingDaysTotal,
   StatisticsDashboardTileType.booksTotal,
   StatisticsDashboardTileType.periodSummary,
+  StatisticsDashboardTileType.readingDurationLast7,
+  StatisticsDashboardTileType.readingDurationLast30,
   StatisticsDashboardTileType.topBook,
   StatisticsDashboardTileType.readingStreak,
   StatisticsDashboardTileType.randomHighlight,
   StatisticsDashboardTileType.completionProgress,
-  StatisticsDashboardTileType.readingDurationLast7,
-  StatisticsDashboardTileType.readingDurationLast30,
 ];
 
 final Map<StatisticsDashboardTileType, StatisticsDashboardTileBase>
