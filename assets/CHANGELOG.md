@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.14.0
+- Feat(reader): Add W3C Web Annotation context fingerprinting and fuzzy relocation to auto-heal broken note coordinates across book layout changes and editions
 - Feat(notes): Decouple notes from local book files, seamlessly preserve and present notes for removed books with graceful missing file guards
 - Feat(notes): Support batch deleting all notes for a single book with confirmation dialog and slidable shortcuts
 - Fix(translate): Remove legacy Microsoft reverse-engineered translation service and migrate saved full-text translation preference to Microsoft Azure API
@@ -48,6 +49,7 @@
 - Fix(l10n): Update full_description.txt (#775) Thanks @Xapitonov
 - L10n: Complete Romanian translation (#714) Thanks @Steinhagen
 
+- Feat(reader): 引入 W3C 规范上下文指纹与模糊自愈重定位算法，在电子书重新排版或版本更新导致 CFI 坐标失效时自动纠偏
 - Feat(notes): 解耦笔记与本地书架文件，持久保留并平权呈现历史书籍笔记资产，对本地物理文件缺失增加防崩溃安全保护
 - Feat(notes): 支持一键批量删除单书全部笔记，配备二次确认弹窗与左滑快捷操作
 - Feat(ai): AI 支持单独的思考内容字段，并在聊天与流式界面中以轻量可折叠方式展示思考过程 (#787)

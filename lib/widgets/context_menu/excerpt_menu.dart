@@ -29,6 +29,8 @@ class ExcerptMenu extends StatefulWidget {
   final void Function(int noteId) onNoteCreated;
   final Axis axis;
   final bool reverse;
+  final String? contextPrefix;
+  final String? contextSuffix;
 
   const ExcerptMenu({
     super.key,
@@ -44,6 +46,8 @@ class ExcerptMenu extends StatefulWidget {
     required this.onNoteCreated,
     required this.axis,
     required this.reverse,
+    this.contextPrefix,
+    this.contextSuffix,
   });
 
   @override
@@ -127,6 +131,8 @@ class ExcerptMenuState extends State<ExcerptMenu> {
       type: resolvedType,
       color: resolvedColor,
       readerNote: existingNote?.readerNote,
+      contextPrefix: existingNote?.contextPrefix ?? widget.contextPrefix,
+      contextSuffix: existingNote?.contextSuffix ?? widget.contextSuffix,
       createTime: existingNote?.createTime ?? now,
       updateTime: now,
     );

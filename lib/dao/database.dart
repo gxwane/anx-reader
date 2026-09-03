@@ -13,7 +13,7 @@ import 'package:path/path.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Current app database version
-const int currentDbVersion = 8;
+const int currentDbVersion = 9;
 
 const createBookSQL = '''
 CREATE TABLE tb_books (
@@ -71,6 +71,9 @@ CREATE TABLE tb_notes (
   chapter TEXT,
   type TEXT,
   color TEXT,
+  reader_note TEXT,
+  context_prefix TEXT,
+  context_suffix TEXT,
   create_time TEXT,
   update_time TEXT
 )
@@ -490,6 +493,17 @@ class DBHelper {
           SET reading_status = 0 
           WHERE reading_status IS NULL
         ''');
+        continue case8;
+      case8:
+      case 8:
+        // add context_prefix and context_suffix to tb_notes for context fingerprinting
+        await addColumnIfNotExists(
+            db, 'tb_notes', 'context_prefix', 'TEXT');
+        await addColumnIfNotExists(
+            db, 'tb_notes', 'context_suffix', 'TEXT');
+        continue case9;
+      case9:
+      case 9:
     }
 
     try {

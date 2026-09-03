@@ -23,7 +23,9 @@ Future<void> showContextMenu(
     int? annoId,
     bool footnote,
     Axis axis,
-    {String? contextText}) async {
+    {String? contextText,
+    String? contextPrefix,
+    String? contextSuffix}) async {
   final playerKey = epubPlayerKey.currentState;
   if (playerKey == null) return;
   bool isNewNote = false;
@@ -40,6 +42,8 @@ Future<void> showContextMenu(
       chapter: playerKey.chapterTitle,
       type: type,
       color: color,
+      contextPrefix: contextPrefix,
+      contextSuffix: contextSuffix,
       createTime: DateTime.now(),
       updateTime: DateTime.now(),
     );
@@ -149,6 +153,8 @@ Future<void> showContextMenu(
       annoId: annoId,
       footnote: footnote,
       contextText: contextText,
+      contextPrefix: contextPrefix,
+      contextSuffix: contextSuffix,
       decoration: decoration,
       onClose: onClose,
       menuConstraints: menuConstraints,
@@ -251,6 +257,8 @@ class _ContextMenuOverlay extends StatefulWidget {
     required this.annoId,
     required this.footnote,
     this.contextText,
+    this.contextPrefix,
+    this.contextSuffix,
     required this.decoration,
     required this.onClose,
     required this.menuConstraints,
@@ -270,6 +278,8 @@ class _ContextMenuOverlay extends StatefulWidget {
   final int? annoId;
   final bool footnote;
   final String? contextText;
+  final String? contextPrefix;
+  final String? contextSuffix;
   final BoxDecoration decoration;
   final VoidCallback onClose;
   final BoxConstraints menuConstraints;
@@ -520,6 +530,8 @@ class _ContextMenuOverlayState extends State<_ContextMenuOverlay>
                                   onNoteCreated: _handleNoteCreated,
                                   axis: widget.axis,
                                   reverse: _reverse,
+                                  contextPrefix: widget.contextPrefix,
+                                  contextSuffix: widget.contextSuffix,
                                 ),
                               ],
                             ),
