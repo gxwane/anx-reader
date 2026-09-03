@@ -311,10 +311,12 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
 
   void changeFont(FontModel font) {
     final fontUrl = font.getWebUrl(Server().port);
+    final jsonFontName = jsonEncode(font.name);
+    final jsonFontPath = jsonEncode(fontUrl);
     webViewController.evaluateJavascript(source: '''
       changeStyle({
-        fontName: '${font.name}',
-        fontPath: '$fontUrl',
+        fontName: $jsonFontName,
+        fontPath: $jsonFontPath,
       })
     ''');
   }

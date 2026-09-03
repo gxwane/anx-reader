@@ -1,6 +1,7 @@
 # Changelog
 
 ## 1.14.0
+- Feat(font): Support cross-platform system font discovery, pinning UX, direct CSS rendering, and monospace code protection (Phase 2)
 - Feat(font): Modernize font subsystem with random-access stream parser, stable PostScript IDs, and JIT lazy loading (Phase 1)
 - Feat(reader): Add W3C Web Annotation context fingerprinting and fuzzy relocation to auto-heal broken note coordinates across book layout changes and editions
 - Feat(sync): Support auto-mirroring reading notes to WebDAV in Markdown format with YAML frontmatter for Obsidian and PKM tools

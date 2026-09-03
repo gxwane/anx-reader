@@ -35,6 +35,11 @@
 - **工业级 OpenCC 简繁转换引擎重构**：彻底废除旧的 2270 字符单字暴力线性替换，引入 OpenCC 分词字典与 Trie 前缀树匹配引擎，精准解决「頭髮/發展」、「皇后/前後」、「吃麵/表面」、「乾燥/幹活」等一简多繁歧义错字；转换性能提升至毫秒级（$O(1)$ 查找，消灭长章翻页卡顿）；扩展支持通用繁体、台湾正体与香港繁体，动态更新 `html.lang` 激活原生地域异体字形渲染；划线笔记与目录全面实现简繁等价归一化保护。
 
 ### 优化
+- **字体子系统架构重构第二阶段（Font Subsystem Modernization - Phase 2）**：
+  - 接入跨平台操作系统字体发现引擎（`SystemFontService`），在 Windows 下通过零依赖注册表双键（`HKLM` + `HKCU`）扫描系统字体名，并提供跨平台优质字体名册降级；
+  - 引入用户常用系统字体收藏/置顶机制（Pinning UX），搭配实时搜索与预览弹窗，彻底杜绝海量系统字体冲垮日常阅读下拉菜单；
+  - 重构 Foliate WebView 双渲染管线，系统字体直接应用 CSS 原生规则（零网络请求、零内存拷贝），并严格保护代码块（`<pre><code>`）及其子高亮节点的等宽字体排版与缩进；
+  - 彻底解耦阅读菜单 [`style_widget.dart`](file:///E:/Documents/anx-reader/lib/widgets/reading_page/style_widget.dart)，废除同步阻塞扫盘与伪实体技术债，全面接入 Riverpod 响应式状态流。
 - **字体子系统架构重构第一阶段（Font Subsystem Modernization - Phase 1）**：
   - 引入 `OpenTypeStreamParser` 4KB 头部随机寻址流式解析器，单字体元数据解析 I/O 消耗从 50MB 骤降至 <64KB，彻底消除主线程同步读盘卡顿，并扩展支持 `.ttc` 字体集合与 `.woff2` 格式；
   - 建立确定性不可变唯一标识体系（基于 PostScript Name 与 SHA-256），根除目录变动引起的字体排版漂移，向下无损兼容存量用户的偏好配置；

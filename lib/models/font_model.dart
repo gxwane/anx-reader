@@ -69,6 +69,19 @@ class FontModel {
         isDeletable: false,
       );
 
+  factory FontModel.systemFont({
+    required String familyName,
+    String? label,
+  }) =>
+      FontModel(
+        id: 'system:$familyName',
+        label: label ?? familyName,
+        name: familyName,
+        path: '',
+        source: FontSource.systemFont,
+        isDeletable: false,
+      );
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -88,7 +101,9 @@ class FontModel {
 
   /// Dynamically resolves the HTTP URL using the runtime server port.
   String getWebUrl(int serverPort) {
-    if (source == FontSource.book || source == FontSource.systemUi) {
+    if (source == FontSource.book ||
+        source == FontSource.systemUi ||
+        source == FontSource.systemFont) {
       return '';
     }
     if (path.startsWith('http://') || path.startsWith('https://')) {

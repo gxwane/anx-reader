@@ -151,7 +151,9 @@ class FontService {
   /// Eliminates the need to load all fonts into heap memory on startup.
   Future<void> ensureFlutterFontLoaded(FontModel font) async {
     if (_loadedFlutterFonts.contains(font.id)) return;
-    if (font.source == FontSource.book || font.source == FontSource.systemUi) {
+    if (font.source == FontSource.book ||
+        font.source == FontSource.systemUi ||
+        font.source == FontSource.systemFont) {
       return;
     }
 

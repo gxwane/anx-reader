@@ -1,25 +1,21 @@
-import 'dart:io';
-
 import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:anx_reader/dao/theme.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
+import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/book_style.dart';
 import 'package:anx_reader/models/font_model.dart';
-import 'package:anx_reader/page/reading_page.dart';
-import 'package:anx_reader/page/settings_page/subpage/fonts.dart';
-import 'package:anx_reader/service/book_player/book_player_server.dart';
-import 'package:anx_reader/service/font.dart';
-import 'package:anx_reader/utils/font_parser.dart';
-import 'package:anx_reader/utils/get_path/get_base_path.dart';
-import 'package:anx_reader/widgets/icon_and_text.dart';
-import 'package:anx_reader/widgets/reading_page/more_settings/more_settings.dart';
-import 'package:anx_reader/widgets/reading_page/widget_title.dart';
-import 'package:anx_reader/dao/theme.dart';
-import 'package:anx_reader/main.dart';
 import 'package:anx_reader/models/read_theme.dart';
 import 'package:anx_reader/page/book_player/epub_player.dart';
+import 'package:anx_reader/page/reading_page.dart';
+import 'package:anx_reader/providers/font_list.dart';
+import 'package:anx_reader/widgets/icon_and_text.dart';
+import 'package:anx_reader/widgets/reading_page/font_manager_modal.dart';
+import 'package:anx_reader/widgets/reading_page/more_settings/more_settings.dart';
+import 'package:anx_reader/widgets/reading_page/widget_title.dart';
 import 'package:anx_reader/widgets/reading_page/widgets/bgimg_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum PageTurn {
   noAnimation,
@@ -38,7 +34,7 @@ enum PageTurn {
   }
 }
 
-class StyleWidget extends StatefulWidget {
+class StyleWidget extends ConsumerStatefulWidget {
   const StyleWidget({
     super.key,
     required this.themes,
@@ -53,10 +49,10 @@ class StyleWidget extends StatefulWidget {
   final Function hideAppBarAndBottomBar;
 
   @override
-  StyleWidgetState createState() => StyleWidgetState();
+  ConsumerState<StyleWidget> createState() => StyleWidgetState();
 }
 
-class StyleWidgetState extends State<StyleWidget> {
+class StyleWidgetState extends ConsumerState<StyleWidget> {
   BookStyle bookStyle = Prefs().bookStyle;
   int? currentThemeId = Prefs().readTheme.id;
 
@@ -92,67 +88,36 @@ class StyleWidgetState extends State<StyleWidget> {
     );
   }
 
-  List<FontModel> fonts() {
-    Directory fontDir = getFontDir();
-    List<FontModel> fontList = [
-      FontModel(
-        label: L10n.of(context).downloadFonts,
-        name: 'download',
-        path: 'download',
-      ),
-      FontModel(
-        label: L10n.of(context).addNewFont,
-        name: 'newFont',
-        path: 'newFount',
-      ),
-      FontModel(
-        label: L10n.of(context).followBook,
-        name: 'book',
-        path: 'book',
-      ),
-      FontModel(
-        label: L10n.of(context).systemFont,
-        name: 'system',
-        path: 'system',
-      ),
-    ];
-    // fontDir.listSync().forEach((element) {
-    //   if (element is File) {
-    //     fontList.add(FontModel(
-    //       label: getFontNameFromFile(element),
-    //       name: 'customFont' + ,
-    //       path:
-    //           'http://127.0.0.1:${Server().port}/fonts/${element.path.split('/').last}',
-    //     ));
-    //   }
-    // });
-    // name = 'customFont' + index
-    for (int i = 0; i < fontDir.listSync().length; i++) {
-      File element = fontDir.listSync()[i] as File;
-      fontList.add(FontModel(
-        label: getFontNameFromFile(element),
-        name: 'customFont$i',
-        path:
-            'http://127.0.0.1:${Server().port}/fonts/${element.path.split(Platform.pathSeparator).last}',
-      ));
-    }
-
-    return fontList;
-  }
-
   Widget fontAndPageTurn() {
-    FontModel? font = fonts().firstWhere(
-        (element) => element.path == Prefs().font.path,
-        orElse: () => FontModel(
-            label: L10n.of(context).followBook, name: 'book', path: 'book'));
+    final fontListAsync = ref.watch(fontListProvider);
+    final availableFonts = fontListAsync.value ?? [
+      FontModel.book(label: L10n.of(context).followBook),
+      FontModel.systemUi(label: L10n.of(context).systemFont),
+    ];
 
-    Widget? leadingIcon(String name) {
-      if (name == 'download') {
-        return const Icon(Icons.download);
-      } else if (name == 'newFont') {
-        return const Icon(Icons.add);
+    final activeFontPref = Prefs().font;
+    final selectedFont = availableFonts.firstWhere(
+      (element) => element.id == activeFontPref.id,
+      orElse: () => availableFonts.firstWhere(
+        (element) => element.litePath == activeFontPref.litePath,
+        orElse: () => availableFonts.first,
+      ),
+    );
+
+    Widget? leadingIcon(FontSource source) {
+      switch (source) {
+        case FontSource.systemFont:
+        case FontSource.systemUi:
+          return const Icon(Icons.devices, size: 18);
+        case FontSource.bundled:
+          return const Icon(Icons.star_outline, size: 18);
+        case FontSource.localCustom:
+          return const Icon(Icons.text_fields, size: 18);
+        case FontSource.downloaded:
+          return const Icon(Icons.cloud_done_outlined, size: 18);
+        case FontSource.book:
+          return const Icon(Icons.menu_book, size: 18);
       }
-      return null;
     }
 
     return Row(children: [
@@ -181,41 +146,41 @@ class StyleWidgetState extends State<StyleWidget> {
         ),
       ),
       Expanded(
-        child: DropdownMenu<FontModel>(
-          label: Text(L10n.of(context).font),
-          expandedInsets: const EdgeInsets.only(left: 5),
-          initialSelection: font,
-          inputDecorationTheme: InputDecorationTheme(
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(50),
+        child: Row(
+          children: [
+            Expanded(
+              child: DropdownMenu<FontModel>(
+                label: Text(L10n.of(context).font),
+                expandedInsets: const EdgeInsets.only(left: 5),
+                initialSelection: selectedFont,
+                inputDecorationTheme: InputDecorationTheme(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(50),
+                  ),
+                ),
+                onSelected: (FontModel? font) {
+                  if (font == null) return;
+                  epubPlayerKey.currentState!.changeFont(font);
+                  Prefs().font = font;
+                  setState(() {});
+                },
+                dropdownMenuEntries: availableFonts
+                    .map((font) => DropdownMenuEntry(
+                          value: font,
+                          label: font.label,
+                          leadingIcon: leadingIcon(font.source),
+                        ))
+                    .toList(),
+              ),
             ),
-          ),
-          onSelected: (FontModel? font) async {
-            if (font == null) return;
-            if (font.name == 'newFont') {
-              widget.hideAppBarAndBottomBar(false);
-              await importFont();
-              return;
-            } else if (font.name == 'download') {
-              widget.hideAppBarAndBottomBar(false);
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const FontsSettingPage()),
-              );
-              return;
-            } else {
-              epubPlayerKey.currentState!.changeFont(font);
-              Prefs().font = font;
-            }
-          },
-          dropdownMenuEntries: fonts()
-              .map((font) => DropdownMenuEntry(
-                    value: font,
-                    label: font.label,
-                    leadingIcon: leadingIcon(font.name),
-                  ))
-              .toList(),
+            IconButton(
+              icon: const Icon(Icons.tune),
+              tooltip: L10n.of(context).font,
+              onPressed: () {
+                FontManagerModal.show(context);
+              },
+            ),
+          ],
         ),
       ),
     ]);

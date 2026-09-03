@@ -578,6 +578,15 @@ class Prefs extends ChangeNotifier {
     }
   }
 
+  List<String> get pinnedSystemFonts {
+    return prefs.getStringList('pinnedSystemFonts') ?? [];
+  }
+
+  set pinnedSystemFonts(List<String> fonts) {
+    prefs.setStringList('pinnedSystemFonts', fonts);
+    notifyListeners();
+  }
+
   set trueDarkMode(bool status) {
     prefs.setBool('trueDarkMode', status);
     notifyListeners();
