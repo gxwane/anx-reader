@@ -5,6 +5,7 @@ import 'package:anx_reader/utils/font_parser.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 
 class FontService {
   FontService._();
@@ -36,7 +37,7 @@ class FontService {
 
     final List<FontModel> result = [];
     try {
-      final entities = await dir.list().toList();
+      final entities = await dir.list(recursive: true).toList();
       for (final entity in entities) {
         if (entity is! File) continue;
 
@@ -44,6 +45,8 @@ class FontService {
         if (!supportedExtensions.contains(ext)) continue;
 
         final fileName = entity.uri.pathSegments.last;
+        final relativePath =
+            p.relative(entity.path, from: dir.path).replaceAll('\\', '/');
         final metadata = await parseFontMetadata(entity);
 
         final label = metadata?.familyName ?? fileName.split('.').first;
@@ -53,13 +56,18 @@ class FontService {
             : 'file:$fileName';
 
         final isBundled = bundledFontFiles.contains(fileName);
+        final isDownloaded = relativePath.startsWith('downloaded/');
+
+        final source = isBundled
+            ? FontSource.bundled
+            : (isDownloaded ? FontSource.downloaded : FontSource.localCustom);
 
         result.add(FontModel(
           id: id,
           label: label,
           name: metadata?.familyName ?? fileName.split('.').first,
-          path: fileName,
-          source: isBundled ? FontSource.bundled : FontSource.localCustom,
+          path: relativePath,
+          source: source,
           postscriptName: psName,
           fileSize: metadata?.fileSize ?? await entity.length(),
           isDeletable: !isBundled,
@@ -115,10 +123,21 @@ class FontService {
 
     bool deleted = false;
     try {
-      final file = File('${fontDirectory.path}/${font.litePath}');
-      if (await file.exists()) {
-        await file.delete();
+      final relativePath = font.path.isNotEmpty ? font.path : font.litePath;
+      final file = File(p.join(fontDirectory.path, relativePath));
+      final fallbackFile = File(p.join(fontDirectory.path, font.litePath));
+      final targetFile = file.existsSync() ? file : fallbackFile;
+      if (await targetFile.exists()) {
+        await targetFile.delete();
         deleted = true;
+
+        // Clean up empty parent directory if inside a subdirectory
+        final parent = targetFile.parent;
+        if (parent.path != fontDirectory.path &&
+            await parent.exists() &&
+            (await parent.list().isEmpty)) {
+          await parent.delete();
+        }
       }
     } catch (_) {
       return false;
@@ -158,10 +177,13 @@ class FontService {
     }
 
     try {
-      final file = File('${fontDirectory.path}/${font.litePath}');
-      if (!await file.exists()) return;
+      final relativePath = font.path.isNotEmpty ? font.path : font.litePath;
+      final file = File(p.join(fontDirectory.path, relativePath));
+      final fallbackFile = File(p.join(fontDirectory.path, font.litePath));
+      final targetFile = file.existsSync() ? file : fallbackFile;
+      if (!await targetFile.exists()) return;
 
-      final bytes = await file.readAsBytes();
+      final bytes = await targetFile.readAsBytes();
       final fontLoader = FontLoader(font.name);
       fontLoader.addFont(Future.value(bytes.buffer.asByteData()));
       await fontLoader.load();

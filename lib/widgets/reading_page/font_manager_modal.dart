@@ -2,7 +2,6 @@ import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/page/settings_page/subpage/fonts.dart';
 import 'package:anx_reader/providers/font_list.dart';
-import 'package:anx_reader/service/font.dart';
 import 'package:anx_reader/service/font/system_font_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -59,6 +58,7 @@ class _FontManagerModalState extends ConsumerState<FontManagerModal> {
           loading: () => Prefs().pinnedSystemFonts,
           error: (_, __) => Prefs().pinnedSystemFonts,
         );
+    final pinnedSet = pinnedFonts.toSet();
 
     final filteredFonts = _allSystemFonts.where((font) {
       if (_filterQuery.isEmpty) return true;
@@ -105,9 +105,7 @@ class _FontManagerModalState extends ConsumerState<FontManagerModal> {
                       icon: const Icon(Icons.add),
                       tooltip: L10n.of(context).addNewFont,
                       onPressed: () async {
-                        await importFont();
-                        if (!mounted) return;
-                        ref.read(fontListProvider.notifier).refresh();
+                        await ref.read(fontListProvider.notifier).importFonts();
                       },
                     ),
                     // Download fonts button
@@ -118,7 +116,7 @@ class _FontManagerModalState extends ConsumerState<FontManagerModal> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const FontsSettingPage(),
+                            builder: (context) => const FontsSettingPage(initialTabIndex: 2),
                           ),
                         );
                       },
@@ -132,7 +130,7 @@ class _FontManagerModalState extends ConsumerState<FontManagerModal> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: '搜索系统字体 (Search System Fonts)...',
+                    hintText: L10n.of(context).fontSearchHint,
                     prefixIcon: const Icon(Icons.search),
                     suffixIcon: _filterQuery.isNotEmpty
                         ? IconButton(
@@ -162,7 +160,7 @@ class _FontManagerModalState extends ConsumerState<FontManagerModal> {
                     : filteredFonts.isEmpty
                         ? Center(
                             child: Text(
-                              '未找到匹配的系统字体',
+                              L10n.of(context).fontNoMatchingFonts,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.hintColor,
                               ),
@@ -173,7 +171,7 @@ class _FontManagerModalState extends ConsumerState<FontManagerModal> {
                             itemCount: filteredFonts.length,
                             itemBuilder: (context, index) {
                               final fontName = filteredFonts[index];
-                              final isPinned = pinnedFonts.contains(fontName);
+                              final isPinned = pinnedSet.contains(fontName);
 
                               return ListTile(
                                 leading: Icon(
@@ -202,7 +200,11 @@ class _FontManagerModalState extends ConsumerState<FontManagerModal> {
                                     isPinned ? Icons.check : Icons.add,
                                     size: 16,
                                   ),
-                                  label: Text(isPinned ? '已添加' : '添加'),
+                                  label: Text(
+                                    isPinned
+                                        ? L10n.of(context).fontPinned
+                                        : L10n.of(context).fontPin,
+                                  ),
                                   style: TextButton.styleFrom(
                                     foregroundColor: isPinned
                                         ? theme.colorScheme.primary

@@ -972,5 +972,71 @@
         "type": "String"
       }
     }
-  }
+  },
+  "settingsSyncMarkdownNotesSection": "Markdown Notes Mirroring",
+  "settingsSyncAutoExportMarkdown": "Auto-Mirror Markdown Notes to WebDAV",
+  "settingsSyncAutoExportMarkdownSubtitle": "Automatically generate formatted Markdown notes in sync/markdown_notes/ for Obsidian, Logseq, and PKM tools",
+  "settingsSyncExportAllMarkdownNow": "Mirror All Notes to WebDAV Now",
+  "settingsSyncExportingMarkdown": "Mirroring Markdown notes ({current}/{total})...",
+  "@settingsSyncExportingMarkdown": {
+    "placeholders": {
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsSyncExportAllMarkdownSuccess": "Successfully mirrored {count} books' notes to WebDAV",
+  "@settingsSyncExportAllMarkdownSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fontManagement": "Font Management",
+  "fontTabMyFonts": "My Fonts",
+  "fontTabSystemFonts": "System Fonts",
+  "fontTabOnlineFonts": "Online Fonts",
+  "fontDeleteConfirmTitle": "Delete Font",
+  "fontDeleteConfirmContent": "Are you sure you want to delete \"{fontName}\"? The font file will be permanently removed from device storage.",
+  "@fontDeleteConfirmContent": {
+    "placeholders": {
+      "fontName": {
+        "type": "String"
+      }
+    }
+  },
+  "fontBadgeBundled": "Bundled",
+  "fontBadgeSystem": "System",
+  "fontBadgeCustom": "Custom",
+  "fontBadgeDownloaded": "Downloaded",
+  "fontInUse": "In Use",
+  "fontSetSuccess": "Font set to \"{fontName}\"",
+  "@fontSetSuccess": {
+    "placeholders": {
+      "fontName": {
+        "type": "String"
+      }
+    }
+  },
+  "fontSearchHint": "Search system fonts...",
+  "fontNoMatchingFonts": "No matching fonts found",
+   "fontPinned": "Pinned",
+  "fontPin": "Pin",
+  "fontUnpin": "Unpin",
+  "fontImportSupportedFormats": "Supports importing .ttf, .otf, .ttc, .woff font files",
+  "fontImportSuccess": "Successfully imported {count} fonts",
+  "@fontImportSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fontSearchOnlineHint": "Search online fonts...",
+  "fontApply": "Apply",
+  "fontPaused": "Paused"
 }

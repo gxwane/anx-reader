@@ -584,14 +584,14 @@ class _ReadingMoreSettingsState extends State<ReadingMoreSettings> {
     Widget downloadFonts() {
       return ListTile(
         contentPadding: EdgeInsets.zero,
-        title: Text(L10n.of(context).downloadFonts),
+        title: Text(L10n.of(context).fontManagement),
         leading: const Icon(Icons.font_download_outlined),
         trailing: const Icon(Icons.arrow_forward_ios),
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => const FontsSettingPage(),
+              builder: (context) => const FontsSettingPage(initialTabIndex: 0),
             ),
           );
         },

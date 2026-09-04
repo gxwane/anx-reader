@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import 'package:anx_reader/widgets/settings/settings_section.dart';
 import 'package:anx_reader/widgets/settings/settings_tile.dart';
 import 'package:anx_reader/enums/bookshelf_folder_style.dart';
+import 'package:anx_reader/page/settings_page/subpage/fonts.dart';
 
 const List<Map<String, String>> languageOptions = [
   {'system': 'System'},
@@ -103,6 +104,18 @@ class _AppearanceSettingState extends State<AppearanceSetting> {
                   leading: const Icon(Icons.language),
                   onPressed: (context) {
                     showLanguagePickerDialog(context);
+                  }),
+              SettingsTile.navigation(
+                  title: Text(L10n.of(context).fontManagement),
+                  value: Text(Prefs().font.label),
+                  leading: const Icon(Icons.font_download_outlined),
+                  onPressed: (context) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const FontsSettingPage(),
+                      ),
+                    ).then((_) => setState(() {}));
                   }),
               SettingsTile.switchTile(
                 title:
