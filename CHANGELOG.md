@@ -14,6 +14,12 @@
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。
 
 ### 新增
+- **字体子系统现代化重构与综合字体管理中心（Font Subsystem Modernization & Font Hub）**：
+  - **综合字体管理中心（Font Hub）**：打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时搜索预览、一键切换当前阅读字体、当前使用字体高亮徽章，以及自定义字体的安全删除确认对话框；在设置外观与阅读设置中建立直达入口；
+  - **在线字体库架构加固与体验闭环（Online Font Store Modernization & Atomic Pipeline）**：引入 `<fontDir>/downloaded/<font.id>/` 存储命名空间隔离，彻底消灭多个开源字体同名文件相互静默覆写的重大隐患；引入临时目录暂存与跨分区安全提交流程，多文件总字节平滑累加进度，异常自动原子回滚；新增在线字体实时模糊搜索与 KeepAlive 页面驻留，卡片显式标注文件大小（MB/KB），下载完成后支持一键「应用字体」即时生效，修复预览图单色染色滤镜与暂停文案，并提供 Manifest 10s 超时与离线本地缓存降级；
+  - **跨平台系统字体发现与收藏机制（System Font Pinning & Favorites）**：支持即时发现 Windows/macOS/Linux 本地已安装系统字体，引入星标收藏机制，避免成百上千款系统字体涌入阅读弹窗造成视觉干扰；
+  - **双轨渲染管线与代码块排版保护（Direct CSS Pipeline & Monospace Guard）**：系统字体直接通过原生 CSS 声明生效，消除无谓的 Dart 堆内存字体装载与本地 HTTP 中转；在本地 HTTP 字体服务中引入严格的 `path.isWithin` 目录防遍历安全隔离；在阅读渲染引擎中强化代码块等宽字体保护规则（`<pre>`, `<code>`, `<kbd>`, `<samp>` 等及其高亮子节点），杜绝语法高亮污染；
+  - **零拷贝轻量流式解析器（OpenType Stream Parser）**：以随机读取模式解析 OpenType/TrueType/TTC 元数据（单次读取 < 64KB），彻底替代以往将整个几十兆字体全量加载至内存的同步 I/O，并建立不可变的 PostScript 稳定标识体系与 JIT 延迟加载。
 - **划线笔记跨格式坐标归一化与上下文指纹自愈重定位（W3C Context Fingerprint & Fuzzy Relocation）**：
   - 划线时自动提取符合 W3C Web Annotation 规范的上下文指纹（前后各 32 字符），随笔记存入 SQLite 数据库（升级至 v10，具备幂等无损迁移）；
   - 当电子书重排版、排版引擎微调或版本更新导致传统 CFI 坐标失效时，基于多候选扫描与非对称相似度评分模型（Dice-Sørensen Bigram，阈值 $\ge 0.7$）毫秒级自动重定位正确文本区间；

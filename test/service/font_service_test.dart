@@ -90,5 +90,30 @@ void main() {
       expect(success, isTrue);
       expect(await sampleOtf.exists(), isFalse);
     });
+
+    test('recursively scans downloaded fonts, marks FontSource.downloaded, and cleans up empty parent dir', () async {
+      final downloadedSubdir = Directory('${fontDir.path}/downloaded/samplepkg');
+      await downloadedSubdir.create(recursive: true);
+      final downloadedFile = File('${downloadedSubdir.path}/pkg_font.otf');
+      final bundledOtf = File('assets/fonts/SourceHanSerifSC-Regular.otf');
+      if (await bundledOtf.exists()) {
+        await bundledOtf.copy(downloadedFile.path);
+      }
+
+      final fonts = await FontService.instance.scanLocalFonts();
+      final downloadedModel = fonts.firstWhere(
+        (f) => f.path.contains('downloaded/samplepkg/pkg_font.otf'),
+        orElse: () => throw Exception('Downloaded font not found'),
+      );
+
+      expect(downloadedModel.source, FontSource.downloaded);
+      expect(downloadedModel.isDeletable, isTrue);
+
+      // Deleting downloaded font should remove file and delete empty parent directory
+      final deleted = await FontService.instance.deleteFont(downloadedModel);
+      expect(deleted, isTrue);
+      expect(await downloadedFile.exists(), isFalse);
+      expect(await downloadedSubdir.exists(), isFalse);
+    });
   });
 }

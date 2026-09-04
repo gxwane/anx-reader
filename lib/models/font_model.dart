@@ -87,7 +87,7 @@ class FontModel {
       'id': id,
       'label': label,
       'name': name,
-      'path': litePath,
+      'path': normalizedPath,
       'source': source.name,
       if (postscriptName != null) 'postscriptName': postscriptName,
       if (fileSize != null) 'fileSize': fileSize,
@@ -97,7 +97,9 @@ class FontModel {
 
   String toJson() => jsonEncode(toMap());
 
-  String get litePath => path.split('/').last.split('\\').last;
+  String get normalizedPath => path.replaceAll('\\', '/');
+
+  String get litePath => normalizedPath.split('/').last;
 
   /// Dynamically resolves the HTTP URL using the runtime server port.
   String getWebUrl(int serverPort) {
@@ -109,15 +111,15 @@ class FontModel {
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return path;
     }
-    final file = litePath;
+    final file = normalizedPath;
     if (file.isEmpty) return '';
     return 'http://127.0.0.1:$serverPort/fonts/$file';
   }
 
   static FontModel fromJson(String fontJson) {
     final Map<String, dynamic> json = jsonDecode(fontJson);
-    final rawPath = json['path'] as String? ?? '';
-    final lite = rawPath.split('/').last.split('\\').last;
+    final rawPath = (json['path'] as String? ?? '').replaceAll('\\', '/');
+    final lite = rawPath.split('/').last;
     final name = json['name'] as String? ?? 'customFont';
     final label = json['label'] as String? ?? lite;
 
@@ -150,7 +152,7 @@ class FontModel {
       id: derivedId,
       label: label,
       name: name,
-      path: lite,
+      path: rawPath.isNotEmpty ? rawPath : lite,
       source: source,
       postscriptName: postscriptName,
       fileSize: json['fileSize'] as int?,

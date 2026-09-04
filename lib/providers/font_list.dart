@@ -61,4 +61,20 @@ class FontList extends _$FontList {
     Prefs().pinnedSystemFonts = current;
     await refresh();
   }
+
+  Future<bool> deleteFont(FontModel font) async {
+    final success = await FontService.instance.deleteFont(font);
+    if (success) {
+      await refresh();
+    }
+    return success;
+  }
+
+  Future<int> importFonts() async {
+    final count = await FontService.instance.importFonts();
+    if (count > 0) {
+      await refresh();
+    }
+    return count;
+  }
 }

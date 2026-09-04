@@ -995,5 +995,48 @@
         "type": "int"
       }
     }
-  }
+  },
+  "fontManagement": "Font Management",
+  "fontTabMyFonts": "My Fonts",
+  "fontTabSystemFonts": "System Fonts",
+  "fontTabOnlineFonts": "Online Fonts",
+  "fontDeleteConfirmTitle": "Delete Font",
+  "fontDeleteConfirmContent": "Are you sure you want to delete \"{fontName}\"? The font file will be permanently removed from device storage.",
+  "@fontDeleteConfirmContent": {
+    "placeholders": {
+      "fontName": {
+        "type": "String"
+      }
+    }
+  },
+  "fontBadgeBundled": "Bundled",
+  "fontBadgeSystem": "System",
+  "fontBadgeCustom": "Custom",
+  "fontBadgeDownloaded": "Downloaded",
+  "fontInUse": "In Use",
+  "fontSetSuccess": "Font set to \"{fontName}\"",
+  "@fontSetSuccess": {
+    "placeholders": {
+      "fontName": {
+        "type": "String"
+      }
+    }
+  },
+  "fontSearchHint": "Search system fonts...",
+  "fontNoMatchingFonts": "No matching fonts found",
+   "fontPinned": "Pinned",
+  "fontPin": "Pin",
+  "fontUnpin": "Unpin",
+  "fontImportSupportedFormats": "Supports importing .ttf, .otf, .ttc, .woff font files",
+  "fontImportSuccess": "Successfully imported {count} fonts",
+  "@fontImportSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "fontSearchOnlineHint": "Search online fonts...",
+  "fontApply": "Apply",
+  "fontPaused": "Paused"
 }

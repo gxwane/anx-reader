@@ -95,9 +95,19 @@ class Server {
         headers: {'Content-Type': 'application/javascript'},
       );
     } else if (uriPath.startsWith('/fonts/')) {
-      Directory fontDir = getFontDir();
-      final file = File(
-          '${fontDir.path}/${path.basename(Uri.decodeComponent(uriPath))}');
+      final Directory fontDir = getFontDir();
+      final canonicalFontDir = path.canonicalize(fontDir.path);
+      final relative = Uri.decodeComponent(uriPath).substring(7);
+      final targetFile = File(path.join(fontDir.path, relative));
+      final fallbackFile = File(path.join(fontDir.path, path.basename(relative)));
+      final file = targetFile.existsSync() ? targetFile : fallbackFile;
+
+      final canonicalTarget = path.canonicalize(file.path);
+      if (!path.isWithin(canonicalFontDir, canonicalTarget) &&
+          canonicalFontDir != canonicalTarget) {
+        return shelf.Response.forbidden('Access denied');
+      }
+
       if (!file.existsSync()) {
         return shelf.Response.notFound('Font not found');
       }

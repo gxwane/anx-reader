@@ -57,5 +57,27 @@ void main() {
       expect(systemUiPreset.source, FontSource.systemUi);
       expect(systemUiPreset.isDeletable, false);
     });
+
+    test('preserves relative subdirectories for downloaded fonts and builds web URL', () {
+      final downloaded = FontModel(
+        id: 'downloaded:xwwk',
+        label: '霞鹜文楷 Lite',
+        name: 'LXGW WenKai Lite',
+        path: 'downloaded/xwwk/LXGWWenKaiLite-Regular.ttf',
+        source: FontSource.downloaded,
+        isDeletable: true,
+      );
+
+      final json = downloaded.toJson();
+      final decoded = FontModel.fromJson(json);
+
+      expect(decoded.path, 'downloaded/xwwk/LXGWWenKaiLite-Regular.ttf');
+      expect(decoded.source, FontSource.downloaded);
+      expect(decoded.litePath, 'LXGWWenKaiLite-Regular.ttf');
+      expect(
+        decoded.getWebUrl(8080),
+        'http://127.0.0.1:8080/fonts/downloaded/xwwk/LXGWWenKaiLite-Regular.ttf',
+      );
+    });
   });
 }
