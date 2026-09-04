@@ -69,7 +69,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "de": [
@@ -142,7 +151,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "es": [
@@ -215,7 +233,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "fr": [
@@ -288,7 +315,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "it": [
@@ -361,7 +397,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "ja": [
@@ -434,7 +479,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "ko": [
@@ -507,7 +561,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "pt": [
@@ -580,7 +643,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "ro": [
@@ -653,7 +725,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "ru": [
@@ -726,7 +807,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "tr": [
@@ -799,7 +889,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "zh": [
@@ -853,7 +952,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "zh_LZH": [
@@ -914,7 +1022,16 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ],
 
   "zh_TW": [
@@ -961,6 +1078,15 @@
     "fontImportSuccess",
     "fontSearchOnlineHint",
     "fontApply",
-    "fontPaused"
+    "fontPaused",
+    "fontSources",
+    "fontSourceAdd",
+    "fontSourceName",
+    "fontSourceUrl",
+    "fontSourceOfficial",
+    "fontSourceInvalid",
+    "fontSourceOfflineNotice",
+    "fontSourceDeleteConfirm",
+    "fontSourceSwitchOfficial"
   ]
 }

@@ -203,5 +203,112 @@ void main() {
 
       expect(find.text('No matching fonts found'), findsOneWidget);
     });
+
+    testWidgets('Tab 3 renders font source switcher button and opens dialog', (tester) async {
+      final fakeData = [
+        const RemoteFontModel(
+          id: 'test_font_1',
+          name: 'Alpha Font',
+          files: ['alpha/Alpha-Regular.ttf'],
+          size: 1024,
+          preview: '',
+          desc: 'Test font',
+          official: 'https://example.com',
+          license: LicenseModel(name: 'OFL', url: 'https://example.com'),
+        ),
+      ];
+
+      final container = ProviderContainer(
+        overrides: [
+          fontsProvider.overrideWith(() => FakeFonts(fakeData)),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(
+              localizationsDelegates: L10n.localizationsDelegates,
+              supportedLocales: L10n.supportedLocales,
+              locale: Locale('en'),
+              home: Scaffold(
+                body: FontsSettingPage(initialTabIndex: 2),
+              ),
+            ),
+          ),
+        );
+
+        await container.read(fontListProvider.future);
+      });
+
+      await tester.pumpAndSettle();
+
+      // Verify font source switcher button is visible
+      expect(find.text('Official Store'), findsOneWidget);
+
+      // Tap font source switcher button
+      await tester.tap(find.text('Official Store'));
+      await tester.pumpAndSettle();
+
+      // Verify dialog is shown
+      expect(find.text('Font Sources'), findsOneWidget);
+      expect(find.text('Add Font Source'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Official'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('Tab 3 shows offline notice when manifest is cached', (tester) async {
+      final fakeData = [
+        const RemoteFontModel(
+          id: 'test_font_1',
+          name: 'Alpha Font',
+          files: ['alpha/Alpha-Regular.ttf'],
+          size: 1024,
+          preview: '',
+          desc: 'Test font',
+          official: 'https://example.com',
+          license: LicenseModel(name: 'OFL', url: 'https://example.com'),
+        ),
+      ];
+
+      final container = ProviderContainer(
+        overrides: [
+          fontsProvider.overrideWith(() => FakeFonts(fakeData)),
+          onlineFontsIsCacheProvider.overrideWith((ref) => true),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(
+              localizationsDelegates: L10n.localizationsDelegates,
+              supportedLocales: L10n.supportedLocales,
+              locale: Locale('en'),
+              home: Scaffold(
+                body: FontsSettingPage(initialTabIndex: 2),
+              ),
+            ),
+          ),
+        );
+
+        await container.read(fontListProvider.future);
+      });
+
+      await tester.pumpAndSettle();
+
+      // Verify offline banner text is visible
+      expect(find.text('Showing offline cached fonts'), findsOneWidget);
+    });
   });
 }
+

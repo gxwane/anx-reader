@@ -16,6 +16,10 @@
 ### 新增
 - **字体子系统现代化重构与综合字体管理中心（Font Subsystem Modernization & Font Hub）**：
   - **综合字体管理中心（Font Hub）**：打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时搜索预览、一键切换当前阅读字体、当前使用字体高亮徽章，以及自定义字体的安全删除确认对话框；在设置外观与阅读设置中建立直达入口；
+  - **在线字体库容灾韧性与开放多源生态（Online Font Store Resilience & Open Multi-Source Ecosystem）**：
+    - **三级容灾降级流水线（Failover Pipeline）**：官方源主站异常或超时时自动静默回退至官方备用镜像；遭遇全面断网时自动降级展示本地分源隔离缓存（`.cache/fonts_manifest_${source.id}.json`），并展示非阻断式离线通知横幅，绝不弹出侵入式错误弹窗；
+    - **自定义字体源扩展与前置探活（Custom Font Sources & Pre-flight Validation）**：支持用户添加自建或第三方开源字体仓库源，基于 RFC 3986 标准实现动态 URI 相对/绝对解析，全面兼容任意自建 CDN 与分布式托管；配备前置网络探活与 JSON Schema 安全校验，拒绝非法或破损数据源；
+    - **多源切换与生命周期自愈（Source Switcher UX & Auto-healing Fallback）**：在线商店常驻顶部源选择器与管理弹窗，官方源受保护不可删除；当删除当前生效的自定义源时，触发自愈兜底机制自动回退至官方商店，并在异常状态下提供快速切回官方商店的逃生通道；
   - **在线字体库架构加固与体验闭环（Online Font Store Modernization & Atomic Pipeline）**：引入 `<fontDir>/downloaded/<font.id>/` 存储命名空间隔离，彻底消灭多个开源字体同名文件相互静默覆写的重大隐患；引入临时目录暂存与跨分区安全提交流程，多文件总字节平滑累加进度，异常自动原子回滚；新增在线字体实时模糊搜索与 KeepAlive 页面驻留，卡片显式标注文件大小（MB/KB），下载完成后支持一键「应用字体」即时生效，修复预览图单色染色滤镜与暂停文案，并提供 Manifest 10s 超时与离线本地缓存降级；
   - **跨平台系统字体发现与收藏机制（System Font Pinning & Favorites）**：支持即时发现 Windows/macOS/Linux 本地已安装系统字体，引入星标收藏机制，避免成百上千款系统字体涌入阅读弹窗造成视觉干扰；
   - **双轨渲染管线与代码块排版保护（Direct CSS Pipeline & Monospace Guard）**：系统字体直接通过原生 CSS 声明生效，消除无谓的 Dart 堆内存字体装载与本地 HTTP 中转；在本地 HTTP 字体服务中引入严格的 `path.isWithin` 目录防遍历安全隔离；在阅读渲染引擎中强化代码块等宽字体保护规则（`<pre>`, `<code>`, `<kbd>`, `<samp>` 等及其高亮子节点），杜绝语法高亮污染；

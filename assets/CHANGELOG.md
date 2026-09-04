@@ -1,5 +1,6 @@
 # Changelog
 
+- Feat(font): Online Font Store disaster resilience with multi-mirror failover, per-source offline cache, custom repository sources with RFC 3986 dynamic URI resolution, and pre-flight schema validation
 - Feat(font): Modernize Online Font Store with storage namespace isolation, atomic multi-file pipeline, real-time search, size indicators, path traversal hardening, and 1-click apply
 - Feat(font): Unified 3-tab Font Hub (My Fonts, System Fonts, Online Store), FontList mutation encapsulation, active font indicators, and Settings synchronization (Phase 3)
 - Feat(font): Support cross-platform system font discovery, pinning UX, direct CSS rendering, and monospace code protection (Phase 2)
@@ -59,6 +60,9 @@
 - Fix(l10n): Update full_description.txt (#775) Thanks @Xapitonov
 - L10n: Complete Romanian translation (#714) Thanks @Steinhagen
 
+- Feat(font): 在线字体库容灾韧性与开放多源生态，支持官方多镜像故障转移、分源离线缓存、自定义字体源添加与前置探活，以及自愈兜底机制
+- Feat(font): 在线字体库架构加固与体验闭环，引入独立存储命名空间隔离、事务原子下载管线、实时搜索、文件大小提示与一键应用
+- Feat(font): 打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时预览与设置联动
 - Feat(reader): 引入 W3C 规范上下文指纹与模糊自愈重定位算法，在电子书重新排版或版本更新导致 CFI 坐标失效时毫秒级自动纠偏，并配备 WebDAV 防僵尸墓碑机制
 - Feat(sync): 支持将划线笔记自动镜像导出为 Markdown 格式（含 YAML Frontmatter）至 WebDAV，无缝联动 Obsidian 与 PKM 知识库
 - Feat(sync): 优化 WebDAV 流量开销，实现单请求极速微同步、笔记脏检查与后台索引防抖聚合，彻底消除并发冲突

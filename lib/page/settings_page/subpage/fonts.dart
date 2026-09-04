@@ -1,6 +1,7 @@
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/font_model.dart';
+import 'package:anx_reader/models/font_source_model.dart';
 import 'package:anx_reader/page/reading_page.dart';
 import 'package:anx_reader/providers/font_list.dart';
 import 'package:anx_reader/providers/fonts.dart';
@@ -537,195 +538,543 @@ class _OnlineFontsTabState extends ConsumerState<_OnlineFontsTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final activeSource = ref.watch(activeFontSourceProvider);
+    final isOfflineCache = ref.watch(onlineFontsIsCacheProvider);
     final fontList = ref.watch(fontsProvider);
 
-    return fontList.when(
-      data: (fonts) {
-        if (fonts.isEmpty) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final filteredFonts = fonts.where((font) {
-          if (_searchQuery.isEmpty) return true;
-          final q = _searchQuery.toLowerCase();
-          return font.name.toLowerCase().contains(q) ||
-              font.desc.toLowerCase().contains(q);
-        }).toList();
-
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: L10n.of(context).fontSearchOnlineHint,
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                        )
-                      : null,
-                  border: OutlineInputBorder(
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: L10n.of(context).fontSearchOnlineHint,
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(24.0),
+                    ),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  onChanged: (value) {
+                    setState(() => _searchQuery = value.trim());
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(24.0),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 12),
                 ),
-                onChanged: (value) {
-                  setState(() => _searchQuery = value.trim());
-                },
+                onPressed: () => _showFontSourcesDialog(context),
+                icon: const Icon(Icons.cloud_queue, size: 18),
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 100),
+                      child: Text(
+                        activeSource.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.arrow_drop_down, size: 18),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (isOfflineCache)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context)
+                  .colorScheme
+                  .errorContainer
+                  .withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .error
+                    .withValues(alpha: 0.3),
               ),
             ),
-            Expanded(
-              child: filteredFonts.isEmpty
-                  ? Center(
-                      child: Text(
-                        L10n.of(context).fontNoMatchingFonts,
-                        style: TextStyle(color: Theme.of(context).hintColor),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: filteredFonts.length,
-                      itemBuilder: (context, index) {
-                        final font = filteredFonts[index];
-                        final sizeStr = _formatFileSize(font.size);
-                        return FilledContainer(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.cloud_off_outlined,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.error,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    L10n.of(context).fontSourceOfflineNotice,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          Theme.of(context).colorScheme.onErrorContainer,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        Expanded(
+          child: fontList.when(
+            data: (fonts) {
+              if (fonts.isEmpty) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final filteredFonts = fonts.where((font) {
+                if (_searchQuery.isEmpty) return true;
+                final q = _searchQuery.toLowerCase();
+                return font.name.toLowerCase().contains(q) ||
+                    font.desc.toLowerCase().contains(q);
+              }).toList();
+
+              if (filteredFonts.isEmpty) {
+                return Center(
+                  child: Text(
+                    L10n.of(context).fontNoMatchingFonts,
+                    style: TextStyle(color: Theme.of(context).hintColor),
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: filteredFonts.length,
+                itemBuilder: (context, index) {
+                  final font = filteredFonts[index];
+                  final sizeStr = _formatFileSize(font.size);
+                  final previewUrl = resolveFontFileUrl(
+                      activeSource.manifestUrl, font.preview);
+                  return FilledContainer(
+                    margin: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (font.preview.isNotEmpty)
+                          CachedNetworkImage(
+                            imageUrl: previewUrl,
+                            width: MediaQuery.of(context).size.width,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                            errorWidget: (context, url, error) =>
+                                const Icon(Icons.error),
+                          ),
+                        const Divider(),
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (font.preview.isNotEmpty)
-                                CachedNetworkImage(
-                                  imageUrl: '$fontBaseUrl${font.preview}',
-                                  width: MediaQuery.of(context).size.width,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => const Center(
-                                    child: CircularProgressIndicator(),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      font.name,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                   ),
-                                  errorWidget: (context, url, error) =>
-                                      const Icon(Icons.error),
-                                ),
-                              const Divider(),
-                              Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            font.name,
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
+                                  if (sizeStr.isNotEmpty)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .surfaceContainerHighest,
+                                        borderRadius:
+                                            BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        sizeStr,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context)
+                                              .colorScheme
+                                              .onSurfaceVariant,
                                         ),
-                                        if (sizeStr.isNotEmpty)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 8, vertical: 2),
-                                            decoration: BoxDecoration(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .surfaceContainerHighest,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: Text(
-                                              sizeStr,
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                color: Theme.of(context)
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
+                                      ),
                                     ),
-                                    const SizedBox(height: 8),
-                                    Text(font.desc),
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.end,
-                                      children: [
-                                        TextButton.icon(
-                                          onPressed: () {
-                                            launchUrlString(
-                                              font.official,
-                                              mode: LaunchMode
-                                                  .externalApplication,
-                                            );
-                                          },
-                                          icon: const Icon(Icons.link),
-                                          label: Text(
-                                            L10n.of(context).fontOfficialWebsite,
-                                            style: TextStyle(
-                                              color: Theme.of(context)
-                                                  .primaryColor,
-                                              decoration:
-                                                  TextDecoration.underline,
-                                            ),
-                                          ),
-                                        ),
-                                        TextButton.icon(
-                                          onPressed: () {
-                                            launchUrlString(
-                                              font.license.url,
-                                              mode: LaunchMode
-                                                  .externalApplication,
-                                            );
-                                          },
-                                          icon: const Icon(Icons.link),
-                                          label: Text(
-                                            font.license.name,
-                                            style: TextStyle(
-                                              color: Theme.of(context)
-                                                  .primaryColor,
-                                              decoration:
-                                                  TextDecoration.underline,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 16),
-                                    _buildDownloadButton(context, font),
-                                  ],
-                                ),
+                                ],
                               ),
+                              const SizedBox(height: 8),
+                              Text(
+                                font.desc,
+                                style: TextStyle(
+                                    color: Theme.of(context).hintColor),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () =>
+                                          launchUrlString(font.license.url),
+                                      child: Text(
+                                        'License: ${font.license.name}',
+                                        style: TextStyle(
+                                          color: Theme.of(context)
+                                              .hintColor,
+                                          decoration:
+                                              TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  GestureDetector(
+                                    onTap: () =>
+                                        launchUrlString(font.official),
+                                    child: Text(
+                                      'Official',
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .primaryColor,
+                                        decoration:
+                                            TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              _buildDownloadButton(context, font),
                             ],
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
+                  );
+                },
+              );
+            },
+            loading: () =>
+                const Center(child: CircularProgressIndicator()),
+            error: (error, stack) => Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      L10n.of(context).fontFailedToLoadFonts,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 15),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.center,
+                      children: [
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.refresh),
+                          label: Text(L10n.of(context).commonRetry),
+                          onPressed: () => ref.refresh(fontsProvider),
+                        ),
+                        if (!activeSource.isOfficial)
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.storefront_outlined),
+                            label: Text(
+                                L10n.of(context).fontSourceSwitchOfficial),
+                            onPressed: () {
+                              ref
+                                  .read(activeFontSourceProvider.notifier)
+                                  .state = FontSourceModel.official;
+                              Prefs().activeFontSourceId =
+                                  FontSourceModel.official.id;
+                            },
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showFontSourcesDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final sources = Prefs().fontSources;
+            final activeSource = ref.watch(activeFontSourceProvider);
+
+            return AlertDialog(
+              title: Text(L10n.of(context).fontSources),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: sources.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final source = sources[index];
+                    final isSelected = source.id == activeSource.id;
+
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 0),
+                      leading: Icon(
+                        isSelected
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: isSelected
+                            ? Theme.of(context).primaryColor
+                            : null,
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              source.name,
+                              style: TextStyle(
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                          if (source.isOfficial)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                L10n.of(context).fontSourceOfficial,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onPrimaryContainer,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      subtitle: Text(
+                        source.manifestUrl,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).hintColor,
+                        ),
+                      ),
+                      trailing: !source.isOfficial
+                          ? IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  size: 20),
+                              onPressed: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: Text(L10n.of(context)
+                                        .fontSourceDeleteConfirm),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, false),
+                                        child: Text(L10n.of(context)
+                                            .commonCancel),
+                                      ),
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(ctx, true),
+                                        child: Text(L10n.of(context)
+                                            .commonConfirm),
+                                      ),
+                                    ],
+                                  ),
+                                );
+
+                                if (confirm == true) {
+                                  await Prefs().removeFontSource(source.id);
+                                  if (activeSource.id == source.id) {
+                                    ref
+                                        .read(activeFontSourceProvider
+                                            .notifier)
+                                        .state = FontSourceModel.official;
+                                  }
+                                  setDialogState(() {});
+                                }
+                              },
+                            )
+                          : null,
+                      onTap: () {
+                        ref
+                            .read(activeFontSourceProvider.notifier)
+                            .state = source;
+                        Prefs().activeFontSourceId = source.id;
+                        Navigator.pop(dialogContext);
+                      },
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: Text(L10n.of(context).fontSourceAdd),
+                  onPressed: () {
+                    _showAddFontSourceDialog(context, () {
+                      setDialogState(() {});
+                    });
+                  },
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(L10n.of(context).commonCancel),
+                ),
+              ],
+            );
+          },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(L10n.of(context).fontFailedToLoadFonts),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: Text(L10n.of(context).commonRetry),
-              onPressed: () => ref.refresh(fontsProvider),
-            ),
-          ],
-        ),
-      ),
+    );
+  }
+
+  void _showAddFontSourceDialog(
+    BuildContext parentContext,
+    VoidCallback onAdded,
+  ) {
+    final nameController = TextEditingController();
+    final urlController = TextEditingController();
+    bool isValidating = false;
+    String? errorMessage;
+
+    showDialog(
+      context: parentContext,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setAddDialogState) {
+            return AlertDialog(
+              title: Text(L10n.of(context).fontSourceAdd),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: L10n.of(context).fontSourceName,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: urlController,
+                    decoration: InputDecoration(
+                      labelText: L10n.of(context).fontSourceUrl,
+                      hintText: 'https://.../fonts-manifest.json',
+                      border: const OutlineInputBorder(),
+                      errorText: errorMessage,
+                    ),
+                  ),
+                  if (isValidating) ...[
+                    const SizedBox(height: 12),
+                    const LinearProgressIndicator(),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isValidating
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: Text(L10n.of(context).commonCancel),
+                ),
+                ElevatedButton(
+                  onPressed: isValidating
+                      ? null
+                      : () async {
+                          final name = nameController.text.trim();
+                          final url = urlController.text.trim();
+                          if (name.isEmpty || url.isEmpty) return;
+
+                          setAddDialogState(() {
+                            isValidating = true;
+                            errorMessage = null;
+                          });
+
+                          try {
+                            await validateFontSource(url);
+                            final newSource = FontSourceModel(
+                              id: DateTime.now()
+                                  .millisecondsSinceEpoch
+                                  .toString(),
+                              name: name,
+                              manifestUrl: url,
+                              isOfficial: false,
+                            );
+                            await Prefs().addOrUpdateFontSource(newSource);
+                            ref
+                                .read(activeFontSourceProvider.notifier)
+                                .state = newSource;
+                            Prefs().activeFontSourceId = newSource.id;
+                            onAdded();
+                            if (context.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+                          } catch (e) {
+                            setAddDialogState(() {
+                              isValidating = false;
+                              errorMessage =
+                                  L10n.of(context).fontSourceInvalid;
+                            });
+                          }
+                        },
+                  child: Text(L10n.of(context).commonConfirm),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

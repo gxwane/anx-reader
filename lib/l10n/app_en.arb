@@ -1038,5 +1038,14 @@
   },
   "fontSearchOnlineHint": "Search online fonts...",
   "fontApply": "Apply",
-  "fontPaused": "Paused"
+  "fontPaused": "Paused",
+  "fontSources": "Font Sources",
+  "fontSourceAdd": "Add Font Source",
+  "fontSourceName": "Source Name",
+  "fontSourceUrl": "Manifest URL",
+  "fontSourceOfficial": "Official",
+  "fontSourceInvalid": "Invalid font manifest URL or format",
+  "fontSourceOfflineNotice": "Showing offline cached fonts",
+  "fontSourceDeleteConfirm": "Are you sure you want to delete this font source?",
+  "fontSourceSwitchOfficial": "Switch to Official Store"
 }

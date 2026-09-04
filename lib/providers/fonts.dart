@@ -1,9 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:anx_reader/models/font_source_model.dart';
 import 'package:anx_reader/providers/font_list.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
 import 'package:anx_reader/utils/get_path/get_temp_dir.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -16,6 +19,42 @@ part 'fonts.freezed.dart';
 
 const String fontBaseUrl = 'https://fonts.anxcye.com/';
 const String fontManifestUrl = '${fontBaseUrl}fonts-manifest.json';
+const String fontManifestBackupUrl =
+    'https://raw.githubusercontent.com/Anxcye/anx-reader-fonts/main/fonts-manifest.json';
+
+String resolveFontFileUrl(String manifestUrl, String filePath) {
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    return filePath;
+  }
+  return Uri.parse(manifestUrl).resolve(filePath).toString();
+}
+
+final activeFontSourceProvider = StateProvider<FontSourceModel>((ref) {
+  return Prefs().activeFontSource;
+});
+
+final onlineFontsIsCacheProvider = StateProvider<bool>((ref) {
+  return false;
+});
+
+Future<void> validateFontSource(String manifestUrl) async {
+  final uri = Uri.tryParse(manifestUrl.trim());
+  if (uri == null || (!uri.isScheme('http') && !uri.isScheme('https'))) {
+    throw const FormatException('Invalid URL scheme. Must be http or https.');
+  }
+  final response = await http.get(uri).timeout(const Duration(seconds: 10));
+  if (response.statusCode != 200) {
+    throw HttpException('Server returned HTTP ${response.statusCode}');
+  }
+  final dynamic decoded = jsonDecode(response.body);
+  if (decoded is! List) {
+    throw const FormatException('Manifest root must be a JSON array');
+  }
+  if (decoded.isEmpty) {
+    throw const FormatException('Manifest contains no fonts');
+  }
+  RemoteFontModel.fromJson(decoded.first as Map<String, dynamic>);
+}
 
 @freezed
 abstract class LicenseModel with _$LicenseModel {
@@ -69,35 +108,58 @@ abstract class FontDownloadState with _$FontDownloadState {
 class Fonts extends _$Fonts {
   @override
   Future<List<RemoteFontModel>> build() async {
+    final activeSource = ref.watch(activeFontSourceProvider);
+
+    // Attempt 1: Load from activeSource.manifestUrl
     try {
       final response = await http
-          .get(Uri.parse(fontManifestUrl))
+          .get(Uri.parse(activeSource.manifestUrl))
           .timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
-        // Save to local cache file asynchronously for offline resilience
-        _saveToCache(response.body);
+        await _saveToCache(activeSource.id, response.body);
+        ref.read(onlineFontsIsCacheProvider.notifier).state = false;
         final List<dynamic> jsonList = jsonDecode(response.body);
         return jsonList.map((json) => RemoteFontModel.fromJson(json)).toList();
-      } else {
-        final cached = await _loadFromCache();
-        if (cached != null && cached.isNotEmpty) return cached;
-        throw Exception('Failed to load fonts manifest (HTTP ${response.statusCode})');
       }
-    } catch (e) {
-      final cached = await _loadFromCache();
-      if (cached != null && cached.isNotEmpty) return cached;
-      throw Exception('Failed to load fonts manifest: $e');
+    } catch (_) {}
+
+    // Attempt 2: If official source, failover to official backup mirror
+    if (activeSource.isOfficial) {
+      try {
+        final backupResponse = await http
+            .get(Uri.parse(fontManifestBackupUrl))
+            .timeout(const Duration(seconds: 10));
+        if (backupResponse.statusCode == 200) {
+          await _saveToCache(activeSource.id, backupResponse.body);
+          ref.read(onlineFontsIsCacheProvider.notifier).state = false;
+          final List<dynamic> jsonList = jsonDecode(backupResponse.body);
+          return jsonList
+              .map((json) => RemoteFontModel.fromJson(json))
+              .toList();
+        }
+      } catch (_) {}
     }
+
+    // Attempt 3: Fallback to local isolated cache for this source
+    final cached = await _loadFromCache(activeSource.id);
+    if (cached != null && cached.isNotEmpty) {
+      ref.read(onlineFontsIsCacheProvider.notifier).state = true;
+      return cached;
+    }
+
+    ref.read(onlineFontsIsCacheProvider.notifier).state = false;
+    throw Exception('Failed to load fonts manifest from ${activeSource.name}');
   }
 
-  Future<File> get _cacheFile async {
+  Future<File> _cacheFile(String sourceId) async {
     final baseDir = getFontDir();
-    return File(p.join(baseDir.path, '.cache', 'fonts-manifest.json'));
+    final safeId = sourceId.replaceAll(RegExp(r'[^\w\-]'), '_');
+    return File(p.join(baseDir.path, '.cache', 'fonts_manifest_$safeId.json'));
   }
 
-  Future<void> _saveToCache(String body) async {
+  Future<void> _saveToCache(String sourceId, String body) async {
     try {
-      final file = await _cacheFile;
+      final file = await _cacheFile(sourceId);
       if (!await file.parent.exists()) {
         await file.parent.create(recursive: true);
       }
@@ -105,9 +167,9 @@ class Fonts extends _$Fonts {
     } catch (_) {}
   }
 
-  Future<List<RemoteFontModel>?> _loadFromCache() async {
+  Future<List<RemoteFontModel>?> _loadFromCache(String sourceId) async {
     try {
-      final file = await _cacheFile;
+      final file = await _cacheFile(sourceId);
       if (await file.exists()) {
         final content = await file.readAsString();
         final List<dynamic> jsonList = jsonDecode(content);
@@ -158,15 +220,18 @@ class FontDownloads extends _$FontDownloads {
       ),
     };
 
+    final activeSource = ref.read(activeFontSourceProvider);
+
     try {
       for (final filePath in font.files) {
         final fileName = filePath.split('/').last;
         final stagingFilePath = p.join(stagingDir.path, fileName);
 
         int currentFileDownloaded = 0;
+        final fileUrl = resolveFontFileUrl(activeSource.manifestUrl, filePath);
 
         await dio.download(
-          '$fontBaseUrl$filePath',
+          fileUrl,
           stagingFilePath,
           cancelToken: cancelToken,
           options: Options(
