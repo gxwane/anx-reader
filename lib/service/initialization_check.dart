@@ -2,7 +2,6 @@ import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/enums/version_check_type.dart';
 import 'package:anx_reader/main.dart';
 import 'package:anx_reader/utils/app_version.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:anx_reader/page/onboarding_screen.dart';
 import 'package:anx_reader/page/changelog_screen.dart';
 import 'package:anx_reader/utils/log/common.dart';
@@ -57,14 +56,17 @@ class InitializationCheck {
     final cv = await currentVersion;
     // wait 0.8 seconds to ensure the app is ready
     Future.delayed(const Duration(milliseconds: 800), () {
-      showCupertinoSheet(
-        context: navigatorKey.currentContext!,
-        builder: (context) => Scaffold(
-          body: OnboardingScreen(
-            onComplete: () async {
-              Prefs().lastAppVersion = cv;
-              Navigator.pop(context);
-            },
+      final context = navigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (routeContext) => Scaffold(
+            body: OnboardingScreen(
+              onComplete: () async {
+                Prefs().lastAppVersion = cv;
+                Navigator.pop(routeContext);
+              },
+            ),
           ),
         ),
       );
@@ -75,17 +77,16 @@ class InitializationCheck {
     final lv = await lastVersion;
     final cv = await currentVersion;
     AnxLog.info('Version update detected: $lv -> $cv');
-    Future.delayed(const Duration(milliseconds: 800), () {
-      showCupertinoSheet(
-        context: navigatorKey.currentContext!,
-        builder: (context) => ChangelogScreen(
-          lastVersion: lv,
-          currentVersion: cv,
-          onComplete: () {
-            Prefs().lastAppVersion = cv;
-            Navigator.pop(context);
-          },
-        ),
+    Future.delayed(const Duration(milliseconds: 800), () async {
+      final context = navigatorKey.currentContext;
+      if (context == null || !context.mounted) return;
+      await ChangelogScreen.show(
+        context,
+        lastVersion: lv,
+        currentVersion: cv,
+        onComplete: () {
+          Prefs().lastAppVersion = cv;
+        },
       );
     });
   }
