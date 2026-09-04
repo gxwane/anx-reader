@@ -29,6 +29,7 @@ import 'package:anx_reader/models/book_style.dart';
 import 'package:anx_reader/models/chapter_split_presets.dart';
 import 'package:anx_reader/models/chapter_split_rule.dart';
 import 'package:anx_reader/models/font_model.dart';
+import 'package:anx_reader/models/font_source_model.dart';
 import 'package:anx_reader/models/book_notes_state.dart';
 import 'package:anx_reader/models/read_theme.dart';
 import 'package:anx_reader/models/reading_info.dart';
@@ -585,6 +586,68 @@ class Prefs extends ChangeNotifier {
   set pinnedSystemFonts(List<String> fonts) {
     prefs.setStringList('pinnedSystemFonts', fonts);
     notifyListeners();
+  }
+
+  List<FontSourceModel> get fontSources {
+    final list = prefs.getStringList('fontSources');
+    if (list == null || list.isEmpty) {
+      return [FontSourceModel.official];
+    }
+    final sources = <FontSourceModel>[];
+    for (final item in list) {
+      try {
+        sources.add(FontSourceModel.fromJson(item));
+      } catch (_) {}
+    }
+    if (!sources.any((s) => s.id == FontSourceModel.official.id)) {
+      sources.insert(0, FontSourceModel.official);
+    }
+    return sources;
+  }
+
+  Future<void> saveFontSources(List<FontSourceModel> sources) async {
+    await prefs.setStringList(
+      'fontSources',
+      sources.map((s) => s.toJson()).toList(),
+    );
+    notifyListeners();
+  }
+
+  String get activeFontSourceId {
+    return prefs.getString('activeFontSourceId') ?? FontSourceModel.official.id;
+  }
+
+  set activeFontSourceId(String id) {
+    prefs.setString('activeFontSourceId', id);
+    notifyListeners();
+  }
+
+  FontSourceModel get activeFontSource {
+    final currentId = activeFontSourceId;
+    return fontSources.firstWhere(
+      (s) => s.id == currentId,
+      orElse: () => FontSourceModel.official,
+    );
+  }
+
+  Future<void> addOrUpdateFontSource(FontSourceModel source) async {
+    final sources = List<FontSourceModel>.from(fontSources);
+    final index = sources.indexWhere((s) => s.id == source.id);
+    if (index >= 0) {
+      sources[index] = source;
+    } else {
+      sources.add(source);
+    }
+    await saveFontSources(sources);
+  }
+
+  Future<void> removeFontSource(String id) async {
+    if (id == FontSourceModel.official.id) return;
+    final sources = fontSources.where((s) => s.id != id).toList();
+    await saveFontSources(sources);
+    if (activeFontSourceId == id) {
+      activeFontSourceId = FontSourceModel.official.id;
+    }
   }
 
   set trueDarkMode(bool status) {

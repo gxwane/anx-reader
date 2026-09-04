@@ -1,12 +1,20 @@
 # Changelog
 
+- Feat(font): Online Font Store disaster resilience with multi-mirror failover, per-source offline cache, custom repository sources with RFC 3986 dynamic URI resolution, and pre-flight schema validation
 - Feat(font): Modernize Online Font Store with storage namespace isolation, atomic multi-file pipeline, real-time search, size indicators, path traversal hardening, and 1-click apply
 - Feat(font): Unified 3-tab Font Hub (My Fonts, System Fonts, Online Store), FontList mutation encapsulation, active font indicators, and Settings synchronization (Phase 3)
 - Feat(font): Support cross-platform system font discovery, pinning UX, direct CSS rendering, and monospace code protection (Phase 2)
 - Feat(font): Modernize font subsystem with random-access stream parser, stable PostScript IDs, and JIT lazy loading (Phase 1)
 - Feat(reader): Add W3C Web Annotation context fingerprinting and fuzzy relocation to auto-heal broken note coordinates across book layout changes and editions
+- Feat(sync): Support auto-mirroring reading notes to WebDAV in Markdown format with YAML frontmatter for Obsidian and PKM tools
+- Feat(sync): Optimize WebDAV traffic with single-request micro-sync, note dirty-checking, and debounced background index worker
+- Feat(sync): Add bookshelf global progress index and pull-to-refresh to instantly sync reading progress across all books in a single request
+- Feat(sync): Add offline sync queue and resilience engine to automatically enqueue failed micro-syncs and seamlessly drain on network recovery
 - Feat(notes): Decouple notes from local book files, seamlessly preserve and present notes for removed books with graceful missing file guards
-- Feat(notes): Support batch deleting all notes for a single book with confirmation dialog and slidable shortcuts
+- Feat(notes): Support batch deleting all notes for a single book with confirmation dialog, slidable shortcuts, and WebDAV tombstone sync
+- Feat(sync): Redesign WebDAV sync with per-book micro-sync, non-destructive record merge, and non-blocking progress hints
+- Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
+- Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 - Fix(translate): Remove legacy Microsoft reverse-engineered translation service and migrate saved full-text translation preference to Microsoft Azure API
 - Fix(l10n): Remove legacy Microsoft translation localization entries
 - Feat(ai): Support separate AI reasoning content with lightweight collapsible thinking UI in chat and stream views (#787)
@@ -52,9 +60,18 @@
 - Fix(l10n): Update full_description.txt (#775) Thanks @Xapitonov
 - L10n: Complete Romanian translation (#714) Thanks @Steinhagen
 
-- Feat(reader): 引入 W3C 规范上下文指纹与模糊自愈重定位算法，在电子书重新排版或版本更新导致 CFI 坐标失效时自动纠偏
+- Feat(font): 在线字体库容灾韧性与开放多源生态，支持官方多镜像故障转移、分源离线缓存、自定义字体源添加与前置探活，以及自愈兜底机制
+- Feat(font): 在线字体库架构加固与体验闭环，引入独立存储命名空间隔离、事务原子下载管线、实时搜索、文件大小提示与一键应用
+- Feat(font): 打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时预览与设置联动
+- Feat(reader): 引入 W3C 规范上下文指纹与模糊自愈重定位算法，在电子书重新排版或版本更新导致 CFI 坐标失效时毫秒级自动纠偏，并配备 WebDAV 防僵尸墓碑机制
+- Feat(sync): 支持将划线笔记自动镜像导出为 Markdown 格式（含 YAML Frontmatter）至 WebDAV，无缝联动 Obsidian 与 PKM 知识库
+- Feat(sync): 优化 WebDAV 流量开销，实现单请求极速微同步、笔记脏检查与后台索引防抖聚合，彻底消除并发冲突
+- Feat(sync): 新增书架全局聚合进度索引与下拉刷新，单次轻量请求即可秒级对齐书架所有书籍最新阅读进度
+- Feat(sync): 新增离线阅读与弱网自愈重试队列，在离线/弱网微同步失败时自动入队，网络恢复或应用唤醒时自动后台无感知补发
 - Feat(notes): 解耦笔记与本地书架文件，持久保留并平权呈现历史书籍笔记资产，对本地物理文件缺失增加防崩溃安全保护
-- Feat(notes): 支持一键批量删除单书全部笔记，配备二次确认弹窗与左滑快捷操作
+- Feat(notes): 支持一键批量删除单书全部笔记，配备二次确认弹窗、左滑快捷操作与 WebDAV 墓碑同步
+- Feat(sync): 全面重构 WebDAV 同步引擎，支持单书毫秒级微同步、多端记录无损合流与非阻塞进度提示
+- Fix(sync): 修复 WebDAV 双向同步在下载远端数据库后反复触发误上传的乒乓循环问题
 - Feat(ai): AI 支持单独的思考内容字段，并在聊天与流式界面中以轻量可折叠方式展示思考过程 (#787)
 - Fix(translate): 移除旧版 Microsoft 逆向翻译服务，并将已保存的全文翻译偏好迁移到 Microsoft Azure API
 - Fix(l10n): 移除旧版 Microsoft 翻译相关本地化条目

@@ -965,5 +965,14 @@
   "fontImportSuccess": "已成功导入 {count} 个字体",
   "fontSearchOnlineHint": "搜索在线字体...",
   "fontApply": "应用字体",
-  "fontPaused": "已暂停"
+  "fontPaused": "已暂停",
+  "fontSources": "字体源",
+  "fontSourceAdd": "添加字体源",
+  "fontSourceName": "源名称",
+  "fontSourceUrl": "清单链接",
+  "fontSourceOfficial": "官方",
+  "fontSourceInvalid": "无效的字体源链接或格式",
+  "fontSourceOfflineNotice": "当前显示为离线缓存",
+  "fontSourceDeleteConfirm": "确定删除该字体源吗？",
+  "fontSourceSwitchOfficial": "切回官方字体源"
 }
