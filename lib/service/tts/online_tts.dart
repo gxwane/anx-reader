@@ -3,13 +3,13 @@ import 'dart:async';
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/page/reading_page.dart';
 import 'package:anx_reader/service/tts/base_tts.dart';
+import 'package:anx_reader/service/tts/ping_pong_audio_player.dart';
 import 'package:anx_reader/service/tts/tts_service.dart';
 import 'package:anx_reader/service/tts/tts_service_provider.dart';
 import 'package:anx_reader/service/tts/models/tts_segment.dart';
 import 'package:anx_reader/service/tts/models/tts_sentence.dart';
 import 'package:anx_reader/service/tts/models/tts_voice.dart';
 import 'package:anx_reader/utils/log/common.dart';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 class OnlineTts extends BaseTts {
@@ -27,9 +27,10 @@ class OnlineTts extends BaseTts {
   static const int _fetchTimeoutSeconds = 10;
   static const int _maxRetries = 2;
 
-  // ============ Audio Player ============
-  AudioPlayer? _player;
-  StreamSubscription<void>? _playerCompleteSubscription;
+  // ============ Audio Engine & Concurrency ============
+  final PingPongAudioPlayer _pingPongPlayer = PingPongAudioPlayer();
+  StreamSubscription<int>? _playerCompleteSubscription;
+  int _sessionEpoch = 0;
 
   // ============ Ordered Buffer ============
   // Segments are added in order; audio is fetched in background
@@ -82,7 +83,7 @@ class OnlineTts extends BaseTts {
   @override
   set volume(double volume) {
     Prefs().ttsVolume = volume;
-    _player?.setVolume(volume);
+    _pingPongPlayer.setVolume(volume);
   }
 
   @override
@@ -106,7 +107,6 @@ class OnlineTts extends BaseTts {
   double get rate => Prefs().ttsRate;
 
   @override
-  @override
   bool get isPlaying => ttsStateNotifier.value == TtsStateEnum.playing;
 
   @override
@@ -128,27 +128,14 @@ class OnlineTts extends BaseTts {
   }
 
   // ============ Audio Player Management ============
-  Future<AudioPlayer> _ensurePlayer() async {
-    if (_player != null) return _player!;
-
-    _player = AudioPlayer();
-    await _player!.setReleaseMode(ReleaseMode.stop);
-    await _player!.setPlayerMode(PlayerMode.mediaPlayer);
-    await _player!.setVolume(volume);
-
-    _playerCompleteSubscription = _player!.onPlayerComplete.listen((_) {
-      _playbackCompleter?.complete();
-    });
-
-    return _player!;
+  Future<void> _ensurePlayer() async {
+    await _pingPongPlayer.ensureInitialized(volume: volume);
   }
 
   Future<void> _disposePlayer() async {
-    await _player?.stop();
     await _playerCompleteSubscription?.cancel();
     _playerCompleteSubscription = null;
-    await _player?.dispose();
-    _player = null;
+    await _pingPongPlayer.stop();
   }
 
   // ============ Buffer Management ============
@@ -170,6 +157,7 @@ class OnlineTts extends BaseTts {
   /// so they will be re-fetched with new settings
   void _clearPendingAudio() {
     _audioFetchVersion++; // Increment version to invalidate in-flight fetches
+    unawaited(_pingPongPlayer.cancelPrewarm());
     for (final segment in _buffer) {
       // Clear audio so it will be re-fetched
       segment.audio = null;
@@ -181,13 +169,13 @@ class OnlineTts extends BaseTts {
   }
 
   // ============ Producer: Prefetcher Loop ============
-  Future<void> _startPrefetcher() async {
+  Future<void> _startPrefetcher(int epoch) async {
     if (_isPrefetcherRunning) return;
     _isPrefetcherRunning = true;
     _prefetcherCompleter = Completer<void>();
 
     try {
-      while (!_shouldStop) {
+      while (!_shouldStop && epoch == _sessionEpoch) {
         // Check for segments that need audio re-fetch (after settings change)
         final segmentsNeedingAudio =
             _buffer.where((s) => !s.isReady && !s.isSilent).toList();
@@ -195,11 +183,11 @@ class OnlineTts extends BaseTts {
         if (segmentsNeedingAudio.isNotEmpty) {
           // Re-fetch audio for segments that were cleared
           for (var i = 0; i < segmentsNeedingAudio.length; i += _batchSize) {
-            if (_shouldStop) break;
+            if (_shouldStop || epoch != _sessionEpoch) break;
             final batch =
                 segmentsNeedingAudio.skip(i).take(_batchSize).toList();
             final futures =
-                batch.map((segment) => _fetchAudioForSegment(segment));
+                batch.map((segment) => _fetchAudioForSegment(segment, epoch));
             await Future.wait(futures);
           }
         }
@@ -222,7 +210,7 @@ class OnlineTts extends BaseTts {
         // Create placeholder segments in ORDER first
         final newSegments = <TtsSegment>[];
         for (final sentence in sentences) {
-          if (_shouldStop) break;
+          if (_shouldStop || epoch != _sessionEpoch) break;
           final key = _segmentKey(sentence);
           if (_bufferKeys.contains(key)) continue;
 
@@ -234,10 +222,10 @@ class OnlineTts extends BaseTts {
 
         // Now fetch audio in batches to limit concurrency
         for (var i = 0; i < newSegments.length; i += _batchSize) {
-          if (_shouldStop) break;
+          if (_shouldStop || epoch != _sessionEpoch) break;
           final batch = newSegments.skip(i).take(_batchSize).toList();
           final futures =
-              batch.map((segment) => _fetchAudioForSegment(segment));
+              batch.map((segment) => _fetchAudioForSegment(segment, epoch));
           await Future.wait(futures);
         }
       }
@@ -280,15 +268,15 @@ class OnlineTts extends BaseTts {
     }
   }
 
-  Future<void> _fetchAudioForSegment(TtsSegment segment) async {
-    if (_shouldStop) return;
+  Future<void> _fetchAudioForSegment(TtsSegment segment, int epoch) async {
+    if (_shouldStop || epoch != _sessionEpoch) return;
     if (segment.isReady) return;
 
     // Capture the version at the start of fetching
     final targetVersion = segment.fetchVersion;
 
     for (var attempt = 0; attempt <= _maxRetries; attempt++) {
-      if (_shouldStop) return;
+      if (_shouldStop || epoch != _sessionEpoch) return;
       if (segment.isReady) return;
 
       try {
@@ -301,6 +289,8 @@ class OnlineTts extends BaseTts {
             )
             .timeout(Duration(seconds: _fetchTimeoutSeconds));
 
+        if (epoch != _sessionEpoch) return;
+
         // Check if version is still valid (settings haven't changed during fetch)
         if (segment.fetchVersion != targetVersion) {
           AnxLog.info(
@@ -312,22 +302,29 @@ class OnlineTts extends BaseTts {
           segment.isSilent = true;
         } else {
           segment.audio = bytes;
+          // If this segment is the immediate next segment in buffer, prewarm it on the idle player
+          if (_isPlayerRunning &&
+              !_shouldStop &&
+              _buffer.isNotEmpty &&
+              identical(_buffer.first, segment)) {
+            unawaited(_pingPongPlayer.prewarmNext(bytes));
+          }
         }
         return; // Success, exit retry loop
       } on TimeoutException {
+        if (epoch != _sessionEpoch) return;
         AnxLog.severe(
             'Fetch timeout (attempt ${attempt + 1}/$_maxRetries): "${segment.sentence.text.substring(0, segment.sentence.text.length.clamp(0, 20))}..."');
         if (attempt == _maxRetries) {
-          // Check version before marking as silent
-          if (segment.fetchVersion == targetVersion) {
+          if (segment.fetchVersion == targetVersion && epoch == _sessionEpoch) {
             segment.isSilent = true;
           }
         }
       } catch (e) {
+        if (epoch != _sessionEpoch) return;
         AnxLog.severe('Fetch error (attempt ${attempt + 1}): $e');
         if (attempt == _maxRetries) {
-          // Check version before marking as silent
-          if (segment.fetchVersion == targetVersion) {
+          if (segment.fetchVersion == targetVersion && epoch == _sessionEpoch) {
             segment.isSilent = true;
           }
         }
@@ -336,63 +333,102 @@ class OnlineTts extends BaseTts {
   }
 
   // ============ Consumer: Player Loop ============
-  Future<void> _startPlayer() async {
+  Future<void> _startPlayer(int epoch) async {
     if (_isPlayerRunning) return;
     _isPlayerRunning = true;
     _playerCompleter = Completer<void>();
 
-    final audioPlayer = await _ensurePlayer();
+    await _ensurePlayer();
+    _playerCompleteSubscription?.cancel();
+    _playerCompleteSubscription =
+        _pingPongPlayer.onActivePlayerComplete.listen((_) {
+      if (_playbackCompleter != null && !_playbackCompleter!.isCompleted) {
+        _playbackCompleter!.complete();
+      }
+    });
+
+    bool isFirstSegment = true;
 
     try {
-      while (!_shouldStop) {
+      while (!_shouldStop && epoch == _sessionEpoch) {
         // Wait for buffer to have a segment
-        while (_buffer.isEmpty && !_shouldStop) {
-          await Future.delayed(const Duration(milliseconds: 50));
+        while (_buffer.isEmpty && !_shouldStop && epoch == _sessionEpoch) {
+          await Future.delayed(const Duration(milliseconds: 30));
         }
-        if (_shouldStop) break;
+        if (_shouldStop || epoch != _sessionEpoch) break;
 
         // Get the FIRST segment (preserving order)
         final segment = _buffer.first;
 
-        // Wait for this segment's audio to be ready
-        while (!segment.isReady && !_shouldStop) {
-          await Future.delayed(const Duration(milliseconds: 30));
+        // Starvation protection: wait up to 8s for segment audio to be ready
+        final waitStart = DateTime.now();
+        while (!segment.isReady && !_shouldStop && epoch == _sessionEpoch) {
+          if (DateTime.now().difference(waitStart).inSeconds >= 8) {
+            AnxLog.warning(
+                'OnlineTts: starvation timeout (8s) waiting for segment audio; marking silent');
+            segment.isSilent = true;
+            break;
+          }
+          await Future.delayed(const Duration(milliseconds: 20));
         }
-        if (_shouldStop) break;
+        if (_shouldStop || epoch != _sessionEpoch) break;
 
-        // Now remove it from buffer
+        // Remove from buffer now that it's ready to play
         _buffer.removeAt(0);
         _currentSegment = segment;
         _currentVoiceText = segment.sentence.text;
 
-        // Highlight current sentence
-        await _highlightSegment(segment);
+        // Visual-audio decoupling: visual highlighting is strictly an asynchronous
+        // observer, never blocking the audio master clock.
+        unawaited(_highlightSegment(segment));
 
         // Handle silent segment
         if (segment.isSilent) {
           await Future.delayed(const Duration(milliseconds: 100));
-          await getNextTextFunction();
+          unawaited(getNextTextFunction());
           _currentSegment = null;
           continue;
         }
 
-        // Play audio
+        // Set up playback completion signal
         _playbackCompleter = Completer<void>();
-        final source = BytesSource(segment.audio!, mimeType: 'audio/mp3');
 
         try {
-          await audioPlayer.play(source);
-          await _playbackCompleter!.future;
+          if (isFirstSegment) {
+            await _pingPongPlayer.playActive(segment.audio!);
+            isFirstSegment = false;
+          } else {
+            await _pingPongPlayer.advanceToNext(fallbackBytes: segment.audio);
+          }
         } catch (e) {
-          AnxLog.severe('Playback error: $e');
+          AnxLog.severe('OnlineTts playback error: $e');
+        }
+
+        // Proactively prewarm next segment into idle player while current is playing
+        if (_buffer.isNotEmpty &&
+            _buffer.first.isReady &&
+            !_buffer.first.isSilent &&
+            _buffer.first.audio != null) {
+          unawaited(_pingPongPlayer.prewarmNext(_buffer.first.audio!));
+        }
+
+        // Wait for active player to finish current sentence (with 60s watchdog)
+        if (_playbackCompleter != null) {
+          try {
+            await _playbackCompleter!.future
+                .timeout(const Duration(seconds: 60));
+          } on TimeoutException {
+            AnxLog.warning(
+                'OnlineTts: playback completer watchdog timeout (60s)');
+          }
         }
 
         _playbackCompleter = null;
         _currentSegment = null;
 
-        // Advance reader position
-        if (!_shouldStop) {
-          await getNextTextFunction();
+        // Advance reader position asynchronously
+        if (!_shouldStop && epoch == _sessionEpoch) {
+          unawaited(getNextTextFunction());
         }
       }
     } catch (e) {
@@ -416,6 +452,7 @@ class OnlineTts extends BaseTts {
   // ============ Public API ============
   @override
   Future<void> speak({String? content}) async {
+    final int epoch = ++_sessionEpoch;
     _shouldStop = false;
     updateTtsState(TtsStateEnum.playing);
 
@@ -424,37 +461,49 @@ class OnlineTts extends BaseTts {
       await getHereFunction();
     } catch (_) {}
 
+    if (epoch != _sessionEpoch) return;
+
     // Start both loops
-    unawaited(_startPrefetcher());
-    await _startPlayer();
+    unawaited(_startPrefetcher(epoch));
+    await _startPlayer(epoch);
   }
 
   @override
   Future<void> stop() async {
+    _sessionEpoch++;
     _shouldStop = true;
     updateTtsState(TtsStateEnum.stopped);
 
-    // Complete any pending playback
-    _playbackCompleter?.complete();
+    // 1. Immediately silence audio hardware (<1ms)
+    await _pingPongPlayer.stop();
 
-    // Wait for loops to finish
-    await _prefetcherCompleter?.future;
-    await _playerCompleter?.future;
+    // 2. Unblock player loop immediately
+    if (_playbackCompleter != null && !_playbackCompleter!.isCompleted) {
+      _playbackCompleter!.complete();
+    }
 
-    // Cleanup
+    // 3. Gracefully wait for background loops with bounded timeout
+    try {
+      await Future.wait([
+        if (_prefetcherCompleter != null) _prefetcherCompleter!.future,
+        if (_playerCompleter != null) _playerCompleter!.future,
+      ]).timeout(const Duration(milliseconds: 300));
+    } catch (_) {}
+
+    // 4. Cleanup and reset
     await _disposePlayer();
     _resetBuffer();
   }
 
   @override
   Future<void> pause() async {
-    await _player?.pause();
+    await _pingPongPlayer.pause();
     updateTtsState(TtsStateEnum.paused);
   }
 
   @override
   Future<void> resume() async {
-    await _player?.resume();
+    await _pingPongPlayer.resume();
     updateTtsState(TtsStateEnum.playing);
   }
 
@@ -481,18 +530,18 @@ class OnlineTts extends BaseTts {
   /// For testing a specific voice in settings
   Future<void> speakWithVoice(String content, String voice) async {
     await stop();
-    final audioPlayer = await _ensurePlayer();
+    await _ensurePlayer();
 
     final bytes = await backend.speak(content, voice, rate, pitch);
     if (bytes.isNotEmpty) {
-      final source = BytesSource(bytes, mimeType: 'audio/mp3');
-      await audioPlayer.play(source);
+      await _pingPongPlayer.playActive(bytes);
     }
   }
 
   @override
   Future<void> dispose() async {
     await stop();
+    await _pingPongPlayer.dispose();
     isInit = false;
   }
 }

@@ -10,6 +10,7 @@
 ## [0.1.0-preview.5] - 2026-09-02
 
 ### 新增
+- **TTS 流式朗读 Ping-Pong 乒乓双播放器与视听解耦（Gapless Ping-Pong Audio Pipeline & Visual Decoupling）**：彻底消除在线与自建 TTS 朗读断句时的 300ms~500ms 停顿感。构建双 `AudioPlayer` 乒乓轮换架构，在第 N 句播放的同时后台预热解码第 N+1 句音频，并在播放结束瞬间以 <5ms 极速切换 resume；将 WebView DOM 划线高亮完全解耦为异步观察者，不再同步阻塞音频主时钟；引入单调递增会话 Epoch 纪元令牌，防范快速切章或停止时的竞态与音频残留。
 - **字体子系统现代化重构与综合字体管理中心（Font Subsystem Modernization & Font Hub）**：
   - **综合字体管理中心（Font Hub）**：打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时搜索预览、一键切换当前阅读字体、当前使用字体高亮徽章，以及自定义字体的安全删除确认对话框；在设置外观与阅读设置中建立直达入口；
   - **在线字体库容灾韧性与开放多源生态（Online Font Store Resilience & Open Multi-Source Ecosystem）**：

@@ -2,6 +2,7 @@
 
 ## [0.1.0-preview.5] - 2026-09-02
 
+- Feat(tts): Implement gapless Ping-Pong dual audio player engine with proactive prewarming, sub-5ms sentence transitions, and decoupled visual highlighting
 - Fix(tts): Resolve Windows SAPI TTS cross-thread assertion failure (shell.cc:1120) by marshaling speech completion events to Flutter Platform Thread via Win32 PostMessage, and prevent kernel handle leaks
 - Fix(changelog): Modernize Changelog parser and adaptive presentation engine, eliminating floating scrollbars and CupertinoSheet background shrinking glitches on desktop
 - Fix(settings): Standardize Settings navigation chevrons by removing misleading right arrows from immediate action and modal dialog tiles
@@ -23,6 +24,7 @@
 - Feat(reader): Upgrade Chinese conversion engine to OpenCC with Trie matching and multi-locale support
 - Feat(ai): Polish AI chat in-panel transition, smart scrolling lock, focus retention, and visual states
 
+- Feat(tts): 引入 Ping-Pong 双声道音频乒乓缓冲管线，实现下一句预热解码、<5ms 极速无缝过渡，并将 WebView 划线高亮完全解耦为异步观察者，彻底消除朗读断句停顿卡顿
 - Fix(tts): 修复 Windows SAPI 系统朗读在线程池回调时触发的跨线程调用崩溃隐患（shell.cc:1120），通过 Win32 消息循环将完成事件泵回主线程派发，并完善内核句柄防泄漏管理
 - Fix(changelog): 重构更新日志解析器与多端自适应呈现架构，彻底消灭桌面端滚动条半屏悬浮与 CupertinoSheet 导致的背景下缩露黑缺陷
 - Fix(settings): 规范清理设置界面中所有无子级页面的即时操作项与弹窗选择项误带的右侧导航箭头，严格对齐心智模型与 HIG/Material 设计规范
