@@ -159,11 +159,13 @@ class SelfHostedTtsProvider extends TtsServiceProvider {
 
     final client = httpClientOverride ?? http.Client();
     try {
-      final response = await client.post(
-        Uri.parse(url),
-        headers: headers,
-        body: body,
-      );
+      final response = await client
+          .post(
+            Uri.parse(url),
+            headers: headers,
+            body: body,
+          )
+          .timeout(requestTimeout);
 
       if (response.statusCode == 200) {
         final bytes = response.bodyBytes;
@@ -242,6 +244,26 @@ class SelfHostedTtsProvider extends TtsServiceProvider {
     return uri.replace(path: path).toString().replaceAll(RegExp(r'/+$'), '');
   }
 
+  bool _lastDiscoveryFailed = false;
+  String? _lastDiscoveryError;
+  bool _isDiscoveryEndpointMissing = false;
+
+  @override
+  bool get lastDiscoveryFailed => _lastDiscoveryFailed;
+
+  @override
+  String? get lastDiscoveryError => _lastDiscoveryError;
+
+  @override
+  bool get isDiscoveryEndpointMissing => _isDiscoveryEndpointMissing;
+
+  @override
+  void resetDiscoveryStatus() {
+    _lastDiscoveryFailed = false;
+    _lastDiscoveryError = null;
+    _isDiscoveryEndpointMissing = false;
+  }
+
   @override
   Future<List<TtsVoice>> getVoices() async {
     final config = getConfig();
@@ -254,20 +276,41 @@ class SelfHostedTtsProvider extends TtsServiceProvider {
       if (key != null && key.isNotEmpty) 'Authorization': 'Bearer $key',
     };
 
+    bool any200 = false;
+    bool all404 = true;
+    String? capturedError;
+
     final client = httpClientOverride ?? http.Client();
     try {
-      // 1. Try GET /voices or /audio/voices
-      for (final endpoint in ['$baseUrl/audio/voices', '$baseUrl/voices', '$baseUrl/models']) {
+      // 1. Try GET /audio/voices, /voices, /models
+      for (final endpoint in [
+        '$baseUrl/audio/voices',
+        '$baseUrl/voices',
+        '$baseUrl/models'
+      ]) {
         try {
           final res = await client
               .get(Uri.parse(endpoint), headers: headers)
               .timeout(const Duration(seconds: 5));
           if (res.statusCode == 200) {
+            any200 = true;
             final dynamic json = jsonDecode(utf8.decode(res.bodyBytes));
             final voices = _parseVoicesFromJson(json);
-            if (voices.isNotEmpty) return voices;
+            if (voices.isNotEmpty) {
+              _lastDiscoveryFailed = false;
+              _lastDiscoveryError = null;
+              _isDiscoveryEndpointMissing = false;
+              return voices;
+            }
+          } else if (res.statusCode != 404) {
+            all404 = false;
+            capturedError ??=
+                'HTTP ${res.statusCode}: ${res.reasonPhrase ?? 'Error'}';
           }
-        } catch (_) {}
+        } catch (e) {
+          all404 = false;
+          capturedError ??= e.toString();
+        }
       }
     } finally {
       if (httpClientOverride == null) {
@@ -275,11 +318,28 @@ class SelfHostedTtsProvider extends TtsServiceProvider {
       }
     }
 
+    if (any200) {
+      _lastDiscoveryFailed = false;
+      _lastDiscoveryError = null;
+      _isDiscoveryEndpointMissing = false;
+    } else if (all404) {
+      _lastDiscoveryFailed = true;
+      _isDiscoveryEndpointMissing = true;
+      _lastDiscoveryError =
+          'HTTP 404: Discovery endpoints not supported by this server';
+    } else {
+      _lastDiscoveryFailed = true;
+      _isDiscoveryEndpointMissing = false;
+      _lastDiscoveryError = capturedError ?? 'Failed to connect to TTS service';
+    }
+
     // Graceful fallback to currently selected voice or presets
     final currentVoice = getSelectedVoice();
+    final fallbackLocale = Prefs().locale?.toLanguageTag() ?? 'zh-CN';
     final candidates = [
-      TtsVoice(shortName: currentVoice, name: currentVoice, locale: 'zh-CN'),
-      const TtsVoice(shortName: 'default', name: 'Default', locale: 'zh-CN'),
+      TtsVoice(
+          shortName: currentVoice, name: currentVoice, locale: fallbackLocale),
+      TtsVoice(shortName: 'default', name: 'Default', locale: fallbackLocale),
       const TtsVoice(shortName: 'alloy', name: 'Alloy', locale: 'en-US'),
       const TtsVoice(shortName: 'echo', name: 'Echo', locale: 'en-US'),
     ];
@@ -301,13 +361,14 @@ class SelfHostedTtsProvider extends TtsServiceProvider {
       }
     }
 
+    final String defaultLocale = Prefs().locale?.toLanguageTag() ?? 'und';
     final voices = <TtsVoice>[];
     for (final item in list) {
       if (item is String && item.trim().isNotEmpty) {
         voices.add(TtsVoice(
           shortName: item.trim(),
           name: item.trim(),
-          locale: 'zh-CN',
+          locale: defaultLocale,
         ));
       } else if (item is Map<String, dynamic>) {
         final id = item['id']?.toString() ??
@@ -320,7 +381,7 @@ class SelfHostedTtsProvider extends TtsServiceProvider {
             name: item['name']?.toString() ?? id.trim(),
             locale: item['locale']?.toString() ??
                 item['language']?.toString() ??
-                'zh-CN',
+                defaultLocale,
             gender: item['gender']?.toString() ?? '',
           ));
         }

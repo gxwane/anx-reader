@@ -7,16 +7,17 @@ import 'package:anx_reader/service/tts/system_tts.dart';
 import 'package:anx_reader/service/tts/tts_factory.dart';
 import 'package:anx_reader/service/tts/tts_handler.dart';
 import 'package:anx_reader/service/tts/tts_service.dart' as tts_svc;
+import 'package:anx_reader/service/tts/tts_service_provider.dart';
 import 'package:anx_reader/utils/get_current_language_code.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/widgets/common/anx_button.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
+import 'package:anx_reader/widgets/common/tts_diagnostic_dialog.dart';
 import 'package:anx_reader/widgets/settings/service_config_form.dart';
 import 'package:anx_reader/widgets/settings/settings_section.dart';
 import 'package:anx_reader/widgets/settings/settings_tile.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class NarrateSettings extends ConsumerStatefulWidget {
@@ -31,6 +32,7 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
   String? selectedVoiceModel;
   Map<String, List<TtsVoice>> groupedVoices = {};
   Set<String> expandedGroups = {};
+  final Set<String> _manuallyCollapsedGroups = {};
   final ScrollController _scrollController = ScrollController();
   String? _highlightedModel;
   late AnimationController _highlightAnimationController;
@@ -41,6 +43,7 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
   final Map<String, GlobalKey> _languageKeys = {};
   final TextEditingController _testTextController = TextEditingController();
   bool _showVoiceList = false;
+  bool _fetchingVoices = false;
 
   final Map<String, bool> _modelLoadingStates = {};
   bool _mainTestLoading = false;
@@ -78,26 +81,14 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
     } catch (e) {
       AnxLog.severe('TTS Test Speak Error: $e');
       if (mounted) {
-        final errorColor = Theme.of(context).colorScheme.error;
-        SmartDialog.show(
-          useSystem: true,
-          animationType: SmartAnimationType.centerFade_otherSlide,
-          builder: (dialogContext) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(Icons.error, color: errorColor),
-                const SizedBox(width: 8),
-                Text(L10n.of(dialogContext).commonError),
-              ],
-            ),
-            content: Text(e.toString()),
-            actions: [
-              TextButton(
-                onPressed: () => SmartDialog.dismiss(),
-                child: Text(L10n.of(dialogContext).commonOk),
-              ),
-            ],
-          ),
+        final ttsServiceId = ref.read(ttsServiceProvider);
+        final currentProvider = tts_svc.getTtsService(ttsServiceId).provider;
+        final configuredUrl = currentProvider.getConfig()['url']?.toString();
+        TtsDiagnosticDialog.show(
+          context,
+          error: e,
+          url: configuredUrl,
+          timeout: currentProvider.requestTimeout,
         );
       }
     } finally {
@@ -182,6 +173,7 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
       return;
     }
 
+    _manuallyCollapsedGroups.remove(_currentModelLanguageGroup!);
     if (!expandedGroups.contains(_currentModelLanguageGroup)) {
       setState(() {
         expandedGroups.add(_currentModelLanguageGroup!);
@@ -281,8 +273,10 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
     setState(() {
       if (expandedGroups.contains(languageName)) {
         expandedGroups.remove(languageName);
+        _manuallyCollapsedGroups.add(languageName);
       } else {
         expandedGroups.add(languageName);
+        _manuallyCollapsedGroups.remove(languageName);
       }
     });
   }
@@ -346,6 +340,9 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
         setState(() {
           if (endpointChanged) {
             _showVoiceList = false;
+            _manuallyCollapsedGroups.clear();
+            expandedGroups.clear();
+            currentProvider.resetDiscoveryStatus();
           }
           selectedVoiceModel = currentProvider.getSelectedVoice();
         });
@@ -391,34 +388,56 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
                       )
                     : Center(
                         child: AnxButton(
+                          isLoading: _fetchingVoices,
                           onPressed: () async {
+                            final currentLocale =
+                                Localizations.localeOf(context);
+                            final currentLangCode = currentLocale.languageCode;
                             setState(() {
+                              _fetchingVoices = true;
                               _showVoiceList = true;
                             });
-                            final voices =
-                                await ref.refresh(ttsVoicesProvider.future);
-                            if (selectedVoiceModel == null &&
-                                voices.isNotEmpty) {
-                              final currentLocale =
-                                  Localizations.localeOf(context);
-                              final currentLangCode =
-                                  currentLocale.languageCode;
+                            try {
+                              final voices =
+                                  await ref.refresh(ttsVoicesProvider.future);
+                              if (selectedVoiceModel == null &&
+                                  voices.isNotEmpty) {
+                                // Try to find a voice matching current language
+                                TtsVoice? match = voices.firstWhere(
+                                  (v) => v.locale
+                                      .toLowerCase()
+                                      .startsWith(currentLangCode.toLowerCase()),
+                                  orElse: () => voices.firstWhere(
+                                    // Fallback to English
+                                    (v) =>
+                                        v.locale.toLowerCase().startsWith('en'),
+                                    // Fallback to first available
+                                    orElse: () => voices.first,
+                                  ),
+                                );
 
-                              // Try to find a voice matching current language
-                              TtsVoice? match = voices.firstWhere(
-                                (v) => v.locale
-                                    .toLowerCase()
-                                    .startsWith(currentLangCode.toLowerCase()),
-                                orElse: () => voices.firstWhere(
-                                  // Fallback to English
-                                  (v) =>
-                                      v.locale.toLowerCase().startsWith('en'),
-                                  // Fallback to first available
-                                  orElse: () => voices.first,
-                                ),
-                              );
-
-                              _selectVoiceModel(match.shortName);
+                                _selectVoiceModel(match.shortName);
+                              }
+                            } catch (e) {
+                              if (mounted && context.mounted) {
+                                final ttsServiceId = ref.read(ttsServiceProvider);
+                                final currentProvider =
+                                    tts_svc.getTtsService(ttsServiceId).provider;
+                                final configuredUrl =
+                                    currentProvider.getConfig()['url']?.toString();
+                                TtsDiagnosticDialog.show(
+                                  context,
+                                  error: e,
+                                  url: configuredUrl,
+                                  timeout: currentProvider.requestTimeout,
+                                );
+                              }
+                            } finally {
+                              if (mounted) {
+                                setState(() {
+                                  _fetchingVoices = false;
+                                });
+                              }
                             }
                           },
                           child: Text(
@@ -475,6 +494,10 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
               _showVoiceList = false;
             }
 
+            _manuallyCollapsedGroups.clear();
+            expandedGroups.clear();
+            tts_svc.getTtsService(value).provider.resetDiscoveryStatus();
+
             // Sync selected voice model for the new service
             selectedVoiceModel =
                 tts_svc.getTtsService(value).provider.getSelectedVoice();
@@ -514,6 +537,8 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
   }
 
   List<Widget> _buildVoiceListContent() {
+    final ttsServiceId = ref.watch(ttsServiceProvider);
+    final currentProvider = tts_svc.getTtsService(ttsServiceId).provider;
     final voicesAsync = ref.watch(ttsVoicesProvider);
 
     return voicesAsync.when(
@@ -526,6 +551,18 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
 
         _groupVoicesByLanguage(voices);
         _updateCurrentModelDetails(voices);
+
+        // Smart auto-expansion
+        if (groupedVoices.length == 1) {
+          final onlyLang = groupedVoices.keys.first;
+          if (!_manuallyCollapsedGroups.contains(onlyLang)) {
+            expandedGroups.add(onlyLang);
+          }
+        }
+        if (_currentModelLanguageGroup != null &&
+            !_manuallyCollapsedGroups.contains(_currentModelLanguageGroup)) {
+          expandedGroups.add(_currentModelLanguageGroup!);
+        }
 
         return [
           Padding(
@@ -549,6 +586,8 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
               ),
             ),
           ),
+          if (currentProvider.lastDiscoveryFailed)
+            _buildDiscoveryWarningBanner(currentProvider),
           _buildCurrentModelSection(),
           Divider(thickness: 4, color: Theme.of(context).colorScheme.surface),
           ..._buildVoiceModelList(),
@@ -556,6 +595,85 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
       },
       loading: () => [const Center(child: CircularProgressIndicator())],
       error: (err, stack) => [Center(child: Text('Error: $err'))],
+    );
+  }
+
+  Widget _buildDiscoveryWarningBanner(TtsServiceProvider provider) {
+    final theme = Theme.of(context);
+    final l10n = L10n.of(context);
+    final isMissing = provider.isDiscoveryEndpointMissing;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: BoxDecoration(
+        color: isMissing
+            ? theme.colorScheme.surfaceContainerHighest
+            : theme.colorScheme.errorContainer.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isMissing
+              ? theme.colorScheme.outlineVariant
+              : theme.colorScheme.error.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isMissing ? Icons.info_outline : Icons.warning_amber_rounded,
+                color: isMissing
+                    ? theme.colorScheme.primary
+                    : theme.colorScheme.error,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isMissing
+                      ? l10n.ttsDiagEndpointMissingNotice
+                      : l10n.ttsDiagFallbackNotice,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isMissing
+                        ? theme.colorScheme.onSurfaceVariant
+                        : theme.colorScheme.onErrorContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (!isMissing && provider.lastDiscoveryError != null)
+                TextButton(
+                  onPressed: () {
+                    final configuredUrl =
+                        provider.getConfig()['url']?.toString();
+                    TtsDiagnosticDialog.show(
+                      context,
+                      error: provider.lastDiscoveryError!,
+                      url: configuredUrl,
+                      timeout: provider.requestTimeout,
+                    );
+                  },
+                  child: Text(l10n.ttsDiagTroubleshoot),
+                ),
+              TextButton.icon(
+                icon: const Icon(Icons.refresh, size: 16),
+                label: Text(l10n.ttsDiagRetry),
+                onPressed: () {
+                  ref.invalidate(ttsVoicesProvider);
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -690,8 +808,10 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
                 ),
                 trailing: Icon(
                   expandedGroups.contains(languageName)
-                      ? Icons.keyboard_arrow_up
-                      : Icons.keyboard_arrow_down,
+                      ? Icons.keyboard_arrow_down
+                      : (Directionality.of(context) == TextDirection.rtl
+                          ? Icons.chevron_left
+                          : Icons.chevron_right),
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 onTap: () => _toggleGroup(languageName),
@@ -749,27 +869,36 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
                             color: Theme.of(context).primaryColor)
                         : null,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          AnxButton.icon(
-                            type: AnxButtonType.text,
-                            isLoading: _modelLoadingStates[shortName] ?? false,
-                            icon: Icon(Icons.play_arrow),
-                            label: Text(L10n.of(context).commonTest),
-                            onPressed: () =>
-                                _testSpeak(_testTextController.text, shortName),
-                          ),
-                          AnxButton(
-                            type: AnxButtonType.outlined,
-                            child:
-                                Text(L10n.of(context).settingsNarrateUseVoice),
-                            onPressed: () {
-                              _selectVoiceModel(shortName);
-                            },
-                          )
-                        ],
-                      )
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          right: 16.0,
+                          left: 16.0,
+                          bottom: 12.0,
+                          top: 4.0,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            AnxButton.icon(
+                              type: AnxButtonType.text,
+                              isLoading: _modelLoadingStates[shortName] ?? false,
+                              icon: const Icon(Icons.play_arrow),
+                              label: Text(L10n.of(context).commonTest),
+                              onPressed: () =>
+                                  _testSpeak(_testTextController.text, shortName),
+                            ),
+                            const SizedBox(width: 8),
+                            AnxButton(
+                              type: AnxButtonType.outlined,
+                              child:
+                                  Text(L10n.of(context).settingsNarrateUseVoice),
+                              onPressed: () {
+                                _selectVoiceModel(shortName);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 );

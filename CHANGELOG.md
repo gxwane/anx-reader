@@ -10,6 +10,7 @@
 ## [0.1.0-preview.5] - 2026-09-02
 
 ### 修复
+- **书籍目录树与朗读设置折叠箭头及交互体验优化（TOC & Settings Chevron Direction UX Alignment & Visual Rhythm）**：全面修复正文目录树（`book_toc.dart`）与朗读设置中章节/分类在折叠状态下错误展示向下箭头（`Icons.expand_more` / `keyboard_arrow_down`）的心智模型反模式，统一定制校正为折叠时向右箭头 `chevron_right` (`>`)，展开时向下箭头 `keyboard_arrow_down` (`v`)，并自适应 RTL（从右至左）文字方向；彻底移除当前无子目录章节下方误用向右箭头 `>`（`keyboard_arrow_right_rounded`）展示章节内页码导致的“伪子节点”认知错觉与 40dp 到 60dp 的行高跳变，统一采用规整平整的标准单行排版，当前阅读章节依托主题色高亮与粗体清晰呈现。
 - **在线朗读长久暂停幽灵自动播放消除与全链路暂停屏障（Online TTS Watchdog Pause Resilience & Pause Gate Synchronization）**：彻底根除在线 TTS 与 Edge-TTS 听书过程中暂停时间超过 60 秒后，播放器像“幽灵”一样自行唤醒并向前跳句发声的重大交互缺陷。定位并修复原先单句完成看门狗采用绝对物理墙上时间（`timeout(60s)`）盲目倒计时、未感知播放态即误判为播放结束并驱动消费循环步进的根本逻辑盲区；将看门狗生命周期严格绑定实际物理播放态（`isPlaying`），暂停时立即取消定时器，冻结倒计时；并在播放消费循环首尾、缓冲消费前以及调用底层发声前部署严格的 `_waitIfPaused` 三道暂停屏障，在恢复播放时重新激活看门狗与放行循环，彻底保障“暂停即彻底静音驻留”的心智模型一致性。
 - **TTS 朗读切句跳回开头与全局语速标准统一（TTS Navigation Cursor Preservation & Universal Rate Normalization）**：彻底修复在线与自建语音（包括 Edge-TTS、OpenAI、本地模型）在点击“下一句”或“上一句”时因无条件调用视口重置方法而错误跳回本屏开头的缺陷，增加游标保留守卫并引入 Ping-Pong 缓冲区 `<10ms` 瞬时切句；根除系统朗读与在线语音之间的语速标准脱节问题，统一建立以 1.0 为 1.0x 标准倍速的全局规范，针对 Windows SAPI、iOS 与 Android 插件底层差异实施精准线性归一化映射，解决 Edge-TTS 慢动作发音与系统语音超速的不一致问题；修复阅读面板切章时多跳一句的跳句隐患，并增加滑块松手防抖以防止频繁请求。
 - **Windows 系统朗读单句死锁停止与瞬时跟手暂停修复（Windows System TTS Completion Deadlock & Instant Pause Fix）**：深度修复 Windows 平台使用系统朗读（SAPI）时读完第一句后永久死锁挂起的重大体验缺陷。定位并根除原生 C++ 插件在注册期过早缓存未挂载顶级窗口子句柄导致完成消息丢失的竞态问题，确保句柄在主线程安全解析并由原子变量保护；将内核注销升级为 `UnregisterWaitEx` 同步等待；并在 Dart 端将原有的递归机制重构为带会话纪元代币（Session Epoch）守护的 `while` 迭代驱动循环，辅以未配置音色自动降级与动态超时看门狗。同时针对暂停时因 SAPI 缓冲延迟导致的不跟手以及句末暂停状态机死锁问题，统一采用 `<1ms` 瞬时硬切断与确定性整句安全恢复机制，兼具极速跟手的操作响应与完全幂等的状态机稳定性。
@@ -18,6 +19,9 @@
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。
 
 ### 新增
+- **通用网络拓扑智能诊断分析器与无偏见自动展开（Universal Network Topology Diagnostics & Unbiased Auto-Expansion）**：
+  - **人话级智能拓扑诊断（Dynamic Diagnostic Analyzer）**：彻底根除在自建/本地语音服务异常时向用户甩出 `Exception: 502` 或 `Connection refused (10061)` 等晦涩报错的技术壁垒；构建纯 Dart 解耦的 `TtsDiagnosticAnalyzer` 领域分析器，动态规整用户输入的 URL（含无协议前缀容错与精确端口提取），严密识别本地回环（`127.0.0.0/8`, `::1`）、RFC 1918 局域网私网与公网域名；针对 502 网关拦截、连接被拒、401 鉴权缺失、404 端点未实现及超时等场景提供包含真实端口与主机名的结构化排查指引（智能提示 Clash 本地代理旁路、防火墙放行等），同时提供可折叠技术日志与一键复制功能；
+  - **无语言偏见智能展开与探测状态感知（Unbiased Auto-Expansion & Transparent Discovery）**：对所有语种实施平权自动展开（单分类时无条件展开，当前生效模型所在分类自动展开），并记录用户主动折叠意图；在自建语音探测失败时于列表顶部展示友好提示横幅与一键重试/排查按钮，彻底消除以往静默回退默认预设导致用户误以为不支持模型获取的认知断层。
 - **Microsoft Edge 微软自然语音与本地自建/OpenAI兼容 TTS 开放生态（Edge-TTS & Local Self-Hosted TTS Ecosystem）**：
   - **Microsoft Edge 自然语音（Edge-TTS）**：提供完全免 Key、零配置门槛的微软高质量多语种神经网络语音服务（涵盖晓晓、云希、云健、台湾晓臻、香港晓曼及美日英法德等核心音色）；算法深度对齐 Windows File Time（1601纪元、300秒对齐窗口、100ns高精度时钟戳）与 `TrustedClientToken` 动态 SHA-256 签名（`Sec-MS-GEC`），通过单连接 WebSocket 流式拉取 24kHz/48kbps 高清 MP3 音频帧并精准剥离二进制私有包头，全面支持 XML 实体转义与自适应语速语调微调；
   - **本地自建 / OpenAI 兼容语音（Self-Hosted Local TTS）**：深度兼容遵循 OpenAI `/v1/audio/speech` 规范的本地或局域网 AI 语音模型（包括 CosyVoice、GPT-SoVITS、ChatTTS、Piper、Ollama 等）；支持局域网免鉴权模式（留空 API Key 时严格省略 `Authorization` 请求头，杜绝内网 401 报错），支持 `/v1/audio/voices`、`/v1/voices`、`/v1/models` 多层级动态音色发现，将单句合成超时放宽至 30 秒以从容应对本地 GPU/CPU 模型的长推理与冷启动耗时，并配备响应体二进制非音频错误拦截保护。

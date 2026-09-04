@@ -2,6 +2,8 @@
 
 ## [0.1.0-preview.5] - 2026-09-02
 
+- Fix(reader): Modernize Table of Contents (TOC) and TTS accordion chevrons (right when collapsed, down when expanded with RTL support), and eliminate misleading progress arrow and row height jumping in TOC
+- Feat(tts): Implement human-friendly dynamic network diagnostics and discovery status feedback for self-hosted TTS, intelligently analyzing ports, local loopback proxies, and LAN topology
 - Fix(tts): Eliminate phantom auto-resume during long pauses in Online TTS by binding watchdog to active playback time and implementing pause-gate synchronization
 - Fix(tts): Resolve online and Edge TTS next/prev sentence jumping to page beginning by preserving reader cursor position, and implement sub-10ms buffer-accelerated skipping
 - Fix(tts): Unify canonical speech rate standard (1.0 = 1.0x) across system and online engines, normalizing Windows SAPI, iOS, and Android flutter_tts mappings
@@ -30,6 +32,8 @@
 - Feat(reader): Upgrade Chinese conversion engine to OpenCC with Trie matching and multi-locale support
 - Feat(ai): Polish AI chat in-panel transition, smart scrolling lock, focus retention, and visual states
 
+- Fix(reader): 全面规范书籍目录树（TOC）与朗读设置折叠箭头方向（折叠为向右箭头，展开为向下箭头，自适应 RTL），并彻底消除当前章节误导性的向右箭头与突增行高，统一单行规整排版
+- Feat(tts): 引入人话级智能网络拓扑诊断分析器与模型发现状态反馈，动态识别服务端口、本地代理拦截（502）与局域网拓扑，消除晦涩的底层网络报错
 - Fix(tts): 彻底消除在线朗读长久暂停后的幽灵自动播放缺陷，将看门狗生命周期严格绑定实际播放态，并在播放循环全链路部署暂停屏障同步机制
 - Fix(tts): 彻底修复在线与 Edge TTS 点击下一句/上一句跳回本屏开头的定位缺陷，保留阅读游标并实现缓冲预热极速切句
 - Fix(tts): 统一全引擎语速倍速标准（1.0 = 1.0x），精确对齐系统朗读（Windows SAPI / iOS / Android）与在线自然语音的发音节奏
