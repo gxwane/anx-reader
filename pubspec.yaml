@@ -57,7 +57,7 @@ dependencies:
   flutter_tts:
     git:
       url: https://github.com/gxwane/flutter_tts.git
-      ref: 69ffaacb534752c7545bf1ef755b27554fb4b871
+      ref: d0e54c6477eab49e7d5cbf4dae62b44df617aa6b
   sticky_headers: ^0.3.0+2
   photo_view: ^0.15.0
   flutter_smart_dialog: ^4.9.8+1

@@ -15,6 +15,7 @@ void main() {
       'ttsVolume': 1.0,
       'ttsPitch': 1.0,
       'ttsRate': 0.5,
+      'ttsVoiceModel_system': 'Test Voice',
     });
     await Prefs().initPrefs();
 
@@ -97,6 +98,115 @@ void main() {
       await tts.stop();
       expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.stopped));
       expect(tts.currentVoiceText, isNull);
+    });
+
+    test('speak updates state to playing and advances through sentences',
+        () async {
+      final tts = SystemTts();
+      final sentences = ['Sentence 2', ''];
+      int nextIndex = 0;
+
+      await tts.init(
+        () async {},
+        () async {
+          if (nextIndex < sentences.length) {
+            return sentences[nextIndex++];
+          }
+          return '';
+        },
+        () async => '',
+      );
+
+      // Speak sentence 1
+      await tts.speak(content: 'Sentence 1');
+
+      final speakCalls =
+          methodCalls.where((c) => c.method == 'speak').toList();
+      expect(speakCalls.length, equals(2));
+      expect(speakCalls.first.arguments, equals('Sentence 1'));
+      expect(speakCalls[1].arguments, equals('Sentence 2'));
+      await tts.stop();
+    });
+
+    test('stop interrupts in-flight speech session epoch token', () async {
+      final tts = SystemTts();
+      int callCount = 0;
+
+      await tts.init(
+        () async {},
+        () async {
+          callCount++;
+          await tts.stop(); // Intervene and stop
+          return 'Should not be spoken';
+        },
+        () async => '',
+      );
+
+      await tts.speak(content: 'Initial sentence');
+
+      final speakCalls =
+          methodCalls.where((c) => c.method == 'speak').toList();
+      expect(callCount, equals(1));
+      expect(speakCalls.any((c) => c.arguments == 'Should not be spoken'), isFalse);
+      expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.stopped));
+    });
+
+    test('speak skips whitespace-only sentence and advances to next content',
+        () async {
+      final tts = SystemTts();
+      final sentences = ['   ', 'Sentence 2', ''];
+      int nextIndex = 0;
+
+      await tts.init(
+        () async {},
+        () async {
+          if (nextIndex < sentences.length) {
+            return sentences[nextIndex++];
+          }
+          return '';
+        },
+        () async => '',
+      );
+
+      await tts.speak(content: 'Sentence 1');
+
+      final speakCalls =
+          methodCalls.where((c) => c.method == 'speak').toList();
+      expect(speakCalls.map((c) => c.arguments),
+          containsAllInOrder(['Sentence 1', 'Sentence 2']));
+      expect(
+          speakCalls.any((c) => (c.arguments as String).trim().isEmpty), isFalse);
+      await tts.stop();
+    });
+
+    test(
+        'pause immediately stops platform audio and resume reliably restarts sentence',
+        () async {
+      final tts = SystemTts();
+
+      await tts.init(
+        () async {},
+        () async => '',
+        () async => '',
+      );
+
+      // Start speaking
+      await tts.speak(content: 'Test long sentence to be paused');
+
+      // Pause while speaking
+      await tts.pause();
+      expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.paused));
+      expect(methodCalls.any((c) => c.method == 'stop'), isTrue);
+
+      // Resume
+      await tts.resume();
+      expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.playing));
+
+      final speakCalls =
+          methodCalls.where((c) => c.method == 'speak').toList();
+      expect(speakCalls.last.arguments, equals('Test long sentence to be paused'));
+
+      await tts.stop();
     });
   });
 }

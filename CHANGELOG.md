@@ -10,6 +10,7 @@
 ## [0.1.0-preview.5] - 2026-09-02
 
 ### 修复
+- **Windows 系统朗读单句死锁停止与瞬时跟手暂停修复（Windows System TTS Completion Deadlock & Instant Pause Fix）**：深度修复 Windows 平台使用系统朗读（SAPI）时读完第一句后永久死锁挂起的重大体验缺陷。定位并根除原生 C++ 插件在注册期过早缓存未挂载顶级窗口子句柄导致完成消息丢失的竞态问题，确保句柄在主线程安全解析并由原子变量保护；将内核注销升级为 `UnregisterWaitEx` 同步等待；并在 Dart 端将原有的递归机制重构为带会话纪元代币（Session Epoch）守护的 `while` 迭代驱动循环，辅以未配置音色自动降级与动态超时看门狗。同时针对暂停时因 SAPI 缓冲延迟导致的不跟手以及句末暂停状态机死锁问题，统一采用 `<1ms` 瞬时硬切断与确定性整句安全恢复机制，兼具极速跟手的操作响应与完全幂等的状态机稳定性。
 - **Windows SAPI 系统朗读跨线程断言与内核句柄泄漏修复（Windows SAPI Thread Safety & Resource Cleanup）**：定位并解决原生 C++ 插件中 Windows 线程池 Worker 线程直接跨线程触发 Flutter MethodChannel 的架构违规，在原生层引入 Win32 窗口消息委托（`RegisterTopLevelWindowProcDelegate`）与 `PostMessage` 将朗读完成事件泵回 Flutter Platform Thread 派发，彻底消除 `shell.cc(1120)` 崩溃断言；在朗读启动、取消、完成及插件析构全生命周期中严格实施 `UnregisterWait` 幂等注销，杜绝内核对象泄漏。
 - **统计面板宽屏网格布局塌陷修复（Statistics Dashboard Grid Packing Integrity）**：重构默认仪表盘磁贴排列次序，将 1 行高度的近 7 天与近 30 天阅读趋势卡片提前与顶部概览卡片组合形成规整的 8 列 × 1 行满铺顶栏，并规范自适应列宽算法以 4 单元格为基准递增；彻底消除宽屏/全屏下因高低落差导致的 4 列 × 1 行永久镂空白斑与网格空洞。
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math' as math;
+import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/utils/platform_utils.dart';
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
@@ -25,6 +27,7 @@ class SystemTts extends BaseTts {
   static String? _prevVoiceText;
 
   bool restarting = false;
+  int _speechSessionId = 0;
 
   late Function getHereFunction;
   late Function getNextTextFunction;
@@ -176,7 +179,10 @@ class SystemTts extends BaseTts {
 
   @override
   Future<void> speak({String? content}) async {
+    final session = ++_speechSessionId;
+    updateTtsState(TtsStateEnum.playing);
     await setAwaitOptions();
+
     if (content != null) {
       _currentVoiceText = content;
     }
@@ -184,32 +190,91 @@ class SystemTts extends BaseTts {
       // getHereFunction() is initTts() — it initialises the JS TTS position
       // but returns void.  Fetch the actual first sentence via getNextTextFunction.
       await getHereFunction();
+      if (session != _speechSessionId || !isPlaying) return;
       _currentVoiceText = await getNextTextFunction();
     }
 
-    // Guard: if still null or empty (e.g. WebView not ready), abort.
-    if (_currentVoiceText == null || _currentVoiceText!.isEmpty) {
+    if (isAndroid) {
+      if (_currentVoiceText == null || _currentVoiceText!.trim().isEmpty) return;
+      await flutterTts.setVolume(volume);
+      await flutterTts.setSpeechRate(rate);
+      await flutterTts.setPitch(pitch);
+      try {
+        final selectedVoice = SystemTtsProvider().resolveVoice(null);
+        await _applyVoice(selectedVoice);
+      } catch (_) {}
+      await flutterTts.speak(_currentVoiceText!);
       return;
     }
 
-    await flutterTts.setVolume(volume);
-    await flutterTts.setSpeechRate(rate);
-    await flutterTts.setPitch(pitch);
+    // On non-Android (Windows, macOS, iOS), drive continuous playback via loop
+    while (session == _speechSessionId && isPlaying) {
+      if (_currentVoiceText == null || _currentVoiceText!.trim().isEmpty) {
+        // Try skipping blank line or image container
+        _currentVoiceText = await getNextTextFunction();
+        if (session != _speechSessionId || !isPlaying) break;
+        if (_currentVoiceText == null || _currentVoiceText!.trim().isEmpty) {
+          // End of section/book reached
+          break;
+        }
+      }
 
-    // Apply the saved voice model
-    final selectedVoice = SystemTtsProvider().resolveVoice(null);
-    await _applyVoice(selectedVoice);
+      await flutterTts.setVolume(volume);
+      await flutterTts.setSpeechRate(rate);
+      await flutterTts.setPitch(pitch);
 
-    await flutterTts.speak(_currentVoiceText!);
+      try {
+        final selectedVoice = SystemTtsProvider().resolveVoice(null);
+        await _applyVoice(selectedVoice);
+      } catch (_) {
+        // Default system voice is used if none is explicitly configured
+      }
 
-    if (!isAndroid && ttsStateNotifier.value == TtsStateEnum.playing) {
+      if (session != _speechSessionId || !isPlaying) break;
+
+      try {
+        await _speakWithWatchdog(_currentVoiceText!);
+      } catch (e) {
+        AnxLog.severe('SystemTts: speak error: $e');
+      }
+
+      if (session != _speechSessionId || !isPlaying) break;
+
       _currentVoiceText = await getNextTextFunction();
-      speak();
     }
+  }
+
+  /// Speaks text with a dynamic watchdog timer that guards against platform deadlocks.
+  Future<dynamic> _speakWithWatchdog(String text) async {
+    final completer = Completer<dynamic>();
+    final timeoutMs = math.max(15000, text.length * 500);
+    Timer? watchdogTimer = Timer(Duration(milliseconds: timeoutMs), () {
+      if (!completer.isCompleted && isPlaying) {
+        AnxLog.warning(
+            'SystemTts: speech completion timed out after ${timeoutMs}ms, forcing advance');
+        flutterTts.stop();
+        completer.complete(0);
+      }
+    });
+
+    flutterTts.speak(text).then((res) {
+      if (!completer.isCompleted) {
+        completer.complete(res);
+      }
+    }).catchError((err) {
+      if (!completer.isCompleted) {
+        completer.completeError(err);
+      }
+    }).whenComplete(() {
+      watchdogTimer.cancel();
+    });
+
+    return completer.future;
   }
 
   @override
   Future<dynamic> stop() async {
+    _speechSessionId++;
     updateTtsState(TtsStateEnum.stopped);
     final result = await flutterTts.stop();
     _currentVoiceText = null;
@@ -218,10 +283,9 @@ class SystemTts extends BaseTts {
 
   @override
   Future<void> pause() async {
-    final result = await flutterTts.stop();
-    if (result == 1) {
-      updateTtsState(TtsStateEnum.paused);
-    }
+    _speechSessionId++;
+    updateTtsState(TtsStateEnum.paused);
+    await flutterTts.stop();
   }
 
   @override
@@ -239,6 +303,7 @@ class SystemTts extends BaseTts {
       return;
     }
     restarting = true;
+    _speechSessionId++;
     await stop();
     _currentVoiceText = await getPrevTextFunction();
     speak();
@@ -251,6 +316,7 @@ class SystemTts extends BaseTts {
       return;
     }
     restarting = true;
+    _speechSessionId++;
     await stop();
     _currentVoiceText = await getNextTextFunction();
     speak();
@@ -263,6 +329,7 @@ class SystemTts extends BaseTts {
       return;
     }
     restarting = true;
+    _speechSessionId++;
     await stop();
     speak();
     restarting = false;

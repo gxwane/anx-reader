@@ -925,8 +925,8 @@ packages:
     dependency: "direct main"
     description:
       path: "."
-      ref: "69ffaacb534752c7545bf1ef755b27554fb4b871"
-      resolved-ref: "69ffaacb534752c7545bf1ef755b27554fb4b871"
+      ref: d0e54c6477eab49e7d5cbf4dae62b44df617aa6b
+      resolved-ref: d0e54c6477eab49e7d5cbf4dae62b44df617aa6b
       url: "https://github.com/gxwane/flutter_tts.git"
     source: git
     version: "4.2.3"
