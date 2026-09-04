@@ -93,7 +93,7 @@ class _AISettingsState extends ConsumerState<AISettings> {
         shrinkWrap: true,
         itemCount: prompts.length,
         itemBuilder: (context, index) {
-          return SettingsTile.navigation(
+          return SettingsTile(
             title: Text(prompts[index]["title"]),
             onPressed: (context) {
               SmartDialog.show(builder: (context) {
@@ -307,7 +307,7 @@ class _AISettingsState extends ConsumerState<AISettings> {
               ),
             ),
           ),
-          SettingsTile.navigation(
+          SettingsTile(
               title: Text(L10n.of(context).settingsAiCacheClear),
               onPressed: (context) {
                 SmartDialog.show(

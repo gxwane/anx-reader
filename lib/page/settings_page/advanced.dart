@@ -142,7 +142,7 @@ class _AdvancedSettingState extends State<AdvancedSetting> {
                 leading: const Icon(Icons.calculate),
               )
             else
-              SettingsTile.navigation(
+              SettingsTile(
                 title: Text(L10n.of(context).md5CalculateMissing),
                 leading: const Icon(Icons.calculate),
                 onPressed: _calculateMd5,
@@ -168,7 +168,7 @@ class _AdvancedSettingState extends State<AdvancedSetting> {
         SettingsSection(
           title: Text(L10n.of(context).hints),
           tiles: [
-            SettingsTile.navigation(
+            SettingsTile(
               title: Text(L10n.of(context).showAllHintsAgain),
               leading: const Icon(Icons.lightbulb_outline),
               onPressed: (_) {

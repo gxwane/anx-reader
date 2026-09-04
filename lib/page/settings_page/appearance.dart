@@ -66,7 +66,7 @@ class _AppearanceSettingState extends State<AppearanceSetting> {
               padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
               child: ChangeThemeMode(),
             )),
-            SettingsTile.navigation(
+            SettingsTile(
                 title: Text(L10n.of(context).settingsAppearanceThemeColor),
                 leading: const Icon(Icons.color_lens),
                 onPressed: (context) async {
@@ -98,7 +98,7 @@ class _AppearanceSettingState extends State<AppearanceSetting> {
         SettingsSection(
             title: Text(L10n.of(context).settingsAppearanceDisplay),
             tiles: [
-              SettingsTile.navigation(
+              SettingsTile(
                   title: Text(L10n.of(context).settingsAppearanceLanguage),
                   value: Text(languageSubtitle),
                   leading: const Icon(Icons.language),
