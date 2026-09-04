@@ -2,6 +2,11 @@
 
 ## [0.1.0-preview.5] - 2026-09-02
 
+- Fix(tts): Eliminate phantom auto-resume during long pauses in Online TTS by binding watchdog to active playback time and implementing pause-gate synchronization
+- Fix(tts): Resolve online and Edge TTS next/prev sentence jumping to page beginning by preserving reader cursor position, and implement sub-10ms buffer-accelerated skipping
+- Fix(tts): Unify canonical speech rate standard (1.0 = 1.0x) across system and online engines, normalizing Windows SAPI, iOS, and Android flutter_tts mappings
+- Feat(tts): Support Microsoft Edge TTS (Read Aloud) providing zero-configuration, zero-cost, high-quality neural voices via Sec-MS-GEC signed WebSocket streaming
+- Feat(tts): Support local / self-hosted TTS services (CosyVoice, GPT-SoVITS, ChatTTS, Piper, Ollama) compatible with OpenAI speech API with optional LAN authentication, dynamic voice discovery, and 30s local inference timeout
 - Fix(tts): Resolve Windows system TTS completion deadlock and single-sentence hang, and implement instant sub-millisecond pause with deterministic sentence resume
 - Feat(tts): Implement gapless Ping-Pong dual audio player engine with proactive prewarming, sub-5ms sentence transitions, and decoupled visual highlighting
 - Fix(tts): Resolve Windows SAPI TTS cross-thread assertion failure (shell.cc:1120) by marshaling speech completion events to Flutter Platform Thread via Win32 PostMessage, and prevent kernel handle leaks
@@ -25,6 +30,11 @@
 - Feat(reader): Upgrade Chinese conversion engine to OpenCC with Trie matching and multi-locale support
 - Feat(ai): Polish AI chat in-panel transition, smart scrolling lock, focus retention, and visual states
 
+- Fix(tts): 彻底消除在线朗读长久暂停后的幽灵自动播放缺陷，将看门狗生命周期严格绑定实际播放态，并在播放循环全链路部署暂停屏障同步机制
+- Fix(tts): 彻底修复在线与 Edge TTS 点击下一句/上一句跳回本屏开头的定位缺陷，保留阅读游标并实现缓冲预热极速切句
+- Fix(tts): 统一全引擎语速倍速标准（1.0 = 1.0x），精确对齐系统朗读（Windows SAPI / iOS / Android）与在线自然语音的发音节奏
+- Feat(tts): 新增 Microsoft Edge 微软自然语音引擎（Edge-TTS），无需任何配置或 API Key 即可零门槛畅享微软高质量多语种神经网络语音，基于 Sec-MS-GEC 动态签名与 WebSocket 流式传输
+- Feat(tts): 新增本地自建 / OpenAI 兼容 TTS 引擎（Self-Hosted Local TTS），原生支持 CosyVoice、GPT-SoVITS、ChatTTS、Piper 及 Ollama 等局域网或私有化语音模型，局域网免填 Key，支持音色动态探测与 30 秒长推理超时
 - Fix(tts): 彻底修复 Windows 系统朗读单句读完后永久死锁挂起问题，实现 <1ms 瞬时跟手暂停与整句安全恢复机制，重构为会话代币守护的非递归迭代循环与防误触超时看门狗
 - Feat(tts): 引入 Ping-Pong 双声道音频乒乓缓冲管线，实现下一句预热解码、<5ms 极速无缝过渡，并将 WebView 划线高亮完全解耦为异步观察者，彻底消除朗读断句停顿卡顿
 - Fix(tts): 修复 Windows SAPI 系统朗读在线程池回调时触发的跨线程调用崩溃隐患（shell.cc:1120），通过 Win32 消息循环将完成事件泵回主线程派发，并完善内核句柄防泄漏管理

@@ -208,5 +208,21 @@ void main() {
 
       await tts.stop();
     });
+
+    test('normalizeSystemRate maps canonical rate (1.0x = standard) correctly', () {
+      // Canonical 1.0x should map to 0.5 on Windows SAPI (yielding SAPI rate 0)
+      final rate1 = SystemTts.normalizeSystemRate(1.0);
+      expect(rate1, closeTo(0.5, 0.001));
+
+      // Canonical 1.5x should map to faster rate
+      final rate15 = SystemTts.normalizeSystemRate(1.5);
+      expect(rate15, greaterThan(0.5));
+      expect(rate15, lessThanOrEqualTo(1.0));
+
+      // Canonical 0.8x should map to slower rate
+      final rate08 = SystemTts.normalizeSystemRate(0.8);
+      expect(rate08, lessThan(0.5));
+      expect(rate08, greaterThanOrEqualTo(0.0));
+    });
   });
 }

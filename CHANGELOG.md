@@ -10,12 +10,17 @@
 ## [0.1.0-preview.5] - 2026-09-02
 
 ### 修复
+- **在线朗读长久暂停幽灵自动播放消除与全链路暂停屏障（Online TTS Watchdog Pause Resilience & Pause Gate Synchronization）**：彻底根除在线 TTS 与 Edge-TTS 听书过程中暂停时间超过 60 秒后，播放器像“幽灵”一样自行唤醒并向前跳句发声的重大交互缺陷。定位并修复原先单句完成看门狗采用绝对物理墙上时间（`timeout(60s)`）盲目倒计时、未感知播放态即误判为播放结束并驱动消费循环步进的根本逻辑盲区；将看门狗生命周期严格绑定实际物理播放态（`isPlaying`），暂停时立即取消定时器，冻结倒计时；并在播放消费循环首尾、缓冲消费前以及调用底层发声前部署严格的 `_waitIfPaused` 三道暂停屏障，在恢复播放时重新激活看门狗与放行循环，彻底保障“暂停即彻底静音驻留”的心智模型一致性。
+- **TTS 朗读切句跳回开头与全局语速标准统一（TTS Navigation Cursor Preservation & Universal Rate Normalization）**：彻底修复在线与自建语音（包括 Edge-TTS、OpenAI、本地模型）在点击“下一句”或“上一句”时因无条件调用视口重置方法而错误跳回本屏开头的缺陷，增加游标保留守卫并引入 Ping-Pong 缓冲区 `<10ms` 瞬时切句；根除系统朗读与在线语音之间的语速标准脱节问题，统一建立以 1.0 为 1.0x 标准倍速的全局规范，针对 Windows SAPI、iOS 与 Android 插件底层差异实施精准线性归一化映射，解决 Edge-TTS 慢动作发音与系统语音超速的不一致问题；修复阅读面板切章时多跳一句的跳句隐患，并增加滑块松手防抖以防止频繁请求。
 - **Windows 系统朗读单句死锁停止与瞬时跟手暂停修复（Windows System TTS Completion Deadlock & Instant Pause Fix）**：深度修复 Windows 平台使用系统朗读（SAPI）时读完第一句后永久死锁挂起的重大体验缺陷。定位并根除原生 C++ 插件在注册期过早缓存未挂载顶级窗口子句柄导致完成消息丢失的竞态问题，确保句柄在主线程安全解析并由原子变量保护；将内核注销升级为 `UnregisterWaitEx` 同步等待；并在 Dart 端将原有的递归机制重构为带会话纪元代币（Session Epoch）守护的 `while` 迭代驱动循环，辅以未配置音色自动降级与动态超时看门狗。同时针对暂停时因 SAPI 缓冲延迟导致的不跟手以及句末暂停状态机死锁问题，统一采用 `<1ms` 瞬时硬切断与确定性整句安全恢复机制，兼具极速跟手的操作响应与完全幂等的状态机稳定性。
 - **Windows SAPI 系统朗读跨线程断言与内核句柄泄漏修复（Windows SAPI Thread Safety & Resource Cleanup）**：定位并解决原生 C++ 插件中 Windows 线程池 Worker 线程直接跨线程触发 Flutter MethodChannel 的架构违规，在原生层引入 Win32 窗口消息委托（`RegisterTopLevelWindowProcDelegate`）与 `PostMessage` 将朗读完成事件泵回 Flutter Platform Thread 派发，彻底消除 `shell.cc(1120)` 崩溃断言；在朗读启动、取消、完成及插件析构全生命周期中严格实施 `UnregisterWait` 幂等注销，杜绝内核对象泄漏。
 - **统计面板宽屏网格布局塌陷修复（Statistics Dashboard Grid Packing Integrity）**：重构默认仪表盘磁贴排列次序，将 1 行高度的近 7 天与近 30 天阅读趋势卡片提前与顶部概览卡片组合形成规整的 8 列 × 1 行满铺顶栏，并规范自适应列宽算法以 4 单元格为基准递增；彻底消除宽屏/全屏下因高低落差导致的 4 列 × 1 行永久镂空白斑与网格空洞。
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。
 
 ### 新增
+- **Microsoft Edge 微软自然语音与本地自建/OpenAI兼容 TTS 开放生态（Edge-TTS & Local Self-Hosted TTS Ecosystem）**：
+  - **Microsoft Edge 自然语音（Edge-TTS）**：提供完全免 Key、零配置门槛的微软高质量多语种神经网络语音服务（涵盖晓晓、云希、云健、台湾晓臻、香港晓曼及美日英法德等核心音色）；算法深度对齐 Windows File Time（1601纪元、300秒对齐窗口、100ns高精度时钟戳）与 `TrustedClientToken` 动态 SHA-256 签名（`Sec-MS-GEC`），通过单连接 WebSocket 流式拉取 24kHz/48kbps 高清 MP3 音频帧并精准剥离二进制私有包头，全面支持 XML 实体转义与自适应语速语调微调；
+  - **本地自建 / OpenAI 兼容语音（Self-Hosted Local TTS）**：深度兼容遵循 OpenAI `/v1/audio/speech` 规范的本地或局域网 AI 语音模型（包括 CosyVoice、GPT-SoVITS、ChatTTS、Piper、Ollama 等）；支持局域网免鉴权模式（留空 API Key 时严格省略 `Authorization` 请求头，杜绝内网 401 报错），支持 `/v1/audio/voices`、`/v1/voices`、`/v1/models` 多层级动态音色发现，将单句合成超时放宽至 30 秒以从容应对本地 GPU/CPU 模型的长推理与冷启动耗时，并配备响应体二进制非音频错误拦截保护。
 - **TTS 流式朗读 Ping-Pong 乒乓双播放器与视听解耦（Gapless Ping-Pong Audio Pipeline & Visual Decoupling）**：彻底消除在线与自建 TTS 朗读断句时的 300ms~500ms 停顿感。构建双 `AudioPlayer` 乒乓轮换架构，在第 N 句播放的同时后台预热解码第 N+1 句音频，并在播放结束瞬间以 <5ms 极速切换 resume；将 WebView DOM 划线高亮完全解耦为异步观察者，不再同步阻塞音频主时钟；引入单调递增会话 Epoch 纪元令牌，防范快速切章或停止时的竞态与音频残留。
 - **字体子系统现代化重构与综合字体管理中心（Font Subsystem Modernization & Font Hub）**：
   - **综合字体管理中心（Font Hub）**：打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时搜索预览、一键切换当前阅读字体、当前使用字体高亮徽章，以及自定义字体的安全删除确认对话框；在设置外观与阅读设置中建立直达入口；

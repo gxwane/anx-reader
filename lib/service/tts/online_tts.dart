@@ -24,7 +24,6 @@ class OnlineTts extends BaseTts {
   // ============ Configuration ============
   static const int _bufferCapacity = 10;
   static const int _batchSize = 5; // Max concurrent fetches
-  static const int _fetchTimeoutSeconds = 10;
   static const int _maxRetries = 2;
 
   // ============ Audio Engine & Concurrency ============
@@ -47,6 +46,8 @@ class OnlineTts extends BaseTts {
   bool _isPlayerRunning = false;
   Completer<void>? _playerCompleter;
   Completer<void>? _playbackCompleter;
+  Timer? _playbackWatchdogTimer;
+  Completer<void>? _resumeCompleter;
 
   // ============ Lifecycle ============
   late Function getHereFunction;
@@ -54,6 +55,7 @@ class OnlineTts extends BaseTts {
   late Function getPrevTextFunction;
   bool isInit = false;
   bool _shouldStop = false;
+  bool _isNavigating = false;
 
   // ============ Backend ============
   TtsServiceProvider? _currentBackend;
@@ -136,6 +138,40 @@ class OnlineTts extends BaseTts {
     await _playerCompleteSubscription?.cancel();
     _playerCompleteSubscription = null;
     await _pingPongPlayer.stop();
+  }
+
+  // ============ Watchdog & Pause Barrier Helpers ============
+  void _startPlaybackWatchdog(int epoch) {
+    _cancelPlaybackWatchdog();
+    _playbackWatchdogTimer = Timer(const Duration(seconds: 60), () {
+      if (isPlaying && !_shouldStop && epoch == _sessionEpoch) {
+        AnxLog.warning('OnlineTts: active playback watchdog timeout (60s)');
+        if (_playbackCompleter != null && !_playbackCompleter!.isCompleted) {
+          _playbackCompleter!.complete();
+        }
+      }
+    });
+  }
+
+  void _cancelPlaybackWatchdog() {
+    _playbackWatchdogTimer?.cancel();
+    _playbackWatchdogTimer = null;
+  }
+
+  Future<void> _waitIfPaused(int epoch) async {
+    while (ttsStateNotifier.value == TtsStateEnum.paused &&
+        !_shouldStop &&
+        epoch == _sessionEpoch) {
+      _resumeCompleter ??= Completer<void>();
+      await _resumeCompleter!.future;
+    }
+  }
+
+  void _releaseResumeCompleter() {
+    if (_resumeCompleter != null && !_resumeCompleter!.isCompleted) {
+      _resumeCompleter!.complete();
+    }
+    _resumeCompleter = null;
   }
 
   // ============ Buffer Management ============
@@ -287,7 +323,7 @@ class OnlineTts extends BaseTts {
               rate,
               pitch,
             )
-            .timeout(Duration(seconds: _fetchTimeoutSeconds));
+            .timeout(backend.requestTimeout);
 
         if (epoch != _sessionEpoch) return;
 
@@ -351,6 +387,10 @@ class OnlineTts extends BaseTts {
 
     try {
       while (!_shouldStop && epoch == _sessionEpoch) {
+        // 1. Initial pause barrier
+        await _waitIfPaused(epoch);
+        if (_shouldStop || epoch != _sessionEpoch) break;
+
         // Wait for buffer to have a segment
         while (_buffer.isEmpty && !_shouldStop && epoch == _sessionEpoch) {
           await Future.delayed(const Duration(milliseconds: 30));
@@ -373,6 +413,10 @@ class OnlineTts extends BaseTts {
         }
         if (_shouldStop || epoch != _sessionEpoch) break;
 
+        // 2. CRITICAL GATE: Pause barrier BEFORE consuming buffer & firing hardware audio!
+        await _waitIfPaused(epoch);
+        if (_shouldStop || epoch != _sessionEpoch) break;
+
         // Remove from buffer now that it's ready to play
         _buffer.removeAt(0);
         _currentSegment = segment;
@@ -385,13 +429,17 @@ class OnlineTts extends BaseTts {
         // Handle silent segment
         if (segment.isSilent) {
           await Future.delayed(const Duration(milliseconds: 100));
-          unawaited(getNextTextFunction());
+          await _waitIfPaused(epoch);
+          if (!_shouldStop && epoch == _sessionEpoch) {
+            unawaited(getNextTextFunction());
+          }
           _currentSegment = null;
           continue;
         }
 
         // Set up playback completion signal
         _playbackCompleter = Completer<void>();
+        _startPlaybackWatchdog(epoch);
 
         try {
           if (isFirstSegment) {
@@ -412,21 +460,17 @@ class OnlineTts extends BaseTts {
           unawaited(_pingPongPlayer.prewarmNext(_buffer.first.audio!));
         }
 
-        // Wait for active player to finish current sentence (with 60s watchdog)
+        // Wait for active player to finish current sentence (no unconstrained .timeout())
         if (_playbackCompleter != null) {
-          try {
-            await _playbackCompleter!.future
-                .timeout(const Duration(seconds: 60));
-          } on TimeoutException {
-            AnxLog.warning(
-                'OnlineTts: playback completer watchdog timeout (60s)');
-          }
+          await _playbackCompleter!.future;
         }
 
+        _cancelPlaybackWatchdog();
         _playbackCompleter = null;
         _currentSegment = null;
 
-        // Advance reader position asynchronously
+        // 3. Pause barrier BEFORE advancing reader position
+        await _waitIfPaused(epoch);
         if (!_shouldStop && epoch == _sessionEpoch) {
           unawaited(getNextTextFunction());
         }
@@ -434,6 +478,8 @@ class OnlineTts extends BaseTts {
     } catch (e) {
       AnxLog.severe('Player loop error: $e');
     } finally {
+      _cancelPlaybackWatchdog();
+      _releaseResumeCompleter();
       _isPlayerRunning = false;
       _playerCompleter?.complete();
       _playerCompleter = null;
@@ -451,15 +497,17 @@ class OnlineTts extends BaseTts {
 
   // ============ Public API ============
   @override
-  Future<void> speak({String? content}) async {
+  Future<void> speak({String? content, bool resetLocation = true}) async {
     final int epoch = ++_sessionEpoch;
     _shouldStop = false;
     updateTtsState(TtsStateEnum.playing);
 
-    // Sync to current location first
-    try {
-      await getHereFunction();
-    } catch (_) {}
+    // Sync to current location only when starting fresh
+    if (resetLocation) {
+      try {
+        await getHereFunction();
+      } catch (_) {}
+    }
 
     if (epoch != _sessionEpoch) return;
 
@@ -472,6 +520,8 @@ class OnlineTts extends BaseTts {
   Future<void> stop() async {
     _sessionEpoch++;
     _shouldStop = true;
+    _cancelPlaybackWatchdog();
+    _releaseResumeCompleter();
     updateTtsState(TtsStateEnum.stopped);
 
     // 1. Immediately silence audio hardware (<1ms)
@@ -497,34 +547,69 @@ class OnlineTts extends BaseTts {
 
   @override
   Future<void> pause() async {
+    _cancelPlaybackWatchdog();
     await _pingPongPlayer.pause();
     updateTtsState(TtsStateEnum.paused);
+    _resumeCompleter ??= Completer<void>();
   }
 
   @override
   Future<void> resume() async {
     await _pingPongPlayer.resume();
     updateTtsState(TtsStateEnum.playing);
+    _releaseResumeCompleter();
+    if (_playbackCompleter != null && !_playbackCompleter!.isCompleted) {
+      _startPlaybackWatchdog(_sessionEpoch);
+    }
   }
 
   @override
   Future<void> prev() async {
-    await stop();
-    await getPrevTextFunction();
-    await speak();
+    if (_isNavigating) return;
+    _isNavigating = true;
+    try {
+      await stop();
+      await getPrevTextFunction();
+      unawaited(speak(resetLocation: false));
+    } finally {
+      _isNavigating = false;
+    }
   }
 
   @override
   Future<void> next() async {
-    await stop();
-    await getNextTextFunction();
-    await speak();
+    if (_isNavigating) return;
+    _isNavigating = true;
+    try {
+      // Buffer-accelerated switch: if actively playing and next prewarmed segment is ready
+      if (isPlaying && _buffer.isNotEmpty && _buffer.first.isReady) {
+        _cancelPlaybackWatchdog();
+        await _pingPongPlayer.activePlayer.stop();
+        if (_playbackCompleter != null && !_playbackCompleter!.isCompleted) {
+          _playbackCompleter!.complete();
+          return;
+        }
+      }
+
+      // Cold fallback
+      await stop();
+      await getNextTextFunction();
+      unawaited(speak(resetLocation: false));
+    } finally {
+      _isNavigating = false;
+    }
   }
 
   @override
   Future<void> restart() async {
-    await stop();
-    await speak();
+    if (_isNavigating) return;
+    _isNavigating = true;
+    try {
+      await stop();
+      unawaited(speak(resetLocation: false));
+    } finally {
+      _isNavigating = false;
+    }
   }
 
   /// For testing a specific voice in settings
@@ -540,6 +625,8 @@ class OnlineTts extends BaseTts {
 
   @override
   Future<void> dispose() async {
+    _cancelPlaybackWatchdog();
+    _releaseResumeCompleter();
     await stop();
     await _pingPongPlayer.dispose();
     isInit = false;

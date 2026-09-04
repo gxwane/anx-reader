@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/service/tts/base_tts.dart';
 import 'package:anx_reader/service/tts/online_tts.dart';
@@ -115,6 +117,119 @@ void main() {
       expect(nextCalled, isTrue);
       await tts.getPrevTextFunction();
       expect(prevCalled, isTrue);
+    });
+
+    test('speak respects resetLocation parameter to avoid jump-to-beginning',
+        () async {
+      final tts = OnlineTts();
+      int hereCallCount = 0;
+
+      await tts.init(
+        () async => hereCallCount++,
+        () async => '',
+        () async => '',
+      );
+
+      // When resetLocation is false (as in next/prev/restart), getHereFunction must not be called
+      unawaited(tts.speak(resetLocation: false));
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(hereCallCount, equals(0));
+      await tts.stop();
+
+      // When resetLocation is true (initial play), getHereFunction is called
+      unawaited(tts.speak(resetLocation: true));
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(hereCallCount, equals(1));
+      await tts.stop();
+    });
+
+    test(
+        'next, prev, and restart invoke respective navigation without resetting location',
+        () async {
+      final tts = OnlineTts();
+      int hereCount = 0;
+      int nextCount = 0;
+      int prevCount = 0;
+
+      await tts.init(
+        () async => hereCount++,
+        () async => nextCount++,
+        () async => prevCount++,
+      );
+
+      await tts.next();
+      expect(nextCount, equals(1));
+      expect(hereCount, equals(0));
+      await tts.stop();
+
+      await tts.prev();
+      expect(prevCount, equals(1));
+      expect(hereCount, equals(0));
+      await tts.stop();
+
+      await tts.restart();
+      expect(hereCount, equals(0));
+      await tts.stop();
+    });
+
+    test('pause cancels watchdog and blocks sentence advancement until resume',
+        () async {
+      final tts = OnlineTts();
+      int nextTextCount = 0;
+
+      await tts.init(
+        () async => '',
+        () async {
+          nextTextCount++;
+          return '';
+        },
+        () async => '',
+      );
+
+      // Start speaking
+      unawaited(tts.speak(resetLocation: false));
+      await Future.delayed(const Duration(milliseconds: 20));
+      expect(tts.isPlaying, isTrue);
+
+      // Pause playback
+      await tts.pause();
+      expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.paused));
+      expect(tts.isPlaying, isFalse);
+
+      final countAtPause = nextTextCount;
+
+      // Simulate waiting during pause - player loop must remain blocked at pause gate
+      await Future.delayed(const Duration(milliseconds: 100));
+      expect(nextTextCount, equals(countAtPause));
+
+      // Resume playback
+      await tts.resume();
+      expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.playing));
+      expect(tts.isPlaying, isTrue);
+
+      await tts.stop();
+      expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.stopped));
+    });
+
+    test('stop while paused cleanly releases pause gate without throwing',
+        () async {
+      final tts = OnlineTts();
+
+      await tts.init(
+        () async => '',
+        () async => '',
+        () async => '',
+      );
+
+      unawaited(tts.speak(resetLocation: false));
+      await Future.delayed(const Duration(milliseconds: 20));
+
+      await tts.pause();
+      expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.paused));
+
+      // Stop while paused must cleanly unblock pause barrier without duplicate completion
+      expect(() async => await tts.stop(), returnsNormally);
+      expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.stopped));
     });
   });
 }

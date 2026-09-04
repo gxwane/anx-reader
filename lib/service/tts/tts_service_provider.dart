@@ -30,6 +30,9 @@ abstract class TtsServiceProvider extends ServiceProvider<dynamic> {
   @override
   String getLabel(BuildContext context);
 
+  /// Network request timeout for single sentence audio synthesis.
+  Duration get requestTimeout => const Duration(seconds: 15);
+
   /// Generate speech audio from text.
   /// Only required for online TTS services.
   /// System TTS doesn't use this method.

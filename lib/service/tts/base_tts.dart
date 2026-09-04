@@ -20,7 +20,7 @@ abstract class BaseTts {
   Future<void> init(
       Function getCurrentText, Function getNextText, Function getPrevText);
 
-  Future<void> speak({String? content});
+  Future<void> speak({String? content, bool resetLocation = true});
 
   Future<dynamic> stop();
 

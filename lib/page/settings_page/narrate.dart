@@ -14,6 +14,7 @@ import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:anx_reader/widgets/settings/service_config_form.dart';
 import 'package:anx_reader/widgets/settings/settings_section.dart';
 import 'package:anx_reader/widgets/settings/settings_tile.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -124,6 +125,9 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
     final serviceId = Prefs().ttsService;
     selectedVoiceModel =
         tts_svc.getTtsService(serviceId).provider.getSelectedVoice();
+    if (serviceId == 'edge') {
+      _showVoiceList = true;
+    }
     _testTextController.text = "Hello, this is a test.";
   }
 
@@ -331,11 +335,18 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
     final ttsServiceId = ref.watch(ttsServiceProvider);
     final currentProvider = tts_svc.getTtsService(ttsServiceId).provider;
 
-    // Listen to config changes to hide voice list
+    // Listen to config changes to hide voice list only on server/model endpoint changes
     ref.listen(onlineTtsConfigProvider(ttsServiceId), (prev, next) {
       if (prev != next) {
+        final prevFiltered =
+            prev != null ? (Map.from(prev)..remove('voice')) : null;
+        final nextFiltered = Map.from(next)..remove('voice');
+        final endpointChanged = !mapEquals(prevFiltered, nextFiltered);
+
         setState(() {
-          _showVoiceList = false;
+          if (endpointChanged) {
+            _showVoiceList = false;
+          }
           selectedVoiceModel = currentProvider.getSelectedVoice();
         });
       }
@@ -436,6 +447,12 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
               value: 'system',
               child: Text(L10n.of(context).settingsNarrateSystemTts)),
           DropdownMenuItem(
+              value: 'edge',
+              child: Text(L10n.of(context).settingsNarrateEdgeTts)),
+          DropdownMenuItem(
+              value: 'selfHosted',
+              child: Text(L10n.of(context).settingsNarrateSelfHostedTts)),
+          DropdownMenuItem(
               value: 'aliyun',
               child: Text(L10n.of(context).settingsNarrateAliyunTts)),
           DropdownMenuItem(
@@ -450,8 +467,13 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
             await TtsHandler().switchTtsType(value);
             ref.read(ttsServiceProvider.notifier).setService(value);
 
-            // Hide voice list when switching services, require manual fetch
-            _showVoiceList = false;
+            // For edge TTS, the voice list is local/predefined, so auto-open voice list
+            if (value == 'edge') {
+              _showVoiceList = true;
+            } else {
+              // Hide voice list when switching services, require manual fetch
+              _showVoiceList = false;
+            }
 
             // Sync selected voice model for the new service
             selectedVoiceModel =

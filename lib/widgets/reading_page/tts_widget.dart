@@ -107,22 +107,25 @@ class _TtsWidgetState extends State<TtsWidget> {
           );
         }
 
-        Widget rate() {
+        Widget rateWidget() {
           return Row(
             children: [
               Text(L10n.of(context).ttsRate),
               Expanded(
                 child: Slider(
-                  value: TtsHandler().rate,
+                  value: rate.clamp(0.5, 2.0),
                   onChanged: (newRate) {
                     setState(() {
-                      TtsHandler().rate = newRate;
+                      rate = newRate;
                     });
                   },
-                  min: 0.0,
+                  onChangeEnd: (newRate) {
+                    TtsHandler().rate = newRate;
+                  },
+                  min: 0.5,
                   max: 2.0,
-                  divisions: 10,
-                  label: TtsHandler().rate.toStringAsFixed(1),
+                  divisions: 15,
+                  label: '${rate.toStringAsFixed(1)}x',
                 ),
               ),
             ],
@@ -136,7 +139,7 @@ class _TtsWidgetState extends State<TtsWidget> {
               children: [
                 volume(),
                 pitch(),
-                rate(),
+                rateWidget(),
                 Row(
                   children: [
                     Text(L10n.of(context).ttsType),
@@ -193,7 +196,7 @@ class _TtsWidgetState extends State<TtsWidget> {
                 onPressed: () async {
                   audioHandler.stop();
                   await widget.epubPlayerKey.currentState!.ttsPrevSection();
-                  TtsHandler().playPrevious();
+                  audioHandler.play();
                 },
                 icon: const Icon(EvaIcons.arrowhead_left),
               ),
@@ -229,7 +232,7 @@ class _TtsWidgetState extends State<TtsWidget> {
                 onPressed: () async {
                   audioHandler.stop();
                   await widget.epubPlayerKey.currentState!.ttsNextSection();
-                  TtsHandler().playNext();
+                  audioHandler.play();
                 },
                 icon: const Icon(EvaIcons.arrowhead_right),
               ),
