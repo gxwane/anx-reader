@@ -15,6 +15,7 @@
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。
 
 ### 新增
+- **TTS 流式朗读 Ping-Pong 乒乓双播放器与视听解耦（Gapless Ping-Pong Audio Pipeline & Visual Decoupling）**：彻底消除在线与自建 TTS 朗读断句时的 300ms~500ms 停顿感。构建双 `AudioPlayer` 乒乓轮换架构，在第 N 句播放的同时后台预热解码第 N+1 句音频，并在播放结束瞬间以 <5ms 极速切换 resume；将 WebView DOM 划线高亮完全解耦为异步观察者，不再同步阻塞音频主时钟；引入单调递增会话 Epoch 纪元令牌，防范快速切章或停止时的竞态与音频残留。
 - **字体子系统现代化重构与综合字体管理中心（Font Subsystem Modernization & Font Hub）**：
   - **综合字体管理中心（Font Hub）**：打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时搜索预览、一键切换当前阅读字体、当前使用字体高亮徽章，以及自定义字体的安全删除确认对话框；在设置外观与阅读设置中建立直达入口；
   - **在线字体库容灾韧性与开放多源生态（Online Font Store Resilience & Open Multi-Source Ecosystem）**：
