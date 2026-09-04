@@ -329,31 +329,33 @@ class _AdvancedSettingState extends State<AdvancedSetting> {
 Future<void> _showChangelog(BuildContext context) async {
   final currentVersion = await getAppVersion();
   final lastVersion = Prefs().lastAppVersion ?? currentVersion;
+  final effectiveContext = navigatorKey.currentContext ?? context;
+  if (!effectiveContext.mounted) return;
 
-  showCupertinoSheet(
-    context: navigatorKey.currentContext ?? context,
-    builder: (sheetContext) => ChangelogScreen(
-      lastVersion: lastVersion,
-      currentVersion: currentVersion,
-      onComplete: () {
-        Prefs().lastAppVersion = currentVersion;
-        Navigator.pop(sheetContext);
-      },
-    ),
+  await ChangelogScreen.show(
+    effectiveContext,
+    lastVersion: lastVersion,
+    currentVersion: currentVersion,
+    onComplete: () {
+      Prefs().lastAppVersion = currentVersion;
+    },
   );
 }
 
 Future<void> _showOnboarding(BuildContext context) async {
   final currentVersion = await getAppVersion();
+  final effectiveContext = navigatorKey.currentContext ?? context;
+  if (!effectiveContext.mounted) return;
 
-  showCupertinoSheet(
-    context: navigatorKey.currentContext ?? context,
-    builder: (sheetContext) => Scaffold(
-      body: OnboardingScreen(
-        onComplete: () {
-          Prefs().lastAppVersion = currentVersion;
-          Navigator.pop(sheetContext);
-        },
+  Navigator.of(effectiveContext).push(
+    MaterialPageRoute(
+      builder: (routeContext) => Scaffold(
+        body: OnboardingScreen(
+          onComplete: () {
+            Prefs().lastAppVersion = currentVersion;
+            Navigator.pop(routeContext);
+          },
+        ),
       ),
     ),
   );

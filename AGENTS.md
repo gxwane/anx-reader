@@ -121,6 +121,7 @@ Documentation must never drift from code reality. Agents must strictly follow th
 | **`CHANGELOG.md` & `assets/CHANGELOG.md`** | End-user release logs (Bilingual EN/ZH) | 1. User-visible new features (e.g. PKM Markdown auto-mirroring)<br>2. Bug fixes affecting user experience<br>3. User-facing UI or behavioral adjustments | **Never update changelogs for pure internal refactors, test additions, or chore tasks** |
 
 - **Architectural Documentation Sync Invariant**: Any modification to system architecture, cross-module data flow, public storage directory structure (e.g. WebDAV topology), or core lifecycles MUST synchronously update `AGENTS.md` in the same commit.
+- **Runtime Changelog Asset Invariant**: `assets/CHANGELOG.md` is a runtime data asset dynamically parsed by `ChangelogScreen`. Version headers must follow `## [<version>] - <date>` (or `## <version>`). Each version block MUST contain bilingual entries (English first, followed by Chinese). When bumping `version` in `pubspec.yaml`, a new version header matching the new version MUST be prepended to `assets/CHANGELOG.md`. Never merge multiple release cycles under one header, as `extractVersionChangelog` relies on subsequent `## ` headers as its stop delimiter. This invariant is continuously enforced by `test/page/changelog_screen_test.dart` in CI.
 
 ---
 

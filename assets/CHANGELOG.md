@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.1.0-preview.5] - 2026-09-02
+
+- Fix(changelog): Modernize Changelog parser and adaptive presentation engine, eliminating floating scrollbars and CupertinoSheet background shrinking glitches on desktop
 - Fix(settings): Standardize Settings navigation chevrons by removing misleading right arrows from immediate action and modal dialog tiles
 - Feat(font): Online Font Store disaster resilience with multi-mirror failover, per-source offline cache, custom repository sources with RFC 3986 dynamic URI resolution, and pre-flight schema validation
 - Feat(font): Modernize Online Font Store with storage namespace isolation, atomic multi-file pipeline, real-time search, size indicators, path traversal hardening, and 1-click apply
@@ -16,54 +19,16 @@
 - Feat(sync): Redesign WebDAV sync with per-book micro-sync, non-destructive record merge, and non-blocking progress hints
 - Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
 - Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
-- Fix(translate): Remove legacy Microsoft reverse-engineered translation service and migrate saved full-text translation preference to Microsoft Azure API
-- Fix(l10n): Remove legacy Microsoft translation localization entries
-- Feat(ai): Support separate AI reasoning content with lightweight collapsible thinking UI in chat and stream views (#787)
-- Feat(reader): Add background image fit mode setting with cover and stretch options
-- Feat(appearance): Add setting to toggle action button labels visibility in selection context menu
-- Feat(reader): Add background image blur and opacity controls in reading settings (#753)
-- Feat(tts): Add Narrator option to text selection toolbar to start TTS from selected text (#794) Thanks @deskangel
-- Feat(tts): Add click to pause/resume TTS playback on currently reading text (#794) Thanks @deskangel
-- Feat(tts): Add floating action button in reader for quick TTS controls (previous, pause/resume, next, stop) (#723)
-- Feat(reader): Add Ctrl+[ and Ctrl+] page turning shortcuts on macOS, support Logitech Options+ mouse button mapping (#794) Thanks @deskangel
-- Feat(ai): Add global AI RPM rate limiting in AI service layer
-- Feat(ai): Add AI Provider Configuration Center with support for OpenAI-compatible, Claude, and Gemini protocols
-- Feat(ai): Support multiple API keys per provider with round-robin rotation
-- Feat(ai): Add provider-level reasoning_effort configuration with auto mode and advanced settings entry
-- Feat(ai): Add provider test connection with streaming preview
-- Feat(ai): Add AI chat display mode settings with adaptive, split, and popup options
-- Feat(ai): Add resizable AI panel with drag to resize, sizes persisted
-- Feat(ai): Add AI panel position settings (bottom/right) for non-popup modes
-- Feat(ai): Add font size setting for AI chat via three-dot menu
-- Feat(ai): Add quick model switcher in AI chat input bar (tune icon button)
-- Feat(ai): Add model picker in provider detail page with showMenu dropdown after fetching
-- Fix(ui): Fix context menu action buttons layout and icon color issues when labels are hidden
-- Fix(reader): Fix background image effects not applying and switch reader background fill mode to cover (#753)
-- Fix(reader): Fix RangeError crash when read theme color is null/invalid (#759)
-- Fix(tts): Fix TTS type selection having no effect when changed in reading interface (#794) Thanks @deskangel
-- Fix(tts): Fix incorrect reading position after modifying pitch or rate (#794) Thanks @deskangel
-- Fix(tts): Fix crash when SystemTts speak() receives null text from WebView
-- Fix(ai): Fix unable to use AI for full-text translation
-- Fix(ai): Fix test connection using default provider instead of current provider
-- Fix(ai): Fix AI crash prevention by adding guards for null webViewEnvironment on Windows
-- Fix(ai): Fix type cast error when using Gemini AI with tools (#747)
-- Fix(reader): Desktop resource lifecycle, WebView stability, and scroll UX optimization (#790) Thanks @yi124773651
-- Fix(reader): Fix window close cleanup to properly stop server, dispose WebView2, close database, and destroy window
-- Fix(reader): Add scroll debounce mechanism for smoother page turning experience
-- Fix(reader): Fix image saving permission issue on Android 10+ devices by removing unnecessary storage permission requests (#793)
-- Fix(reader): Disable WebView2 right-click context menu (back, reload, save as, print) on Windows (#746)
-- Fix(reader): Fix images with large inline max-width overflowing column width and appearing on wrong page (#742)
-- Fix(reader): Fix epub heading color not following theme color when useBookStyles is disabled (#749)
-- Fix(toc): Show full chapter titles in TOC by wrapping long text instead of truncating with ellipsis (#751)
-- Fix(l10n): Fallback to English when system language is unsupported on first launch (#785)
-- Feat(reader): Support independent left/right margins and font size for header and footer reading info, with shared section-based configuration model (#791)
-- Fix(l10n): Update Russian translation in app_ru.arb (#774) Thanks @Xapitonov
-- Fix(l10n): Update full_description.txt (#775) Thanks @Xapitonov
-- L10n: Complete Romanian translation (#714) Thanks @Steinhagen
+- Feat(reader): Upgrade Chinese conversion engine to OpenCC with Trie matching and multi-locale support
+- Feat(ai): Polish AI chat in-panel transition, smart scrolling lock, focus retention, and visual states
 
+- Fix(changelog): 重构更新日志解析器与多端自适应呈现架构，彻底消灭桌面端滚动条半屏悬浮与 CupertinoSheet 导致的背景下缩露黑缺陷
+- Fix(settings): 规范清理设置界面中所有无子级页面的即时操作项与弹窗选择项误带的右侧导航箭头，严格对齐心智模型与 HIG/Material 设计规范
 - Feat(font): 在线字体库容灾韧性与开放多源生态，支持官方多镜像故障转移、分源离线缓存、自定义字体源添加与前置探活，以及自愈兜底机制
 - Feat(font): 在线字体库架构加固与体验闭环，引入独立存储命名空间隔离、事务原子下载管线、实时搜索、文件大小提示与一键应用
 - Feat(font): 打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时预览与设置联动
+- Feat(font): 支持跨平台系统字体发现、收藏机制、Direct CSS 原生渲染与代码块等宽字体保护（第二阶段）
+- Feat(font): 重构字体子系统，引入 4KB 头部随机寻址流式解析器、PostScript 稳定标识与 JIT 懒加载（第一阶段）
 - Feat(reader): 引入 W3C 规范上下文指纹与模糊自愈重定位算法，在电子书重新排版或版本更新导致 CFI 坐标失效时毫秒级自动纠偏，并配备 WebDAV 防僵尸墓碑机制
 - Feat(sync): 支持将划线笔记自动镜像导出为 Markdown 格式（含 YAML Frontmatter）至 WebDAV，无缝联动 Obsidian 与 PKM 知识库
 - Feat(sync): 优化 WebDAV 流量开销，实现单请求极速微同步、笔记脏检查与后台索引防抖聚合，彻底消除并发冲突
@@ -72,50 +37,90 @@
 - Feat(notes): 解耦笔记与本地书架文件，持久保留并平权呈现历史书籍笔记资产，对本地物理文件缺失增加防崩溃安全保护
 - Feat(notes): 支持一键批量删除单书全部笔记，配备二次确认弹窗、左滑快捷操作与 WebDAV 墓碑同步
 - Feat(sync): 全面重构 WebDAV 同步引擎，支持单书毫秒级微同步、多端记录无损合流与非阻塞进度提示
+- Fix(statistics): 修复统计面板在宽屏与全屏布局下的网格排布空洞与镂空白斑问题
 - Fix(sync): 修复 WebDAV 双向同步在下载远端数据库后反复触发误上传的乒乓循环问题
+- Feat(reader): 工业级 OpenCC 简繁转换引擎重构，精准解决一简多繁歧义，支持通用繁体、台湾正体与香港繁体
+- Feat(ai): 优化 AI 对话分屏历史原地平滑切换、长思考智能手势滚动锁、连续输入焦点保持与打字机光标状态
+
+## [0.1.0-preview.4] - 2026-09-01
+
+- Fix(db): Ensure idempotent database migrations with addColumnIfNotExists to prevent startup crash
+
+- Fix(db): 数据库迁移幂等性加固，引入 addColumnIfNotExists 防御性列迁移机制杜绝启动崩溃
+
+## [0.1.0-preview.3] - 2026-08-31
+
+- Feat(bookshelf): Add explicit reading status lifecycle management (Unread, Reading, Finished, Dropped) with multi-state filtering chips
+- Feat(ui): Add 1-tap reading status bottom sheet on mobile and native right-click context menu on desktop
+- Feat(ui): Add reading status visual indicator badges and muted grayscale styling for dropped books
+- Feat(reader): Add intelligent reading status auto-progression when reading unread books
+
+- Feat(bookshelf): 核心阅读状态生命周期管理，新增「未读、在读、已读完、弃读」全生命周期状态与书架状态筛选
+- Feat(ui): 移动端底栏 1-Tap 状态秒切，桌面端支持鼠标原地右键上下文菜单
+- Feat(ui): 书架卡片多态视觉指示系统，已读完图书展示勾选徽标，弃读图书应用去饱和置灰
+- Feat(reader): 阅读器智能状态感知，未读书籍产生阅读自动流转为在读
+
+## [0.1.0-preview.2] - 2026-08-27
+
+- Feat(upgrade): In-app streaming update downloads with real-time speed indicators and auto-installation
+- Feat(upgrade): Update channel switching between Release and Preview channels with safety warning dialogs
+- Feat(upgrade): GitHub API rate limiting resilience with HTTP 403 graceful fallback and web release shortcuts
+- Feat(version): Full SemVer support for preview version comparison and downgrade prevention
+
+- Feat(upgrade): 应用内版本无缝升级，支持实时下载速率与自动唤起安装
+- Feat(upgrade): 更新通道自主切换（正式版/测试预览版），配备测试版风险提示与直达备份入口
+- Feat(upgrade): GitHub API 规范化与 403 频率限制优雅降级
+- Feat(version): 语义化版本（SemVer）完整支持，精准处理预发布版本递增与防误降级
+
+## [0.1.0-preview.1] - 2026-08-25
+
+- Feat(identity): Establish Anx Reader GX Preview identity, isolated package ID, and dedicated WebDAV storage path
+- Feat(ui): Redesigned Settings brand header, enlarged GX corner badge icons, and welcome screen typography
+- Feat(test): Automated Golden snapshot UI regression suite and cross-platform CI/CD release workflow
+
+- Feat(identity): 建立 GX Preview Fork 独立身份与独立存储/WebDAV 隔离命名空间
+- Feat(ui): 重新设计设置页品牌 Header、放大 GX 角标应用图标及欢迎页多语言排版
+- Feat(test): Golden 像素快照测试套件与 Windows 安装包构建流程
+
+## 1.14.0
+
+- Feat(ai): Support separate AI reasoning content with lightweight collapsible thinking UI in chat and stream views (#787)
+- Feat(ai): Add AI Provider Configuration Center with support for OpenAI-compatible, Claude, and Gemini protocols
+- Feat(ai): Support multiple API keys per provider with round-robin rotation and model picker
+- Feat(ai): Add AI chat display mode settings (adaptive, split, popup), resizable panel, and font size setting
+- Feat(tts): Add Narrator option to text selection toolbar to start TTS from selected text (#794)
+- Feat(tts): Add click to pause/resume TTS playback on currently reading text (#794)
+- Feat(tts): Add floating action button in reader for quick TTS controls (#723)
+- Feat(reader): Add Ctrl+[ and Ctrl+] page turning shortcuts on macOS (#794)
+- Feat(reader): Add background image blur, opacity, and fit mode controls (#753)
+- Feat(reader): Support independent left/right margins and font size for header and footer reading info (#791)
+- Feat(appearance): Add setting to toggle action button labels visibility in selection context menu
+- Fix(reader): Desktop resource lifecycle, WebView stability, and scroll UX optimization (#790)
+- Fix(reader): Disable WebView2 right-click context menu on Windows (#746)
+- Fix(reader): Fix epub heading color not following theme color when useBookStyles is disabled (#749)
+- Fix(toc): Show full chapter titles in TOC by wrapping long text instead of truncating with ellipsis (#751)
+- Fix(l10n): Fallback to English when system language is unsupported on first launch (#785)
+- Fix(translate): Remove legacy Microsoft reverse-engineered translation service and migrate to Azure API
+- L10n: Complete Romanian translation (#714) and update Russian translation (#774)
+
 - Feat(ai): AI 支持单独的思考内容字段，并在聊天与流式界面中以轻量可折叠方式展示思考过程 (#787)
-- Fix(translate): 移除旧版 Microsoft 逆向翻译服务，并将已保存的全文翻译偏好迁移到 Microsoft Azure API
-- Fix(l10n): 移除旧版 Microsoft 翻译相关本地化条目
-- Feat(appearance): 新增设置项，可开关选中文本菜单等操作按钮的底部文字提示
-- Feat(reader): 新增背景图缩放模式设置，支持 cover 和 stretch 两种模式
-- Feat(reader): 阅读设置新增背景图模糊度和透明度调节 (#753)
-- Feat(tts): 在文本选择工具栏新增朗读选项，支持从选中文本开始 TTS (#794) 感谢 @deskangel
-- Feat(tts): 新增点击正在朗读的文本以暂停/继续 TTS 播放 (#794) 感谢 @deskangel
-- Feat(tts): 新增阅读界面朗读快捷操作悬浮按钮（上一句、暂停/继续、下一句、停止）(#723)
-- Feat(reader): macOS 新增 Ctrl+[ 和 Ctrl+] 翻页快捷键，支持 Logitech Options+ 鼠标按键映射 (#794) 感谢 @deskangel
-- Feat(ai): 在 AI 服务层添加全局 AI 请求限流（RPM）
 - Feat(ai): 新增 AI 供应商配置中心，支持 OpenAI 兼容、Claude 和 Gemini 协议
-- Feat(ai): 支持每个供应商配置多个 API Key，自动轮询使用
-- Feat(ai): 新增供应商级 reasoning_effort 配置，支持自动模式并收纳到高级设置中
-- Feat(ai): 新增供应商连接测试，支持流式预览
-- Feat(ai): 新增 AI 对话显示模式设置，支持自适应、分屏和弹出三种模式
-- Feat(ai): 新增可调整尺寸的 AI 面板，支持拖动调整大小，尺寸自动保存
-- Feat(ai): 新增 AI 面板位置设置（非弹出模式下可选择底部或右侧）
-- Feat(ai): 新增 AI 对话字体大小设置，通过三点菜单访问
-- Feat(ai): 新增 AI 聊天输入栏快速切换模型按钮（调谐图标）
-- Feat(ai): 供应商详情页新增模型选择器，获取后通过下拉菜单显示
-- Fix(ui): 修复关闭文字提示时上下文菜单按钮布局及图标颜色变灰的问题
-- Fix(reader): 修复背景图效果不生效的问题，并将阅读器背景图填充方式调整为 cover (#753)
-- Fix(reader): 修复阅读主题颜色为空/无效时的 RangeError 崩溃 (#759)
-- Fix(tts): 修复在阅读界面切换 TTS 类型无效的问题 (#794) 感谢 @deskangel
-- Fix(tts): 修复调整音调或语速后朗读位置不正确的问题 (#794) 感谢 @deskangel
-- Fix(tts): 修复 SystemTts 从 WebView 获取文本为空时的崩溃问题
-- Fix(ai): 修复无法使用 AI 进行全文翻译的问题
-- Fix(ai): 修复测试连接时使用默认供应商而非当前供应商的问题
-- Fix(ai): 修复 AI 崩溃问题，为 Windows 上空 webViewEnvironment 添加防护
-- Fix(ai): 修复使用 Gemini AI 工具时的类型转换错误 (#747)
-- Fix(reader): 桌面端资源生命周期管理、WebView 稳定性及滚动体验优化 (#790) 感谢 @yi124773651
-- Fix(reader): 修复窗口关闭时的清理流程，正确停止服务器、释放 WebView2、关闭数据库并销毁窗口
-- Fix(reader): 添加滚动防抖机制，优化翻页体验
-- Fix(reader): 修复 Android 10+ 设备图片保存权限问题，移除不必要的存储权限请求 (#793)
-- Fix(reader): 修复 Windows 端右键触发 WebView2 系统上下文菜单（返回、刷新、另存为、打印）的问题 (#746)
-- Fix(reader): 修复图片内嵌大 max-width 导致宽度超出栏宽而显示到下一页的问题 (#742)
-- Fix(reader): 修复禁用书籍自带样式时 epub 标题颜色不跟随主题色的问题，智能识别黑色标题并进行覆盖 (#749)
+- Feat(ai): 支持每个供应商配置多个 API Key 轮询使用，并支持模型选择器
+- Feat(ai): 新增 AI 对话显示模式设置（自适应、分屏、弹出）、可调节尺寸面板及字体大小设置
+- Feat(tts): 在文本选择工具栏新增朗读选项，支持从选中文本开始 TTS (#794)
+- Feat(tts): 新增点击正在朗读的文本以暂停/继续 TTS 播放 (#794)
+- Feat(tts): 新增阅读界面朗读快捷操作悬浮按钮 (#723)
+- Feat(reader): macOS 新增 Ctrl+[ 和 Ctrl+] 翻页快捷键 (#794)
+- Feat(reader): 阅读设置新增背景图模糊度、透明度及缩放模式设置 (#753)
+- Feat(reader): 页眉和页脚阅读信息支持分别设置左右边距与字体大小 (#791)
+- Feat(appearance): 新增设置项，可开关选中文本菜单等操作按钮的底部文字提示
+- Fix(reader): 桌面端资源生命周期管理、WebView 稳定性及翻页防抖优化 (#790)
+- Fix(reader): 修复 Windows 端右键触发 WebView2 系统上下文菜单的问题 (#746)
+- Fix(reader): 修复禁用书籍自带样式时 epub 标题颜色不跟随主题色的问题 (#749)
 - Fix(toc): 目录中过长的章节标题现在会自动换行显示完整内容，不再以省略号截断 (#751)
 - Fix(l10n): 修复首次启动时系统语言不受支持会错误回退到阿拉伯语的问题，改为回退到英文 (#785)
-- Feat(reader): 页眉和页脚阅读信息支持分别设置左右边距与字体大小，并重构为共享的分区配置模型 (#791)
-- Fix(l10n): 更新俄语翻译 app_ru.arb (#774) 感谢 @Xapitonov
-- L10n: 完成罗马尼亚语翻译 (#714) 感谢 @Steinhagen
+- Fix(translate): 移除旧版 Microsoft 逆向翻译服务，并将已保存的偏好迁移到 Azure API
+- L10n: 完成罗马尼亚语翻译 (#714) 并更新俄语翻译 (#774)
 
 ## 1.12.0
 - Feat(tts): Add OpenAI-compatible TTS service support (#653)
