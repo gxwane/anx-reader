@@ -1,5 +1,6 @@
 # Changelog
 
+- Fix(settings): Standardize Settings navigation chevrons by removing misleading right arrows from immediate action and modal dialog tiles
 - Feat(font): Online Font Store disaster resilience with multi-mirror failover, per-source offline cache, custom repository sources with RFC 3986 dynamic URI resolution, and pre-flight schema validation
 - Feat(font): Modernize Online Font Store with storage namespace isolation, atomic multi-file pipeline, real-time search, size indicators, path traversal hardening, and 1-click apply
 - Feat(font): Unified 3-tab Font Hub (My Fonts, System Fonts, Online Store), FontList mutation encapsulation, active font indicators, and Settings synchronization (Phase 3)
