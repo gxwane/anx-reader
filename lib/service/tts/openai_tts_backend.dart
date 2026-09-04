@@ -134,6 +134,7 @@ class OpenAiTtsProvider extends TtsServiceProvider {
         'model': model,
         'voice': resolvedVoice,
         'input': text,
+        'speed': rate,
         if (instructions.isNotEmpty) 'instructions': instructions,
         'response_format': 'mp3',
       }),

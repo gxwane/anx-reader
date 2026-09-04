@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/utils/platform_utils.dart';
@@ -171,14 +172,26 @@ class SystemTts extends BaseTts {
   Future<void> speakWithVoice(String content, String voiceShortName) async {
     await stop();
     await flutterTts.setVolume(volume);
-    await flutterTts.setSpeechRate(rate);
+    await flutterTts.setSpeechRate(normalizeSystemRate(rate));
     await flutterTts.setPitch(pitch);
     await _applyVoice(voiceShortName);
     await flutterTts.speak(content);
   }
 
+  /// Maps canonical playback rate (1.0 = 1.0x normal speed) to platform-specific flutter_tts values.
+  static double normalizeSystemRate(double canonicalRate) {
+    if (Platform.isWindows) {
+      // Windows flutter_tts uses (rate - 0.5) * 15 for SAPI (-10 to +10).
+      // At canonical 1.0x, we want SAPI 0 -> 0.5.
+      return (0.5 + (canonicalRate - 1.0) * 0.35).clamp(0.0, 1.0);
+    } else {
+      // iOS & Android (flutter_tts internally maps 0.5 to Android 1.0f and iOS AVSpeechUtteranceDefaultSpeechRate)
+      return (0.5 * canonicalRate).clamp(0.0, 1.0);
+    }
+  }
+
   @override
-  Future<void> speak({String? content}) async {
+  Future<void> speak({String? content, bool resetLocation = true}) async {
     final session = ++_speechSessionId;
     updateTtsState(TtsStateEnum.playing);
     await setAwaitOptions();
@@ -188,16 +201,18 @@ class SystemTts extends BaseTts {
     }
     if (_currentVoiceText == null) {
       // getHereFunction() is initTts() — it initialises the JS TTS position
-      // but returns void.  Fetch the actual first sentence via getNextTextFunction.
-      await getHereFunction();
-      if (session != _speechSessionId || !isPlaying) return;
+      // but returns void. Fetch the actual first sentence via getNextTextFunction.
+      if (resetLocation) {
+        await getHereFunction();
+        if (session != _speechSessionId || !isPlaying) return;
+      }
       _currentVoiceText = await getNextTextFunction();
     }
 
     if (isAndroid) {
       if (_currentVoiceText == null || _currentVoiceText!.trim().isEmpty) return;
       await flutterTts.setVolume(volume);
-      await flutterTts.setSpeechRate(rate);
+      await flutterTts.setSpeechRate(normalizeSystemRate(rate));
       await flutterTts.setPitch(pitch);
       try {
         final selectedVoice = SystemTtsProvider().resolveVoice(null);
@@ -220,7 +235,7 @@ class SystemTts extends BaseTts {
       }
 
       await flutterTts.setVolume(volume);
-      await flutterTts.setSpeechRate(rate);
+      await flutterTts.setSpeechRate(normalizeSystemRate(rate));
       await flutterTts.setPitch(pitch);
 
       try {
@@ -330,8 +345,13 @@ class SystemTts extends BaseTts {
     }
     restarting = true;
     _speechSessionId++;
+    final textToResume = _currentVoiceText;
     await stop();
-    speak();
+    if (textToResume != null && textToResume.trim().isNotEmpty) {
+      speak(content: textToResume, resetLocation: false);
+    } else {
+      speak(resetLocation: false);
+    }
     restarting = false;
   }
 

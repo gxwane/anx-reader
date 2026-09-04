@@ -79,6 +79,13 @@ class Prefs extends ChangeNotifier {
 
   Future<void> initPrefs() async {
     prefs = await SharedPreferences.getInstance();
+    if (!prefs.containsKey('ttsRateNormalizedV1')) {
+      final oldRate = prefs.getDouble('ttsRate');
+      if (oldRate == 0.6 || oldRate == null) {
+        await prefs.setDouble('ttsRate', 1.0);
+      }
+      await prefs.setBool('ttsRateNormalizedV1', true);
+    }
     saveBeginDate();
     notifyListeners();
   }
@@ -495,7 +502,7 @@ class Prefs extends ChangeNotifier {
   }
 
   double get ttsRate {
-    return prefs.getDouble('ttsRate') ?? 0.6;
+    return prefs.getDouble('ttsRate') ?? 1.0;
   }
 
   void setTtsVoiceModel(String serviceId, String shortName) {
