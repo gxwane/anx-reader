@@ -189,7 +189,8 @@ void main() {
       expect(voices[1].locale, equals('en-US'));
     });
 
-    test('getVoices falls back gracefully when server returns 404', () async {
+    test('getVoices falls back gracefully when server returns 404 and tracks endpoint missing', () async {
+      provider.resetDiscoveryStatus();
       provider.saveConfig({
         'url': 'http://127.0.0.1:8000/v1/audio/speech',
         'voice': 'custom_speaker',
@@ -204,6 +205,49 @@ void main() {
       expect(voices.isNotEmpty, isTrue);
       expect(voices.any((v) => v.shortName == 'custom_speaker'), isTrue);
       expect(voices.any((v) => v.shortName == 'default'), isTrue);
+
+      expect(provider.lastDiscoveryFailed, isTrue);
+      expect(provider.isDiscoveryEndpointMissing, isTrue);
+      expect(provider.lastDiscoveryError, contains('404'));
+    });
+
+    test('getVoices sets lastDiscoveryFailed on connection error and recovers on success', () async {
+      provider.resetDiscoveryStatus();
+      provider.saveConfig({
+        'url': 'http://127.0.0.1:9880/v1/audio/speech',
+        'key': '',
+      });
+
+      // 1. Connection error simulation
+      provider.httpClientOverride = _TestMockClient((request) async {
+        throw http.ClientException('Connection refused');
+      });
+
+      await provider.getVoices();
+      expect(provider.lastDiscoveryFailed, isTrue);
+      expect(provider.isDiscoveryEndpointMissing, isFalse);
+      expect(provider.lastDiscoveryError, contains('Connection refused'));
+
+      // 2. Reset status
+      provider.resetDiscoveryStatus();
+      expect(provider.lastDiscoveryFailed, isFalse);
+      expect(provider.lastDiscoveryError, isNull);
+
+      // 3. Recovery simulation
+      provider.httpClientOverride = _TestMockClient((request) async {
+        if (request.url.path.endsWith('/models')) {
+          final body = jsonEncode({
+            'data': [{'id': 'gpt-sovits-model'}]
+          });
+          return http.StreamedResponse(Stream.value(utf8.encode(body)), 200);
+        }
+        return http.StreamedResponse(Stream.value([]), 404);
+      });
+
+      final recoveredVoices = await provider.getVoices();
+      expect(recoveredVoices.any((v) => v.shortName == 'gpt-sovits-model'), isTrue);
+      expect(provider.lastDiscoveryFailed, isFalse);
+      expect(provider.lastDiscoveryError, isNull);
     });
   });
 }

@@ -75,4 +75,16 @@ abstract class TtsServiceProvider extends ServiceProvider<dynamic> {
     }
     return selected;
   }
+
+  /// Whether the last voice discovery probing failed
+  bool get lastDiscoveryFailed => false;
+
+  /// Error details from the last voice discovery attempt
+  String? get lastDiscoveryError => null;
+
+  /// Whether the voice discovery failed specifically due to 404 (endpoints not implemented)
+  bool get isDiscoveryEndpointMissing => false;
+
+  /// Reset discovery status when settings or server endpoints change
+  void resetDiscoveryStatus() {}
 }

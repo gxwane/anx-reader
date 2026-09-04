@@ -301,10 +301,6 @@ class _BookTocState extends ConsumerState<BookToc> {
     }
 
     final selectedKeys = currentPath.map(_keyForItem).toSet();
-    final currentState = widget.epubPlayerKey.currentState;
-    final currentProgress = currentState == null
-        ? ''
-        : '${currentState.chapterCurrentPage} / ${currentState.chapterTotalPages}';
 
     var locatingButton = IconButton(
       icon: const Icon(Icons.my_location),
@@ -391,16 +387,11 @@ class _BookTocState extends ConsumerState<BookToc> {
                   final tocItem = entry.item;
                   final key = entry.key;
                   final isSelected = selectedKeys.contains(key);
-                  final isCurrentLeaf =
-                      currentHref == tocItem.href && tocItem.subitems.isEmpty;
-
                   return TocItemWidget(
                     tocItem: tocItem,
                     depth: entry.depth,
                     isExpanded: entry.isExpanded,
                     isSelected: isSelected,
-                    showProgress: isCurrentLeaf,
-                    progressText: currentProgress,
                     onToggle: tocItem.subitems.isEmpty
                         ? null
                         : () => _toggleExpanded(tocItem),
@@ -446,9 +437,13 @@ Widget searchResultWidget({
             child: Row(
               children: [
                 Flexible(child: Text(searchResult.label)),
-                isExpanded
-                    ? const Icon(Icons.expand_less)
-                    : const Icon(Icons.expand_more),
+                Icon(
+                  isExpanded
+                      ? Icons.keyboard_arrow_down
+                      : (Directionality.of(context) == TextDirection.rtl
+                          ? Icons.chevron_left
+                          : Icons.chevron_right),
+                ),
                 // const Spacer(),
                 Text(
                   searchResult.subitems.length.toString(),
@@ -494,8 +489,6 @@ class TocItemWidget extends StatelessWidget {
     required this.depth,
     required this.isExpanded,
     required this.isSelected,
-    required this.showProgress,
-    required this.progressText,
     required this.onToggle,
     required this.onTap,
   });
@@ -504,8 +497,6 @@ class TocItemWidget extends StatelessWidget {
   final int depth;
   final bool isExpanded;
   final bool isSelected;
-  final bool showProgress;
-  final String progressText;
   final VoidCallback? onToggle;
   final VoidCallback onTap;
 
@@ -531,7 +522,7 @@ class TocItemWidget extends StatelessWidget {
     return Column(
       children: [
         ConstrainedBox(
-          constraints: BoxConstraints(minHeight: showProgress ? 60 : 40),
+          constraints: const BoxConstraints(minHeight: 44),
           child: Padding(
             padding: EdgeInsets.only(left: depth == 0 ? 0 : depth * 40.0),
             child: Row(
@@ -542,8 +533,12 @@ class TocItemWidget extends StatelessWidget {
                   IconButton(
                     padding: const EdgeInsets.all(0),
                     icon: Icon(
-                      isExpanded ? Icons.expand_less : Icons.expand_more,
-                      size: 32,
+                      isExpanded
+                          ? Icons.keyboard_arrow_down
+                          : (Directionality.of(context) == TextDirection.rtl
+                              ? Icons.chevron_left
+                              : Icons.chevron_right),
+                      size: 28,
                     ),
                     onPressed: onToggle,
                   ),
@@ -558,28 +553,9 @@ class TocItemWidget extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                tocItem.label.trim(),
-                                style: labelStyle,
-                              ),
-                              if (showProgress)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10.0),
-                                  child: Row(
-                                    children: [
-                                      const Icon(
-                                          Icons.keyboard_arrow_right_rounded),
-                                      const SizedBox(width: 10),
-                                      Text(progressText),
-                                    ],
-                                  ),
-                                ),
-                            ],
+                          child: Text(
+                            tocItem.label.trim(),
+                            style: labelStyle,
                           ),
                         ),
                         Text(
