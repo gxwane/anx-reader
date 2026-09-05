@@ -42,6 +42,7 @@ import 'package:anx_reader/utils/platform_utils.dart';
 import 'package:anx_reader/models/book_note.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/utils/reading_restore_target.dart';
+import 'package:anx_reader/utils/webView/active_webview_registry.dart';
 import 'package:anx_reader/utils/webView/gererate_url.dart';
 import 'package:anx_reader/utils/webView/webview_console_message.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
@@ -1097,6 +1098,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
       await InAppWebViewController.setWebContentsDebuggingEnabled(true);
     }
     webViewController = controller;
+    ActiveWebViewRegistry().registerInAppWebView(controller);
     setHandler(controller);
     _registerChapterContentBridge();
     _registerBookSearchBridge();
@@ -1213,6 +1215,9 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     _animationController?.dispose();
     saveReadingProgress();
     removeOverlay();
+    try {
+      ActiveWebViewRegistry().unregisterInAppWebView(webViewController);
+    } catch (_) {}
     super.dispose();
   }
 

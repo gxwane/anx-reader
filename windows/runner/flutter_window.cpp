@@ -57,6 +57,9 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
         flutter_controller_->HandleTopLevelWindowProc(hwnd, message, wparam,
                                                       lparam);
     if (result) {
+      if (message == WM_SIZE || message == WM_ACTIVATE) {
+        Win32Window::MessageHandler(hwnd, message, wparam, lparam);
+      }
       return *result;
     }
   }

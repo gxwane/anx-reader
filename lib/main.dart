@@ -19,6 +19,7 @@ import 'package:anx_reader/utils/error/common.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/utils/window_position_validator.dart';
+import 'package:anx_reader/utils/webView/active_webview_registry.dart';
 import 'package:anx_reader/providers/sync.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
@@ -190,12 +191,32 @@ class _MyAppState extends ConsumerState<MyApp>
   }
 
   @override
+  void onWindowMinimize() {
+    if (AnxPlatform.isWindows) {
+      ActiveWebViewRegistry().pauseAll();
+    }
+  }
+
+  @override
+  void onWindowRestore() {
+    if (AnxPlatform.isWindows) {
+      ActiveWebViewRegistry().resumeAll();
+    }
+  }
+
+  @override
   Future<void> onWindowMaximize() async {
+    if (AnxPlatform.isWindows) {
+      ActiveWebViewRegistry().resumeAll();
+    }
     await _updateWindowInfo();
   }
 
   @override
   Future<void> onWindowUnmaximize() async {
+    if (AnxPlatform.isWindows) {
+      ActiveWebViewRegistry().resumeAll();
+    }
     await _updateWindowInfo();
   }
 
@@ -229,12 +250,18 @@ class _MyAppState extends ConsumerState<MyApp>
 
     if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.hidden) {
+      if (AnxPlatform.isWindows) {
+        ActiveWebViewRegistry().pauseAll();
+      }
       if (Prefs().webdavStatus) {
         ref
             .read(syncProvider.notifier)
             .syncData(SyncDirection.both, ref, trigger: SyncTrigger.auto);
       }
     } else if (state == AppLifecycleState.resumed) {
+      if (AnxPlatform.isWindows) {
+        ActiveWebViewRegistry().resumeAll();
+      }
       if (AnxPlatform.isIOS) {
         Server().start();
       }
