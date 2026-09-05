@@ -2,6 +2,7 @@
 
 ## [0.1.0-preview.5] - 2026-09-02
 
+- Feat(ui): Modernize universal scrollbars and platform-adaptive scrolling, featuring native clamping/bouncing physics, duplicate scrollbar prevention, detached controller crash protection, purified TOC scrollbar-free gesture interaction, and unified theme styling
 - Fix(reader): Modernize Table of Contents (TOC) and TTS accordion chevrons (right when collapsed, down when expanded with RTL support), and eliminate misleading progress arrow and row height jumping in TOC
 - Feat(tts): Implement human-friendly dynamic network diagnostics and discovery status feedback for self-hosted TTS, intelligently analyzing ports, local loopback proxies, and LAN topology
 - Fix(tts): Eliminate phantom auto-resume during long pauses in Online TTS by binding watchdog to active playback time and implementing pause-gate synchronization
@@ -32,6 +33,7 @@
 - Feat(reader): Upgrade Chinese conversion engine to OpenCC with Trie matching and multi-locale support
 - Feat(ai): Polish AI chat in-panel transition, smart scrolling lock, focus retention, and visual states
 
+- Feat(ui): 全局滚动体验现代化与平台自适应滚动条，支持桌面/移动自适应滚动物理、双重滚动条防重、未挂载控制器崩溃保护、阅读目录防重影与纯净手势交互，以及统一主题样式
 - Fix(reader): 全面规范书籍目录树（TOC）与朗读设置折叠箭头方向（折叠为向右箭头，展开为向下箭头，自适应 RTL），并彻底消除当前章节误导性的向右箭头与突增行高，统一单行规整排版
 - Feat(tts): 引入人话级智能网络拓扑诊断分析器与模型发现状态反馈，动态识别服务端口、本地代理拦截（502）与局域网拓扑，消除晦涩的底层网络报错
 - Fix(tts): 彻底消除在线朗读长久暂停后的幽灵自动播放缺陷，将看门狗生命周期严格绑定实际播放态，并在播放循环全链路部署暂停屏障同步机制

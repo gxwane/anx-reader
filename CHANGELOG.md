@@ -57,6 +57,12 @@
 - **工业级 OpenCC 简繁转换引擎重构**：彻底废除旧的 2270 字符单字暴力线性替换，引入 OpenCC 分词字典与 Trie 前缀树匹配引擎，精准解决「頭髮/發展」、「皇后/前後」、「吃麵/表面」、「乾燥/幹活」等一简多繁歧义错字；转换性能提升至毫秒级（$O(1)$ 查找，消灭长章翻页卡顿）；扩展支持通用繁体、台湾正体与香港繁体，动态更新 `html.lang` 激活原生地域异体字形渲染；划线笔记与目录全面实现简繁等价归一化保护。
 
 ### 优化
+- **全局滚动体验现代化与跨平台自适应滚动条（Universal Scrollbar Modernization & Platform Adaptive Scrolling）**：
+  - **平台自适应滚动物理（Platform-Adaptive Scroll Physics）**：废除硬编码的 `BouncingScrollPhysics`，引入全局 `AppScrollBehavior`，在 Windows 与 Linux 上采用符合桌面操作习惯的夹紧滚动 `ClampingScrollPhysics`，在 macOS、iOS 与 Android 上保持原生回弹滚动 `BouncingScrollPhysics`，支持全套鼠标、触屏与手写笔输入；
+  - **沉浸式自适应滚动条样式（Unified Scrollbar Styling & Contrast Guard）**：全局统一 `ScrollbarThemeData`，实现悬停/拖动时 6dp 增宽至 8dp 交互动效，拖动时高亮主题色，针对墨水屏（E-ink）环境部署纯黑高对比度与纯白轨道防抖保护；
+  - **防重复注入与未挂载控制器崩溃守护（AppScrollbar Safe Container）**：统一封装 `AppScrollbar` 组件，通过 `copyWith(scrollbars: false)` 彻底根除外层自定义滚动条与桌面底层系统滚动条并存导致的“双重重叠滚动条”瑕疵；针对骨架屏与异步加载视图智能感知 `hasClients` 状态，彻底杜绝未挂载控制器时的断言闪退；
+  - **章节目录 Scrubbing 滚动条（Continuous TocScrollbar）**：专门针对 `ScrollablePositionedList` 构建双端视口归一化数学模型，实现精确的亚像素连续滑动映射，彻底消除滑块滑动到 80% 即到顶到底的数学天花板断层；引入 `_isDragging` 互斥锁杜绝指针拖动与视口监听器相互争抢导致的橡皮筋抖动，并配备 Material 3 拖动实时章节指示气泡；
+  - **核心页面全面覆盖与控制器生命周期闭环**：对正文目录（`BookToc`）、笔记列表（`NotesPage`）、设置主页（`SettingsPage`）、朗读设置（`NarrateSettings`）及字体中心三大标签页（`FontsSettingPage`）全面装配现代滚动条，补全内部 `ScrollController` 释放生命周期，彻底杜绝内存泄漏。
 - **更新日志解析系统与多端响应式现代布局重构（Changelog System & Responsive UI Modernization）**：
   - 核心解析引擎重构：引入三级自适应版本匹配机制（完整预发布版本号 $\rightarrow$ 基准 SemVer $\rightarrow$ 最新第一段标头自愈兜底），彻底消除非对齐版本下的警告日志与占位符；废除对半切分历史技术债，改用中文字符集 Unicode 智能分类器，消除多语言混杂泄露与截断风险；补齐资源文件版本标头并使双语条目严格镜像对齐；
   - 桌面端全屏体验与排版重构：彻底修复桌面端全屏状态下因松散约束与 shrink-wrap 导致的滚动条悬浮在屏幕中央（约 53% 处）以及底栏确认按钮被横向粗暴拉伸至 1920px 宽的严重视觉排版缺陷；

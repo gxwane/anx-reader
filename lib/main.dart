@@ -255,13 +255,7 @@ class _MyAppState extends ConsumerState<MyApp>
         builder: (context, prefsNotifier, child) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            scrollBehavior: ScrollConfiguration.of(context).copyWith(
-              physics: const BouncingScrollPhysics(),
-              // dragDevices: {
-              //   PointerDeviceKind.touch,
-              //   PointerDeviceKind.mouse,
-              // },
-            ),
+            scrollBehavior: const AppScrollBehavior(),
             navigatorObservers: [
               FlutterSmartDialog.observer,
               heroineController
@@ -352,5 +346,29 @@ class _MigrationWrapperState extends State<_MigrationWrapper> {
       return const HomePage();
     }
     return MigrationPage(onMigrationComplete: _onMigrationComplete);
+  }
+}
+
+/// Adaptive cross-platform scroll behavior for Anx Reader.
+///
+/// Ensures:
+/// - Windows & Linux: [ClampingScrollPhysics] (no floaty rubber-band overscroll on mouse wheel).
+/// - macOS, iOS, Android, Fuchsia: [BouncingScrollPhysics] (preserves native fluid trackpad & touch gestures).
+/// - Delegates scrollbar construction to [MaterialScrollBehavior.buildScrollbar].
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    switch (Theme.of(context).platform) {
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        return const ClampingScrollPhysics();
+      case TargetPlatform.macOS:
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.fuchsia:
+        return const BouncingScrollPhysics();
+    }
   }
 }
