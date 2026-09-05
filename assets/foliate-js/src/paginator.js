@@ -14,13 +14,48 @@ const lerp = (min, max, x) => x * (max - min) + min
 const easeOutSine = x => Math.sin((x * Math.PI) / 2)
 // const easeOutSine = x => 1 - (1 - x) * (1 - x);
 const animate = (a, b, duration, ease, render) => new Promise(resolve => {
+  let settled = false
+  const finish = () => {
+    if (settled) return
+    settled = true
+    cleanup()
+    render(b)
+    resolve()
+  }
+
+  if (typeof document !== 'undefined' && document.hidden) {
+    finish()
+    return
+  }
+
+  const onVisibilityChange = () => {
+    if (document.hidden) finish()
+  }
+  if (typeof document !== 'undefined' && document.addEventListener) {
+    document.addEventListener('visibilitychange', onVisibilityChange, { once: true })
+  }
+
+  const timeoutId = setTimeout(finish, Math.max(50, duration + 50))
+
+  const cleanup = () => {
+    clearTimeout(timeoutId)
+    if (typeof document !== 'undefined' && document.removeEventListener) {
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }
+
   let start
   const step = now => {
+    if (settled) return
+    if (typeof document !== 'undefined' && document.hidden) {
+      finish()
+      return
+    }
     start ??= now
     const fraction = Math.min(1, (now - start) / duration)
     render(lerp(a, b, ease(fraction)))
     if (fraction < 1) requestAnimationFrame(step)
-    else resolve()
+    else finish()
   }
   requestAnimationFrame(step)
 })
@@ -290,6 +325,12 @@ class View {
   }
   #queueExpand() {
     if (this.#expandFrame != null) return
+    if (typeof document !== 'undefined' && document.hidden) {
+      this.#expandFrame = null
+      if (!this.document?.body?.isConnected) return
+      this.expand()
+      return
+    }
     this.#expandFrame = requestAnimationFrame(() => {
       this.#expandFrame = null
       if (!this.document?.body?.isConnected) return
@@ -1269,7 +1310,8 @@ export class Paginator extends HTMLElement {
     // FIXME: vertical-rl only, not -lr
     if (this.scrolled && this.#vertical) offset = -offset
 
-    const useAnimation = shouldAnimate && this.hasAttribute('animated')
+    const isHidden = typeof document !== 'undefined' && document.hidden
+    const useAnimation = !isHidden && shouldAnimate && this.hasAttribute('animated')
 
     if (useAnimation) {
       const distance = Math.abs(element[scrollProp] - offset)
@@ -1708,10 +1750,12 @@ export class Paginator extends HTMLElement {
     return this.#turnPage(1, distance)
   }
   prevSection() {
-    return this.goTo({ index: this.#adjacentIndex(-1) })
+    const target = this.#getAdjacentTarget(-1)
+    return target ? this.goTo(target) : Promise.resolve(null)
   }
   nextSection() {
-    return this.goTo({ index: this.#adjacentIndex(1) })
+    const target = this.#getAdjacentTarget(1)
+    return target ? this.goTo(target) : Promise.resolve(null)
   }
   firstSection() {
     const index = this.sections.findIndex(section => section.linear !== 'no')
@@ -1729,6 +1773,9 @@ export class Paginator extends HTMLElement {
       doc: this.#view.document,
     }]
     return []
+  }
+  get currentSection() {
+    return this.#index
   }
   get currentChapter() {
     return this.#currentChapter

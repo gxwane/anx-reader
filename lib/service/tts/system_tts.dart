@@ -115,6 +115,10 @@ class SystemTts extends BaseTts {
       updateTtsState(TtsStateEnum.playing);
       if (_currentVoiceText?.isEmpty ?? true) {
         _currentVoiceText = await getNextText();
+        if (_currentVoiceText == null || _currentVoiceText!.trim().isEmpty) {
+          await stop();
+          return;
+        }
         await speak();
       } else {
         await getNextText();
@@ -230,6 +234,7 @@ class SystemTts extends BaseTts {
         if (session != _speechSessionId || !isPlaying) break;
         if (_currentVoiceText == null || _currentVoiceText!.trim().isEmpty) {
           // End of section/book reached
+          await stop();
           break;
         }
       }

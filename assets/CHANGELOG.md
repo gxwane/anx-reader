@@ -2,6 +2,7 @@
 
 ## [0.1.0-preview.6] - 2026-09-05
 
+- Fix(tts): Resolve background and lockscreen TTS stalling permanently at chapter boundaries by bypassing requestAnimationFrame on hidden document, eliminating mutual recursion, synchronizing lockscreen media metadata, and self-healing viewport and highlight position instantly upon screen wake-up (#544)
 - Fix(window): Eliminate ghost layer desktop icon click interception and mouse pass-through blockage on Windows by pausing active WebViews and hiding child runner window on minimize (#981, #243, #255, #830, #850)
 - Fix(ai): Implement GeminiThoughtSignatureClient to capture and inject thought_signature across multi-turn tool calling, eliminating 400 ApiException on Gemini 2.0/2.5/3.0 reasoning models (#977)
 - Fix(reader): Restore reader focus automatically after text selection and context menu dismissal, eliminating hardware turn-page key (arrows, volume buttons) unresponsiveness and accidental horizontal WebView container panning (#966)
@@ -34,6 +35,7 @@
 - Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
 - Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 
+- Fix(tts): 彻底修复后台与锁屏状态下 TTS 听书跨章节自动连读卡死缺陷，在页面隐藏时跳过 requestAnimationFrame 动画并消除尾章互递归死锁，支持锁屏通知栏章节元数据动态同步，并实现手机熄屏听书亮屏唤醒瞬间视口与高亮毫秒级自愈对齐 (#544)
 - Fix(window): 彻底修复 Windows 窗口最小化/最大化后桌面图标无法点击与鼠标穿透遮挡问题，通过协调暂停 WebView 幽灵图层并同步隐藏原生子窗口彻底根除输入捕获 (#981, #243, #255, #830, #850)
 - Fix(ai): 实现 GeminiThoughtSignatureClient 请求拦截器，在多轮工具调用时自动捕获并回填 thought_signature 思考签名（或自动兜底官方标记），彻底修复 Gemini 2.0/2.5/3.0 思考模型报 400 ApiException 缺陷 (#977)
 - Fix(reader): 选中文本或关闭上下文菜单后自动恢复阅读器焦点，彻底解决物理翻页键（方向键、音量键）失效及 WebView 容器异常左右平移缺陷 (#966)
