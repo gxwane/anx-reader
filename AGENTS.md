@@ -38,7 +38,7 @@ This checkout uses FVM locally and is pinned to **Flutter 3.35.3**, matching CI 
 
 - Always use `fvm flutter ...` and `fvm dart ...` for project commands.
 - Run `fvm flutter pub get --enforce-lockfile` only when dependency resolution is required. The lockfile must not drift unintentionally.
-- For local workstation settings (proxy, test devices, node paths, VS 2026 build tools patch), see: [**`AGENTS.local.md`**](AGENTS.local.md).
+- For local workstation settings (proxy, physical device `FNENW19A18016816`, local `AnxTestDev` emulator, node paths, VS 2026 build tools patch), see: [**`AGENTS.local.md`**](AGENTS.local.md).
 
 ---
 
@@ -84,7 +84,7 @@ For non-trivial features, refactorings, and architectural fixes, activate the de
 2. For non-trivial fixes, summarize cause + solution before editing.
 3. Implement the smallest safe fix that keeps current behavior stable.
 4. If JS renderer code changed, rebuild `assets/foliate-js/dist/`.
-5. Let the user manually test reader behavior when the issue depends on real books, layout, pagination, or WebView runtime behavior.
+5. For background lifecycle issues (sleep/screen-off, wakeup, lockscreen audio playback, cross-chapter transitions, TTS service persistence), agents MUST autonomously verify behavior on the local emulator or connected device via ADB before requesting user testing. Let the user manually test reader behavior primarily when the issue depends on subjective typography, tactile page-turn gestures, or physical screen ergonomics (see [**`docs/mobile_autonomous_testing.md`**](docs/mobile_autonomous_testing.md)).
 6. Before commit, stage only relevant source changes and necessary generated artifacts. Exclude unrelated dependency churn.
 7. Never invoke `git commit` for reader core logic (scrolling, navigation, rendering) until the user has performed manual visual testing and explicitly confirmed the behavior.
 
