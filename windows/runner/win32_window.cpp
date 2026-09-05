@@ -200,15 +200,20 @@ Win32Window::MessageHandler(HWND hwnd,
     case WM_SIZE: {
       RECT rect = GetClientArea();
       if (child_content_ != nullptr) {
-        // Size and position the child window.
-        MoveWindow(child_content_, rect.left, rect.top, rect.right - rect.left,
-                   rect.bottom - rect.top, TRUE);
+        if (wparam == SIZE_MINIMIZED) {
+          ShowWindow(child_content_, SW_HIDE);
+        } else {
+          ShowWindow(child_content_, SW_SHOW);
+          // Size and position the child window.
+          MoveWindow(child_content_, rect.left, rect.top, rect.right - rect.left,
+                     rect.bottom - rect.top, TRUE);
+        }
       }
       return 0;
     }
 
     case WM_ACTIVATE:
-      if (child_content_ != nullptr) {
+      if (child_content_ != nullptr && LOWORD(wparam) != WA_INACTIVE) {
         SetFocus(child_content_);
       }
       return 0;
