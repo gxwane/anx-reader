@@ -4,6 +4,7 @@ import 'package:anx_reader/models/toc_item.dart';
 import 'package:anx_reader/page/book_player/epub_player.dart';
 import 'package:anx_reader/providers/book_toc.dart';
 import 'package:anx_reader/providers/toc_search.dart';
+import 'package:anx_reader/widgets/common/app_scrollbar.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -350,17 +351,20 @@ class _BookTocState extends ConsumerState<BookToc> {
         Expanded(
           child: searchResults.isEmpty
               ? const SizedBox()
-              : ListView.builder(
+              : AppScrollbar(
                   controller: searchResultsScrollController,
-                  itemCount: searchResults.length,
-                  itemBuilder: (context, index) {
-                    return searchResultWidget(
-                      searchResult: searchResults[index],
-                      hideAppBarAndBottomBar: widget.hideAppBarAndBottomBar,
-                      epubPlayerKey: widget.epubPlayerKey,
-                      closeDrawer: widget.closeDrawer,
-                    );
-                  },
+                  child: ListView.builder(
+                    controller: searchResultsScrollController,
+                    itemCount: searchResults.length,
+                    itemBuilder: (context, index) {
+                      return searchResultWidget(
+                        searchResult: searchResults[index],
+                        hideAppBarAndBottomBar: widget.hideAppBarAndBottomBar,
+                        epubPlayerKey: widget.epubPlayerKey,
+                        closeDrawer: widget.closeDrawer,
+                      );
+                    },
+                  ),
                 ),
         ),
       ],
@@ -378,30 +382,34 @@ class _BookTocState extends ConsumerState<BookToc> {
       isSearchActive
           ? searchResult
           : Expanded(
-              child: ScrollablePositionedList.builder(
-                itemScrollController: _itemScrollController,
-                itemPositionsListener: _itemPositionsListener,
-                itemCount: _visibleItems.length,
-                itemBuilder: (context, index) {
-                  final entry = _visibleItems[index];
-                  final tocItem = entry.item;
-                  final key = entry.key;
-                  final isSelected = selectedKeys.contains(key);
-                  return TocItemWidget(
-                    tocItem: tocItem,
-                    depth: entry.depth,
-                    isExpanded: entry.isExpanded,
-                    isSelected: isSelected,
-                    onToggle: tocItem.subitems.isEmpty
-                        ? null
-                        : () => _toggleExpanded(tocItem),
-                    onTap: () {
-                      widget.hideAppBarAndBottomBar(false);
-                      widget.epubPlayerKey.currentState!.goToHref(tocItem.href);
-                      widget.closeDrawer();
-                    },
-                  );
-                },
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(context)
+                    .copyWith(scrollbars: false),
+                child: ScrollablePositionedList.builder(
+                  itemScrollController: _itemScrollController,
+                  itemPositionsListener: _itemPositionsListener,
+                  itemCount: _visibleItems.length,
+                  itemBuilder: (context, index) {
+                    final entry = _visibleItems[index];
+                    final tocItem = entry.item;
+                    final key = entry.key;
+                    final isSelected = selectedKeys.contains(key);
+                    return TocItemWidget(
+                      tocItem: tocItem,
+                      depth: entry.depth,
+                      isExpanded: entry.isExpanded,
+                      isSelected: isSelected,
+                      onToggle: tocItem.subitems.isEmpty
+                          ? null
+                          : () => _toggleExpanded(tocItem),
+                      onTap: () {
+                        widget.hideAppBarAndBottomBar(false);
+                        widget.epubPlayerKey.currentState!.goToHref(tocItem.href);
+                        widget.closeDrawer();
+                      },
+                    );
+                  },
+                ),
               ),
             ),
     );

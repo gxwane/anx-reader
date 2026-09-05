@@ -9,6 +9,7 @@ import 'package:anx_reader/utils/date/relative_time_formatter.dart';
 import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/widgets/book_notes/notes_import_flow.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
+import 'package:anx_reader/widgets/common/app_scrollbar.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:anx_reader/widgets/highlight_digit.dart';
 import 'package:anx_reader/widgets/tips/notes_tips.dart';
@@ -44,6 +45,9 @@ class _NotesPageState extends ConsumerState<NotesPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    if (widget.controller == null) {
+      _scrollController.dispose();
+    }
     super.dispose();
   }
 
@@ -198,20 +202,23 @@ class _NotesPageState extends ConsumerState<NotesPage> {
           );
         }
         return Expanded(
-          child: ListView.builder(
-              padding: EdgeInsets.only(bottom: 80),
-              controller: _scrollController,
-              itemCount: filteredData.length,
-              itemBuilder: (context, index) {
-                final item = filteredData[index];
-                return bookNotesItem(
-                  book: item['book']!,
-                  numberOfNotes: item['numberOfNotes']!,
-                  isMobile: isMobile,
-                  readingTime: item['readingTime']!,
-                  latestTime: item['latestTime'] as String? ?? '',
-                );
-              }),
+          child: AppScrollbar(
+            controller: _scrollController,
+            child: ListView.builder(
+                padding: const EdgeInsets.only(bottom: 80),
+                controller: _scrollController,
+                itemCount: filteredData.length,
+                itemBuilder: (context, index) {
+                  final item = filteredData[index];
+                  return bookNotesItem(
+                    book: item['book']!,
+                    numberOfNotes: item['numberOfNotes']!,
+                    isMobile: isMobile,
+                    readingTime: item['readingTime']!,
+                    latestTime: item['latestTime'] as String? ?? '',
+                  );
+                }),
+          ),
         );
       },
       loading: () => const CircularProgressIndicator(),

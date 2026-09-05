@@ -6,6 +6,7 @@ import 'package:anx_reader/page/reading_page.dart';
 import 'package:anx_reader/providers/font_list.dart';
 import 'package:anx_reader/providers/fonts.dart';
 import 'package:anx_reader/service/font/system_font_service.dart';
+import 'package:anx_reader/widgets/common/app_scrollbar.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -67,9 +68,22 @@ class _MyFontsTab extends ConsumerStatefulWidget {
   ConsumerState<_MyFontsTab> createState() => _MyFontsTabState();
 }
 
-class _MyFontsTabState extends ConsumerState<_MyFontsTab> {
+class _MyFontsTabState extends ConsumerState<_MyFontsTab>
+    with AutomaticKeepAliveClientMixin {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final theme = Theme.of(context);
     final fontListAsync = ref.watch(fontListProvider);
 
@@ -77,9 +91,12 @@ class _MyFontsTabState extends ConsumerState<_MyFontsTab> {
       data: (fonts) {
         final activeFont = Prefs().font;
 
-        return ListView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          children: [
+        return AppScrollbar(
+          controller: _scrollController,
+          child: ListView(
+            controller: _scrollController,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            children: [
             // Top action banner for importing local fonts
             FilledContainer(
               padding: const EdgeInsets.all(16),
@@ -231,8 +248,9 @@ class _MyFontsTabState extends ConsumerState<_MyFontsTab> {
               );
             }),
           ],
-        );
-      },
+        ),
+      );
+    },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
         child: Text('${L10n.of(context).fontFailedToLoadFonts}: $e'),
@@ -354,6 +372,7 @@ class _SystemFontsTab extends ConsumerStatefulWidget {
 class _SystemFontsTabState extends ConsumerState<_SystemFontsTab>
     with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   List<String> _allSystemFonts = [];
   bool _isLoading = true;
   String _filterQuery = '';
@@ -379,6 +398,7 @@ class _SystemFontsTabState extends ConsumerState<_SystemFontsTab>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -444,58 +464,63 @@ class _SystemFontsTabState extends ConsumerState<_SystemFontsTab>
                         ),
                       ),
                     )
-                  : ListView.builder(
-                      itemCount: filteredFonts.length,
-                      itemBuilder: (context, index) {
-                        final fontName = filteredFonts[index];
-                        final isPinned = pinnedSet.contains(fontName);
+                  : AppScrollbar(
+                      controller: _scrollController,
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        itemExtent: 72.0,
+                        itemCount: filteredFonts.length,
+                        itemBuilder: (context, index) {
+                          final fontName = filteredFonts[index];
+                          final isPinned = pinnedSet.contains(fontName);
 
-                        return ListTile(
-                          leading: Icon(
-                            isPinned ? Icons.bookmark : Icons.bookmark_border,
-                            color: isPinned ? theme.colorScheme.primary : null,
-                          ),
-                          title: Text(
-                            fontName,
-                            style: TextStyle(
-                              fontFamily: fontName,
-                              fontWeight:
-                                  isPinned ? FontWeight.bold : FontWeight.normal,
+                          return ListTile(
+                            leading: Icon(
+                              isPinned ? Icons.bookmark : Icons.bookmark_border,
+                              color: isPinned ? theme.colorScheme.primary : null,
                             ),
-                          ),
-                          subtitle: Text(
-                            '永和九年，歲在癸丑，暮春之初 The quick brown fox jumps',
-                            style: TextStyle(
-                              fontFamily: fontName,
-                              fontSize: 12,
-                              color: theme.hintColor,
+                            title: Text(
+                              fontName,
+                              style: TextStyle(
+                                fontFamily: fontName,
+                                fontWeight:
+                                    isPinned ? FontWeight.bold : FontWeight.normal,
+                              ),
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: TextButton.icon(
-                            icon: Icon(
-                              isPinned ? Icons.check : Icons.add,
-                              size: 16,
+                            subtitle: Text(
+                              '永和九年，歲在癸丑，暮春之初 The quick brown fox jumps',
+                              style: TextStyle(
+                                fontFamily: fontName,
+                                fontSize: 12,
+                                color: theme.hintColor,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            label: Text(
-                              isPinned
-                                  ? L10n.of(context).fontPinned
-                                  : L10n.of(context).fontPin,
+                            trailing: TextButton.icon(
+                              icon: Icon(
+                                isPinned ? Icons.check : Icons.add,
+                                size: 16,
+                              ),
+                              label: Text(
+                                isPinned
+                                    ? L10n.of(context).fontPinned
+                                    : L10n.of(context).fontPin,
+                              ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: isPinned
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurface,
+                              ),
+                              onPressed: () {
+                                ref
+                                    .read(fontListProvider.notifier)
+                                    .togglePinSystemFont(fontName);
+                              },
                             ),
-                            style: TextButton.styleFrom(
-                              foregroundColor: isPinned
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurface,
-                            ),
-                            onPressed: () {
-                              ref
-                                  .read(fontListProvider.notifier)
-                                  .togglePinSystemFont(fontName);
-                            },
-                          ),
-                        );
-                      },
+                          );
+                        },
+                      ),
                     ),
         ),
       ],
@@ -516,6 +541,7 @@ class _OnlineFontsTab extends ConsumerStatefulWidget {
 class _OnlineFontsTabState extends ConsumerState<_OnlineFontsTab>
     with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
 
   @override
@@ -523,6 +549,7 @@ class _OnlineFontsTabState extends ConsumerState<_OnlineFontsTab>
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -665,10 +692,13 @@ class _OnlineFontsTabState extends ConsumerState<_OnlineFontsTab>
                 );
               }
 
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: filteredFonts.length,
-                itemBuilder: (context, index) {
+              return AppScrollbar(
+                controller: _scrollController,
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: filteredFonts.length,
+                  itemBuilder: (context, index) {
                   final font = filteredFonts[index];
                   final sizeStr = _formatFileSize(font.size);
                   final previewUrl = resolveFontFileUrl(
@@ -780,8 +810,9 @@ class _OnlineFontsTabState extends ConsumerState<_OnlineFontsTab>
                     ),
                   );
                 },
-              );
-            },
+              ),
+            );
+          },
             loading: () =>
                 const Center(child: CircularProgressIndicator()),
             error: (error, stack) => Center(

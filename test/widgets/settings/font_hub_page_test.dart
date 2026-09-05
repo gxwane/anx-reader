@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/page/settings_page/subpage/fonts.dart';
@@ -308,6 +310,48 @@ void main() {
 
       // Verify offline banner text is visible
       expect(find.text('Showing offline cached fonts'), findsOneWidget);
+    });
+
+    testWidgets('on Windows desktop: Font Hub tabs handle mouse hover and scrollbar drag without error', (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          fontsProvider.overrideWith(() => FakeFonts()),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: ThemeData(platform: TargetPlatform.windows),
+              localizationsDelegates: L10n.localizationsDelegates,
+              supportedLocales: L10n.supportedLocales,
+              locale: const Locale('en'),
+              home: const Scaffold(
+                body: FontsSettingPage(initialTabIndex: 0),
+              ),
+            ),
+          ),
+        );
+
+        await container.read(fontListProvider.future);
+      });
+
+      await tester.pumpAndSettle();
+      expect(find.byType(FontsSettingPage), findsOneWidget);
+
+      // Verify mouse hover over scrollbar area triggers no "no ScrollPosition attached" crash
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: const Offset(790, 100));
+      await tester.pumpAndSettle();
+      await gesture.down(const Offset(790, 100));
+      await gesture.moveTo(const Offset(790, 200));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FontsSettingPage), findsOneWidget);
     });
   });
 }

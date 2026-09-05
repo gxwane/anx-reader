@@ -4,6 +4,7 @@ import 'package:anx_reader/page/settings_page/more_settings_page.dart';
 import 'package:anx_reader/providers/iap.dart';
 import 'package:anx_reader/service/iap/iap_service.dart';
 import 'package:anx_reader/utils/env_var.dart';
+import 'package:anx_reader/widgets/common/app_scrollbar.dart';
 import 'package:anx_reader/widgets/settings/about.dart';
 import 'package:anx_reader/widgets/settings/theme_mode.dart';
 import 'package:anx_reader/widgets/settings/webdav_switch.dart';
@@ -22,13 +23,24 @@ class SettingsPage extends ConsumerStatefulWidget {
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   late final ScrollController _scrollController =
       widget.controller ?? ScrollController();
+
+  @override
+  void dispose() {
+    if (widget.controller == null) {
+      _scrollController.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
+      body: AppScrollbar(
         controller: _scrollController,
-        child: Padding(
-          padding: const EdgeInsets.only(bottom: 80),
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 80),
           child: Column(
             children: [
               GestureDetector(
@@ -111,6 +123,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

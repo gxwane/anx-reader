@@ -11,6 +11,7 @@ import 'package:anx_reader/service/tts/tts_service_provider.dart';
 import 'package:anx_reader/utils/get_current_language_code.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/widgets/common/anx_button.dart';
+import 'package:anx_reader/widgets/common/app_scrollbar.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:anx_reader/widgets/common/tts_diagnostic_dialog.dart';
 import 'package:anx_reader/widgets/settings/service_config_form.dart';
@@ -349,10 +350,12 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
       }
     });
 
-    return ListView(
+    return AppScrollbar(
       controller: _scrollController,
-      padding: const EdgeInsets.only(bottom: 50.0), // Add padding for bottom
-      children: [
+      child: ListView(
+        controller: _scrollController,
+        padding: const EdgeInsets.only(bottom: 50.0), // Add padding for bottom
+        children: [
         SettingsSection(
           title: Text(L10n.of(context).settingsNarrateTtsService),
           tiles: [
@@ -449,8 +452,9 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
           ],
         )
       ],
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildServiceSelection(String currentServiceId) {
     return Padding(

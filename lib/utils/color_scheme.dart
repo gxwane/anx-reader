@@ -77,6 +77,31 @@ ThemeData colorSchema(
 
   return themeData
       .copyWith(
+          scrollbarTheme: ScrollbarThemeData(
+            interactive: true,
+            thickness: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.hovered) ||
+                  states.contains(WidgetState.dragged)) {
+                return 8.0;
+              }
+              return 6.0;
+            }),
+            radius: const Radius.circular(4.0),
+            crossAxisMargin: 2.0,
+            thumbColor: WidgetStateProperty.resolveWith((states) {
+              final scheme = themeData.colorScheme;
+              if (isEinkMode) {
+                return scheme.onSurface;
+              }
+              if (states.contains(WidgetState.dragged)) {
+                return scheme.primary.withValues(alpha: 0.85);
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return scheme.onSurface.withValues(alpha: 0.50);
+              }
+              return scheme.onSurface.withValues(alpha: 0.25);
+            }),
+          ),
           sliderTheme: const SliderThemeData(year2023: false),
           progressIndicatorTheme:
               const ProgressIndicatorThemeData(year2023: false),
