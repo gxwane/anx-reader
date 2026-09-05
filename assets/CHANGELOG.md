@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.0-preview.5] - 2026-09-02
+## [0.1.0-preview.6] - 2026-09-05
 
 - Feat(ui): Modernize universal scrollbars and platform-adaptive scrolling, featuring native clamping/bouncing physics, duplicate scrollbar prevention, detached controller crash protection, purified TOC scrollbar-free gesture interaction, and unified theme styling
 - Fix(reader): Modernize Table of Contents (TOC) and TTS accordion chevrons (right when collapsed, down when expanded with RTL support), and eliminate misleading progress arrow and row height jumping in TOC
@@ -30,8 +30,6 @@
 - Feat(sync): Redesign WebDAV sync with per-book micro-sync, non-destructive record merge, and non-blocking progress hints
 - Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
 - Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
-- Feat(reader): Upgrade Chinese conversion engine to OpenCC with Trie matching and multi-locale support
-- Feat(ai): Polish AI chat in-panel transition, smart scrolling lock, focus retention, and visual states
 
 - Feat(ui): 全局滚动体验现代化与平台自适应滚动条，支持桌面/移动自适应滚动物理、双重滚动条防重、未挂载控制器崩溃保护、阅读目录防重影与纯净手势交互，以及统一主题样式
 - Fix(reader): 全面规范书籍目录树（TOC）与朗读设置折叠箭头方向（折叠为向右箭头，展开为向下箭头，自适应 RTL），并彻底消除当前章节误导性的向右箭头与突增行高，统一单行规整排版
@@ -61,6 +59,12 @@
 - Feat(sync): 全面重构 WebDAV 同步引擎，支持单书毫秒级微同步、多端记录无损合流与非阻塞进度提示
 - Fix(statistics): 修复统计面板在宽屏与全屏布局下的网格排布空洞与镂空白斑问题
 - Fix(sync): 修复 WebDAV 双向同步在下载远端数据库后反复触发误上传的乒乓循环问题
+
+## [0.1.0-preview.5] - 2026-09-02
+
+- Feat(reader): Upgrade Chinese conversion engine to OpenCC with Trie matching and multi-locale support
+- Feat(ai): Polish AI chat in-panel transition, smart scrolling lock, focus retention, and visual states
+
 - Feat(reader): 工业级 OpenCC 简繁转换引擎重构，精准解决一简多繁歧义，支持通用繁体、台湾正体与香港繁体
 - Feat(ai): 优化 AI 对话分屏历史原地平滑切换、长思考智能手势滚动锁、连续输入焦点保持与打字机光标状态
 
