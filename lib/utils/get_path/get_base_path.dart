@@ -84,28 +84,39 @@ void initBasePath() async {
   }
 }
 
+String _resolveBasePath(String? path) {
+  if (path != null && path.isNotEmpty) {
+    return path;
+  }
+  if (documentPath.isNotEmpty) {
+    return documentPath;
+  }
+  return Directory.systemTemp.path;
+}
+
 String getBasePath(String path) {
   // the path that in database using "/"
-  path.replaceAll("/", Platform.pathSeparator);
-  return '$documentPath${Platform.pathSeparator}$path';
+  final normalized = path.replaceAll("/", Platform.pathSeparator);
+  final base = _resolveBasePath(null);
+  return '$base${Platform.pathSeparator}$normalized';
 }
 
 Directory getFontDir({String? path}) {
-  path ??= documentPath;
-  return Directory('$path${Platform.pathSeparator}font');
+  final base = _resolveBasePath(path);
+  return Directory('$base${Platform.pathSeparator}font');
 }
 
 Directory getCoverDir({String? path}) {
-  path ??= documentPath;
-  return Directory('$path${Platform.pathSeparator}cover');
+  final base = _resolveBasePath(path);
+  return Directory('$base${Platform.pathSeparator}cover');
 }
 
 Directory getFileDir({String? path}) {
-  path ??= documentPath;
-  return Directory('$path${Platform.pathSeparator}file');
+  final base = _resolveBasePath(path);
+  return Directory('$base${Platform.pathSeparator}file');
 }
 
 Directory getBgimgDir({String? path}) {
-  path ??= documentPath;
-  return Directory('$path${Platform.pathSeparator}bgimg');
+  final base = _resolveBasePath(path);
+  return Directory('$base${Platform.pathSeparator}bgimg');
 }
