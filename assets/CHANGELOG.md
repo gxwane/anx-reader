@@ -2,6 +2,7 @@
 
 ## [0.1.0-preview.6] - 2026-09-05
 
+- Fix(reader): Restore reader focus automatically after text selection and context menu dismissal, eliminating hardware turn-page key (arrows, volume buttons) unresponsiveness and accidental horizontal WebView container panning (#966)
 - Feat(ui): Modernize universal scrollbars and platform-adaptive scrolling, featuring native clamping/bouncing physics, duplicate scrollbar prevention, detached controller crash protection, purified TOC scrollbar-free gesture interaction, and unified theme styling
 - Fix(reader): Modernize Table of Contents (TOC) and TTS accordion chevrons (right when collapsed, down when expanded with RTL support), and eliminate misleading progress arrow and row height jumping in TOC
 - Feat(tts): Implement human-friendly dynamic network diagnostics and discovery status feedback for self-hosted TTS, intelligently analyzing ports, local loopback proxies, and LAN topology
@@ -31,6 +32,7 @@
 - Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
 - Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 
+- Fix(reader): 选中文本或关闭上下文菜单后自动恢复阅读器焦点，彻底解决物理翻页键（方向键、音量键）失效及 WebView 容器异常左右平移缺陷 (#966)
 - Feat(ui): 全局滚动体验现代化与平台自适应滚动条，支持桌面/移动自适应滚动物理、双重滚动条防重、未挂载控制器崩溃保护、阅读目录防重影与纯净手势交互，以及统一主题样式
 - Fix(reader): 全面规范书籍目录树（TOC）与朗读设置折叠箭头方向（折叠为向右箭头，展开为向下箭头，自适应 RTL），并彻底消除当前章节误导性的向右箭头与突增行高，统一单行规整排版
 - Feat(tts): 引入人话级智能网络拓扑诊断分析器与模型发现状态反馈，动态识别服务端口、本地代理拦截（502）与局域网拓扑，消除晦涩的底层网络报错

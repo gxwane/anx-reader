@@ -122,7 +122,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
     // _volumeKeyBoard = VolumeKeyBoard.instance;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _requestReaderFocus();
+        requestReaderFocus();
         // _attachVolumeKeyListener();
       }
     });
@@ -166,7 +166,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
     super.dispose();
   }
 
-  void _requestReaderFocus() {
+  void requestReaderFocus() {
     if (bottomBarOffstage && !_readerFocusNode.hasFocus) {
       _readerFocusNode.requestFocus();
     }
@@ -340,7 +340,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
       if (Prefs().hideStatusBar) {
         hideStatusBar();
       }
-      _requestReaderFocus();
+      requestReaderFocus();
     });
   }
 

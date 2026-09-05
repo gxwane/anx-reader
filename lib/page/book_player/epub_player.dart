@@ -220,12 +220,17 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
       ''');
   }
 
+  void restoreReaderFocus() {
+    readingPageKey.currentState?.requestReaderFocus();
+  }
+
   void setSelectionClearLocked(bool locked) {
     _selectionClearLocked = locked;
     if (!locked && _selectionClearPending) {
       _selectionClearPending = false;
       _lastSelectionContextText = null;
       removeOverlay();
+      restoreReaderFocus();
     }
   }
 
@@ -694,6 +699,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     readingPageKey.currentState?.resetAwakeTimer();
     if (contextMenuEntry != null) {
       removeOverlay();
+      restoreReaderFocus();
       return;
     }
     final x = location['x'];
@@ -892,6 +898,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
           _lastSelectionContextPrefix = null;
           _lastSelectionContextSuffix = null;
           removeOverlay();
+          restoreReaderFocus();
         });
     controller.addJavaScriptHandler(
         handlerName: 'onAnnotationClick',
