@@ -10,6 +10,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('FontService Asset Management & Resilience', () {
+    late Directory tempDir;
     late Directory fontDir;
     late File sampleOtf;
     late File dummyTxt;
@@ -17,6 +18,8 @@ void main() {
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       await Prefs().initPrefs();
+      tempDir = await Directory.systemTemp.createTemp('anx_font_service_test_');
+      documentPath = tempDir.path;
       fontDir = getFontDir();
       if (!await fontDir.exists()) {
         await fontDir.create(recursive: true);
@@ -39,6 +42,9 @@ void main() {
       }
       if (await dummyTxt.exists()) {
         await dummyTxt.delete();
+      }
+      if (tempDir.existsSync()) {
+        tempDir.deleteSync(recursive: true);
       }
     });
 
