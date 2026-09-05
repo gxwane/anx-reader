@@ -2740,6 +2740,8 @@ window.initTts = () => reader.view.initTTS()
 
 window.ttsStop = () => reader.view.initTTS(true)
 
+window.ttsSyncPosition = () => reader.view?.syncTtsPosition?.()
+
 window.ttsHere = () => {
   initTts()
   return reader.view.tts.from(reader.view.lastLocation.range)
@@ -2779,25 +2781,58 @@ window.ttsHighlightByCfi = cfi => {
 }
 
 window.ttsNextSection = async () => {
-  await nextSection()
+  const renderer = reader.view?.renderer
+  if (!renderer) return null
+  const contentBefore = renderer.getContents()?.[0]
+  const oldIndex = contentBefore?.index ?? renderer.currentSection ?? 0
+  const oldChapter = contentBefore?.chapterIndex ?? renderer.currentChapter ?? 0
+
+  const target = await nextSection()
+  if (!target) return null
+
+  const contentAfter = renderer.getContents()?.[0]
+  const newIndex = contentAfter?.index ?? renderer.currentSection ?? 0
+  const newChapter = contentAfter?.chapterIndex ?? renderer.currentChapter ?? 0
+
+  if (newIndex === oldIndex && newChapter === oldChapter) {
+    return null
+  }
+
   initTts()
-  return ttsNext()
+  const result = reader.view?.tts?.next(true)
+  return result ?? null
 }
 
 window.ttsPrevSection = async (last) => {
-  await prevSection()
+  const renderer = reader.view?.renderer
+  if (!renderer) return null
+  const contentBefore = renderer.getContents()?.[0]
+  const oldIndex = contentBefore?.index ?? renderer.currentSection ?? 0
+  const oldChapter = contentBefore?.chapterIndex ?? renderer.currentChapter ?? 0
+
+  const target = await prevSection()
+  if (!target) return null
+
+  const contentAfter = renderer.getContents()?.[0]
+  const newIndex = contentAfter?.index ?? renderer.currentSection ?? 0
+  const newChapter = contentAfter?.chapterIndex ?? renderer.currentChapter ?? 0
+
+  if (newIndex === oldIndex && newChapter === oldChapter) {
+    return null
+  }
+
   initTts()
-  return last ? reader.view.tts.end() : ttsNext()
+  return last ? reader.view?.tts?.end() : (reader.view?.tts?.next(true) ?? null)
 }
 
 window.ttsNext = async () => {
-  const result = reader.view.tts.next(true)
+  const result = reader.view?.tts?.next(true)
   if (result) return result
   return await ttsNextSection()
 }
 
 window.ttsPrev = () => {
-  const result = reader.view.tts.prev(true)
+  const result = reader.view?.tts?.prev(true)
   if (result) return result
   return ttsPrevSection(true)
 }

@@ -169,6 +169,19 @@ class TtsHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     await tts.next();
   }
 
+  void updateMediaItemChapter(String newChapterTitle) {
+    final title = newChapterTitle.trim();
+    if (title.isEmpty) return;
+    final current = mediaItem.value;
+    if (current == null || current.title == title) return;
+    final updated = current.copyWith(
+      id: title,
+      title: title,
+    );
+    mediaItem.add(updated);
+    queue.add([updated]);
+  }
+
   ValueNotifier<TtsStateEnum> get ttsStateNotifier => tts.ttsStateNotifier;
 
   bool get isPlaying => tts.isPlaying;

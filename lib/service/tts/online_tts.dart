@@ -56,6 +56,7 @@ class OnlineTts extends BaseTts {
   bool isInit = false;
   bool _shouldStop = false;
   bool _isNavigating = false;
+  bool _isInsidePlayerLoop = false;
 
   // ============ Backend ============
   TtsServiceProvider? _currentBackend;
@@ -372,6 +373,7 @@ class OnlineTts extends BaseTts {
   Future<void> _startPlayer(int epoch) async {
     if (_isPlayerRunning) return;
     _isPlayerRunning = true;
+    _isInsidePlayerLoop = true;
     _playerCompleter = Completer<void>();
 
     await _ensurePlayer();
@@ -391,8 +393,15 @@ class OnlineTts extends BaseTts {
         await _waitIfPaused(epoch);
         if (_shouldStop || epoch != _sessionEpoch) break;
 
-        // Wait for buffer to have a segment
+        // Wait for buffer to have a segment with starvation protection
+        final bufferWaitStart = DateTime.now();
         while (_buffer.isEmpty && !_shouldStop && epoch == _sessionEpoch) {
+          if (DateTime.now().difference(bufferWaitStart).inSeconds >= 10) {
+            AnxLog.warning(
+                'OnlineTts: buffer starvation timeout (10s), stopping');
+            await stop();
+            break;
+          }
           await Future.delayed(const Duration(milliseconds: 30));
         }
         if (_shouldStop || epoch != _sessionEpoch) break;
@@ -431,7 +440,11 @@ class OnlineTts extends BaseTts {
           await Future.delayed(const Duration(milliseconds: 100));
           await _waitIfPaused(epoch);
           if (!_shouldStop && epoch == _sessionEpoch) {
-            unawaited(getNextTextFunction());
+            final ok = await _advanceReaderPosition(epoch);
+            if (!ok) {
+              _currentSegment = null;
+              break;
+            }
           }
           _currentSegment = null;
           continue;
@@ -472,7 +485,8 @@ class OnlineTts extends BaseTts {
         // 3. Pause barrier BEFORE advancing reader position
         await _waitIfPaused(epoch);
         if (!_shouldStop && epoch == _sessionEpoch) {
-          unawaited(getNextTextFunction());
+          final ok = await _advanceReaderPosition(epoch);
+          if (!ok) break;
         }
       }
     } catch (e) {
@@ -480,11 +494,48 @@ class OnlineTts extends BaseTts {
     } finally {
       _cancelPlaybackWatchdog();
       _releaseResumeCompleter();
+      _isInsidePlayerLoop = false;
       _isPlayerRunning = false;
       _playerCompleter?.complete();
       _playerCompleter = null;
     }
   }
+
+  Future<bool> _advanceReaderPosition(int epoch) async {
+    try {
+      final nextVoiceText = await getNextTextFunction();
+      if (_shouldStop || epoch != _sessionEpoch) return false;
+      if ((nextVoiceText == null || nextVoiceText.toString().trim().isEmpty) &&
+          _buffer.isEmpty) {
+        AnxLog.info('OnlineTts: End of book reached, stopping playback');
+        await stop();
+        return false;
+      }
+      return true;
+    } catch (e) {
+      AnxLog.severe('OnlineTts getNextTextFunction error: $e');
+      if (_buffer.isEmpty) {
+        await stop();
+        return false;
+      }
+      return true;
+    }
+  }
+
+  @visibleForTesting
+  int get sessionEpoch => _sessionEpoch;
+
+  @visibleForTesting
+  void resetForTest() {
+    _shouldStop = false;
+    _isInsidePlayerLoop = false;
+    _isPlayerRunning = false;
+    _resetBuffer();
+  }
+
+  @visibleForTesting
+  Future<bool> advanceReaderPositionForTest(int epoch) =>
+      _advanceReaderPosition(epoch);
 
   Future<void> _highlightSegment(TtsSegment segment) async {
     final state = epubPlayerKey.currentState;
@@ -536,7 +587,8 @@ class OnlineTts extends BaseTts {
     try {
       await Future.wait([
         if (_prefetcherCompleter != null) _prefetcherCompleter!.future,
-        if (_playerCompleter != null) _playerCompleter!.future,
+        if (_playerCompleter != null && !_isInsidePlayerLoop)
+          _playerCompleter!.future,
       ]).timeout(const Duration(milliseconds: 300));
     } catch (_) {}
 

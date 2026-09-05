@@ -19,6 +19,8 @@ import 'package:anx_reader/service/ai/index.dart';
 import 'package:anx_reader/service/ai/prompt_generate.dart';
 import 'package:anx_reader/service/notes/external_notes_import_service.dart';
 import 'package:anx_reader/service/notes/pending_notes_import.dart';
+import 'package:anx_reader/service/tts/base_tts.dart';
+import 'package:anx_reader/service/tts/tts_handler.dart';
 import 'package:anx_reader/utils/env_var.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/utils/toast/common.dart';
@@ -322,6 +324,9 @@ class ReadingPageState extends ConsumerState<ReadingPage>
           _readTimeWatch.start();
         }
         _sessionStart ??= DateTime.now();
+        if (TtsHandler().ttsStateNotifier.value != TtsStateEnum.stopped) {
+          epubPlayerKey.currentState?.ttsSyncPosition();
+        }
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:

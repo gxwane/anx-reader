@@ -126,12 +126,42 @@ export class View extends HTMLElement {
   history = new History()
   #lastCfi = null
   #translator = new Translator()
+  #currentTtsRange = null
+  #lastTtsRangeOnStop = null
+  #isTtsSyncPending = false
+
+  #onVisibilityChange = () => {
+    if (typeof document !== 'undefined' && !document.hidden && (this.tts || this.#lastTtsRangeOnStop)) {
+      this.syncTtsPosition()
+    }
+  }
+
   constructor() {
     super()
     this.history.addEventListener('popstate', ({ detail }) => {
       const resolved = this.resolveNavigation(detail.state)
       this.renderer.goTo(resolved)
     })
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.#onVisibilityChange)
+    }
+  }
+  connectedCallback() {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.#onVisibilityChange)
+      document.addEventListener('visibilitychange', this.#onVisibilityChange)
+    }
+  }
+  disconnectedCallback() {
+    this.close()
+  }
+  close() {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.#onVisibilityChange)
+    }
+    this.#currentTtsRange = null
+    this.#lastTtsRangeOnStop = null
+    this.#isTtsSyncPending = false
   }
   async open(book) {
     this.book = book
@@ -754,15 +784,26 @@ a[${noteRefTouchAttr}] {
   }
   oldValue = null
   initTTS(stop) {
-    if (stop)
-      return this.#getOverlayer(this.#index)?.overlayer.remove(this.oldValue)
+    if (stop) {
+      if (typeof document !== 'undefined' && document.hidden && this.#currentTtsRange) {
+        this.#lastTtsRangeOnStop = this.#currentTtsRange;
+      }
+      this.#currentTtsRange = null;
+      return this.#getOverlayer(this.#index)?.overlayer.remove(this.oldValue);
+    }
 
-    const doc = this.renderer.getContents()[0].doc;
+    const doc = this.renderer.getContents()?.[0]?.doc;
+    if (!doc) return;
     if (this.tts && this.tts.doc === doc) return;
+
+    this.#currentTtsRange = null;
+    this.#lastTtsRangeOnStop = null;
+
     this.tts = new TTS(
       doc,
       textWalker,
       (range) => {
+        this.#currentTtsRange = range;
         const obj = this.#getOverlayer(this.#index);
         let value = null;
         if (obj) {
@@ -774,11 +815,60 @@ a[${noteRefTouchAttr}] {
           overlayer.add(value, range, Overlayer.highlight, { color: '#39c5bc83' });
           this.oldValue = value;
         }
-        this.renderer.scrollToAnchor(range);
+        if (typeof document === 'undefined' || !document.hidden) {
+          this.renderer?.scrollToAnchor?.(range);
+        }
         return value;
       },
       (range) => this.getCFI(this.#index, range),
     );
+  }
+
+  syncTtsPosition() {
+    if (typeof document !== 'undefined' && document.hidden) return;
+    if (this.#isTtsSyncPending) return;
+
+    const targetRange = this.#currentTtsRange ?? this.#lastTtsRangeOnStop;
+    if (!targetRange) return;
+
+    this.#isTtsSyncPending = true;
+
+    requestAnimationFrame(async () => {
+      try {
+        if (typeof document !== 'undefined' && document.hidden) return;
+
+        const currentDoc = this.renderer.getContents()?.[0]?.doc;
+        if (
+          !targetRange.startContainer?.isConnected ||
+          targetRange.startContainer?.ownerDocument !== currentDoc
+        ) {
+          return;
+        }
+
+        if (this.tts && this.#currentTtsRange) {
+          const content = this.renderer.getContents()?.[0];
+          const obj = content?.overlayer ? content : this.#getOverlayer(this.#index);
+          if (obj) {
+            const { overlayer } = obj;
+            if (this.oldValue) {
+              overlayer.remove(this.oldValue);
+            }
+            const value = this.getCFI(this.#index, targetRange);
+            overlayer.add(value, targetRange, Overlayer.highlight, { color: '#39c5bc83' });
+            this.oldValue = value;
+          }
+        }
+
+        if (typeof this.renderer?.scrollToAnchor === 'function') {
+          await this.renderer.scrollToAnchor(targetRange);
+        }
+      } catch (err) {
+        console.warn('[View] syncTtsPosition error:', err);
+      } finally {
+        this.#lastTtsRangeOnStop = null;
+        this.#isTtsSyncPending = false;
+      }
+    });
   }
   startMediaOverlay() {
     const { index } = this.renderer.getContents()[0]

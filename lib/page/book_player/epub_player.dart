@@ -479,21 +479,49 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
 
   void ttsStop() => webViewController.evaluateJavascript(source: "ttsStop()");
 
-  Future<String> ttsNext() async => (await webViewController
-          .callAsyncJavaScript(functionBody: "return await ttsNext()"))
-      ?.value;
+  Future<String> ttsNext() async {
+    try {
+      final res = await webViewController
+          .callAsyncJavaScript(functionBody: "return await ttsNext()")
+          .timeout(const Duration(seconds: 8));
+      return (res?.value?.toString()) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
 
-  Future<String> ttsPrev() async => (await webViewController
-          .callAsyncJavaScript(functionBody: "return await ttsPrev()"))
-      ?.value;
+  Future<String> ttsPrev() async {
+    try {
+      final res = await webViewController
+          .callAsyncJavaScript(functionBody: "return await ttsPrev()")
+          .timeout(const Duration(seconds: 8));
+      return (res?.value?.toString()) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
 
-  Future<String> ttsPrevSection() async => (await webViewController
-          .callAsyncJavaScript(functionBody: "return await ttsPrevSection()"))
-      ?.value;
+  Future<String> ttsPrevSection() async {
+    try {
+      final res = await webViewController
+          .callAsyncJavaScript(functionBody: "return await ttsPrevSection()")
+          .timeout(const Duration(seconds: 8));
+      return (res?.value?.toString()) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
 
-  Future<String> ttsNextSection() async => (await webViewController
-          .callAsyncJavaScript(functionBody: "return await ttsNextSection()"))
-      ?.value;
+  Future<String> ttsNextSection() async {
+    try {
+      final res = await webViewController
+          .callAsyncJavaScript(functionBody: "return await ttsNextSection()")
+          .timeout(const Duration(seconds: 8));
+      return (res?.value?.toString()) ?? '';
+    } catch (_) {
+      return '';
+    }
+  }
 
   Future<String> ttsPrepare() async =>
       (await webViewController.evaluateJavascript(source: "ttsPrepare()"));
@@ -545,6 +573,16 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     await webViewController.callAsyncJavaScript(
       functionBody: 'return ttsHighlightByCfi(${jsonEncode(cfi)})',
     );
+  }
+
+  Future<void> ttsSyncPosition() async {
+    try {
+      await webViewController.evaluateJavascript(
+        source: 'window.ttsSyncPosition?.()',
+      );
+    } catch (e) {
+      AnxLog.warning('ttsSyncPosition bridge failed: $e');
+    }
   }
 
   Future<bool> isFootNoteOpen() async => (await webViewController
@@ -819,6 +857,9 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
             writingMode =
                 WritingModeEnum.fromCode(location['writingMode'] ?? '');
           });
+          if (TtsHandler().isPlaying && chapterTitle.isNotEmpty) {
+            TtsHandler().updateMediaItemChapter(chapterTitle);
+          }
           ref.read(currentReadingProvider.notifier).update(
                 cfi: cfi,
                 percentage: percentage,
