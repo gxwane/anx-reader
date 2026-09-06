@@ -254,6 +254,15 @@ class _AISettingsState extends ConsumerState<AISettings> {
         title: Text(L10n.of(context).settingsAiPrompt),
         tiles: [
           promptTile,
+          SettingsTile.switchTile(
+            initialValue: Prefs().aiPromptSendImmediately,
+            onToggle: (value) {
+              Prefs().aiPromptSendImmediately = value;
+              setState(() {});
+            },
+            title: Text(l10n.settingsAiPromptSendImmediately),
+            description: Text(l10n.settingsAiPromptSendImmediatelyTip),
+          ),
         ],
       ),
       SettingsSection(

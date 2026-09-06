@@ -1054,5 +1054,8 @@
   },
   "bookshelfRemoveFromGroup": "移出分组",
   "bookshelfNewFolder": "新建文件夹",
-  "bookshelfImportBook": "导入书籍"
+  "bookshelfImportBook": "导入书籍",
+  "settingsAiPromptSendImmediately": "立即发送提示词模板",
+  "settingsAiPromptSendImmediatelyTip": "关闭时点击提示词先填入输入框供微调，开启后点击直接发送",
+  "aiPromptChipTooltip": "点击填入微调，长按直接发送"
 }

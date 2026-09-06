@@ -31,6 +31,13 @@ import 'package:skeletonizer/skeletonizer.dart';
 import 'package:langchain_core/chat_models.dart';
 
 import 'package:anx_reader/models/ai_quick_prompt_chip.dart';
+import 'package:anx_reader/utils/platform_utils.dart';
+
+enum PromptChipType {
+  contextualPrefix,
+  standaloneStarter,
+  readingTemplate,
+}
 
 class AiChatStream extends ConsumerStatefulWidget {
   const AiChatStream({
@@ -427,9 +434,91 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
     );
   }
 
-  void _useQuickPrompt(String prompt) {
-    inputController.text = '$prompt ${inputController.text}';
-    _sendMessage();
+  void _applyPromptText(String prompt, PromptChipType type) {
+    final currentText = inputController.text.trim();
+    switch (type) {
+      case PromptChipType.contextualPrefix:
+        if (currentText.isEmpty) {
+          inputController.text = '$prompt ';
+        } else {
+          final knownPrefixes = _getQuickPrompts(context)
+              .map((p) => p['prompt'] ?? '')
+              .where((p) => p.isNotEmpty);
+          String stripped = currentText;
+          for (final prefix in knownPrefixes) {
+            if (stripped.startsWith(prefix)) {
+              stripped = stripped.substring(prefix.length).trim();
+              break;
+            }
+          }
+          inputController.text =
+              stripped.isEmpty ? '$prompt ' : '$prompt $stripped';
+        }
+        break;
+      case PromptChipType.standaloneStarter:
+        inputController.text = prompt;
+        break;
+      case PromptChipType.readingTemplate:
+        if (currentText.isEmpty) {
+          inputController.text = prompt;
+        } else {
+          if (!currentText.startsWith(prompt)) {
+            inputController.text = '$prompt\n\n$currentText';
+          }
+        }
+        break;
+    }
+
+    inputController.selection = TextSelection.fromPosition(
+      TextPosition(offset: inputController.text.length),
+    );
+    _focusNode.requestFocus();
+  }
+
+  void _handlePromptChipAction(
+    String prompt,
+    PromptChipType type, {
+    bool forceImmediate = false,
+  }) {
+    final shouldSend = forceImmediate || Prefs().aiPromptSendImmediately;
+    if (shouldSend) {
+      if (_isStreaming) {
+        return;
+      }
+      _applyPromptText(prompt, type);
+      _sendMessage();
+    } else {
+      _applyPromptText(prompt, type);
+    }
+  }
+
+  Widget _buildPromptChip({
+    Widget? avatar,
+    required Widget label,
+    required String prompt,
+    required PromptChipType type,
+  }) {
+    final chip = ActionChip(
+      avatar: avatar,
+      label: label,
+      onPressed: () => _handlePromptChipAction(prompt, type),
+    );
+
+    final interactiveChip = GestureDetector(
+      onLongPress: () {
+        HapticFeedback.lightImpact();
+        _handlePromptChipAction(prompt, type, forceImmediate: true);
+      },
+      child: chip,
+    );
+
+    if (AnxPlatform.isDesktop && !Prefs().aiPromptSendImmediately) {
+      return Tooltip(
+        message: L10n.of(context).aiPromptChipTooltip,
+        child: interactiveChip,
+      );
+    }
+    return interactiveChip;
   }
 
   void _clearMessage() {
@@ -696,13 +785,11 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
         chips.add(
           Padding(
             padding: EdgeInsets.only(top: i == 0 ? 0 : 8.0),
-            child: ActionChip(
+            child: _buildPromptChip(
               avatar: Icon(chip.icon, size: 18),
               label: Text(chip.label),
-              onPressed: () {
-                inputController.text = chip.prompt;
-                _sendMessage();
-              },
+              prompt: chip.prompt,
+              type: PromptChipType.readingTemplate,
             ),
           ),
         );
@@ -734,12 +821,10 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
                   spacing: 8,
                   runSpacing: 8,
                   children: _suggestedPrompts
-                      .map((prompt) => ActionChip(
+                      .map((prompt) => _buildPromptChip(
                             label: Text(prompt),
-                            onPressed: () {
-                              inputController.text = prompt;
-                              _sendMessage();
-                            },
+                            prompt: prompt,
+                            type: PromptChipType.standaloneStarter,
                           ))
                       .toList(growable: false),
                 ),
@@ -819,9 +904,10 @@ class AiChatStreamState extends ConsumerState<AiChatStream> {
                 child: Row(
                   spacing: 8,
                   children: quickPrompts
-                      .map((p) => ActionChip(
+                      .map((p) => _buildPromptChip(
                             label: Text(p['label']!),
-                            onPressed: () => _useQuickPrompt(p['prompt']!),
+                            prompt: p['prompt']!,
+                            type: PromptChipType.contextualPrefix,
                           ))
                       .toList(),
                 ),
