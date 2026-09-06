@@ -40,6 +40,28 @@ const Duration _shutdownCleanupTimeout = Duration(seconds: 2);
 bool _needsMigration = false;
 MigrationCheckResult? _migrationCheckResult;
 
+/// Configures FlutterSmartDialog animations based on E-ink anti-flicker mode.
+void applySmartDialogEinkMode(bool isEink) {
+  SmartDialog.config.custom = SmartConfigCustom(
+    maskColor: isEink ? Colors.black.withAlpha(50) : Colors.black.withAlpha(35),
+    useAnimation: !isEink,
+    animationType: SmartAnimationType.centerFade_otherSlide,
+  );
+  SmartDialog.config.attach = SmartConfigAttach(
+    useAnimation: !isEink,
+    animationType: SmartAnimationType.scale,
+  );
+  SmartDialog.config.toast = SmartConfigToast(
+    useAnimation: !isEink,
+    animationType: SmartAnimationType.fade,
+  );
+  SmartDialog.config.loading = SmartConfigLoading(
+    useAnimation: !isEink,
+    animationType: SmartAnimationType.fade,
+    maskColor: isEink ? Colors.black.withAlpha(50) : Colors.black.withAlpha(35),
+  );
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Prefs().initPrefs();
@@ -75,11 +97,7 @@ Future<void> main() async {
     ),
   );
 
-  SmartDialog.config.custom = SmartConfigCustom(
-    maskColor: Colors.black.withAlpha(35),
-    useAnimation: true,
-    animationType: SmartAnimationType.centerFade_otherSlide,
-  );
+  applySmartDialogEinkMode(Prefs().eInkMode);
 
   runApp(
     const ProviderScope(
@@ -99,15 +117,26 @@ class _MyAppState extends ConsumerState<MyApp>
     with WidgetsBindingObserver, WindowListener {
   static const Locale _englishFallbackLocale = Locale('en');
 
+  bool _lastEinkMode = Prefs().eInkMode;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
+    Prefs().addListener(_onPrefsChanged);
+  }
+
+  void _onPrefsChanged() {
+    if (_lastEinkMode != Prefs().eInkMode) {
+      _lastEinkMode = Prefs().eInkMode;
+      applySmartDialogEinkMode(_lastEinkMode);
+    }
   }
 
   @override
   void dispose() {
+    Prefs().removeListener(_onPrefsChanged);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -283,9 +312,16 @@ class _MyAppState extends ConsumerState<MyApp>
             scrollBehavior: const AppScrollBehavior(),
             navigatorObservers: [
               FlutterSmartDialog.observer,
-              heroineController
+              if (!prefsNotifier.eInkMode) heroineController,
             ],
-            builder: FlutterSmartDialog.init(),
+            builder: (context, child) {
+              final smartDialogChild =
+                  FlutterSmartDialog.init()(context, child);
+              return HeroMode(
+                enabled: !prefsNotifier.eInkMode,
+                child: smartDialogChild,
+              );
+            },
             navigatorKey: navigatorKey,
             locale: prefsNotifier.locale,
             localeListResolutionCallback: _resolveLocale,

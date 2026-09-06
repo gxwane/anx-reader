@@ -84,6 +84,7 @@ class _AppearanceSettingState extends State<AppearanceSetting> {
             ),
             SettingsTile.switchTile(
               title: Text(L10n.of(context).eInkMode),
+              description: Text(L10n.of(context).optimizedForEInkDisplays),
               leading: const Icon(Icons.contrast),
               initialValue: Prefs().eInkMode,
               onToggle: (bool value) {
@@ -120,6 +121,10 @@ class _AppearanceSettingState extends State<AppearanceSetting> {
               SettingsTile.switchTile(
                 title:
                     Text(L10n.of(context).settingsAppearanceOpenBookAnimation),
+                description: Prefs().eInkMode
+                    ? Text(L10n.of(context).optimizedForEInkDisplays)
+                    : null,
+                enabled: !Prefs().eInkMode,
                 leading: const Icon(Icons.animation),
                 initialValue: Prefs().openBookAnimation,
                 onToggle: (bool value) {

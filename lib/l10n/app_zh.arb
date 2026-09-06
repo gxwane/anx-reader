@@ -1057,5 +1057,6 @@
   "bookshelfImportBook": "导入书籍",
   "settingsAiPromptSendImmediately": "立即发送提示词模板",
   "settingsAiPromptSendImmediatelyTip": "关闭时点击提示词先填入输入框供微调，开启后点击直接发送",
-  "aiPromptChipTooltip": "点击填入微调，长按直接发送"
+  "aiPromptChipTooltip": "点击填入微调，长按直接发送",
+  "commonLoading": "加载中..."
 }

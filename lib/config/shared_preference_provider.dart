@@ -561,9 +561,22 @@ class Prefs extends ChangeNotifier {
   }
 
   PageTurn get pageTurnStyle {
+    if (eInkMode) {
+      String? style = prefs.getString('pageTurnStyle');
+      if (style == PageTurn.slide.name || style == null) {
+        return PageTurn.noAnimation;
+      }
+      return PageTurn.values.firstWhere(
+        (element) => element.name == style,
+        orElse: () => PageTurn.noAnimation,
+      );
+    }
     String? style = prefs.getString('pageTurnStyle');
     if (style == null) return PageTurn.slide;
-    return PageTurn.values.firstWhere((element) => element.name == style);
+    return PageTurn.values.firstWhere(
+      (element) => element.name == style,
+      orElse: () => PageTurn.slide,
+    );
   }
 
   set font(FontModel font) {
@@ -1237,6 +1250,7 @@ class Prefs extends ChangeNotifier {
   }
 
   bool get openBookAnimation {
+    if (eInkMode) return false;
     return prefs.getBool('openBookAnimation') ?? true;
   }
 

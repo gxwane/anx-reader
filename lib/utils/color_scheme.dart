@@ -77,6 +77,18 @@ ThemeData colorSchema(
 
   return themeData
       .copyWith(
+          pageTransitionsTheme: isEinkMode
+              ? const PageTransitionsTheme(
+                  builders: {
+                    TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
+                    TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
+                    TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
+                    TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
+                    TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
+                    TargetPlatform.fuchsia: NoAnimationPageTransitionsBuilder(),
+                  },
+                )
+              : null,
           scrollbarTheme: ScrollbarThemeData(
             interactive: true,
             thickness: WidgetStateProperty.resolveWith((states) {
@@ -113,4 +125,20 @@ ThemeData colorSchema(
           dialogTheme: DialogThemeData()
               .copyWith(backgroundColor: gropedBackgroundColor))
       .useSystemChineseFont(brightness);
+}
+
+/// Instantaneous zero-animation page transition builder for E-ink anti-flicker mode.
+class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
+  const NoAnimationPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
+  }
 }
