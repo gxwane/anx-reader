@@ -266,6 +266,27 @@ class BookNoteDao extends BaseDao {
       mapper: BookNote.fromDb,
     );
   }
+
+  Future<void> migrateTemporaryNotes(int newBookId) async {
+    final db = await database;
+    await db.update(
+      table,
+      {'book_id': newBookId},
+      where: 'book_id = ?',
+      whereArgs: [-1],
+    );
+    markDirty(newBookId);
+  }
+
+  Future<void> clearTemporaryNotes() async {
+    final db = await database;
+    await db.delete(
+      table,
+      where: 'book_id = ?',
+      whereArgs: [-1],
+    );
+    BookNoteDao.markClean(-1);
+  }
 }
 
 final bookNoteDao = BookNoteDao();

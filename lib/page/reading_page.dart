@@ -1,13 +1,16 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:anx_reader/dao/book_note.dart';
 import 'package:anx_reader/dao/reading_time.dart';
 import 'package:anx_reader/dao/theme.dart';
 import 'package:anx_reader/enums/ai_panel_position.dart';
 import 'package:anx_reader/enums/ai_chat_display_mode.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/main.dart';
+import 'package:anx_reader/service/receive_file/external_file_receiver.dart';
 import 'package:anx_reader/models/ai_quick_prompt_chip.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/read_theme.dart';
@@ -22,7 +25,9 @@ import 'package:anx_reader/service/notes/pending_notes_import.dart';
 import 'package:anx_reader/service/tts/base_tts.dart';
 import 'package:anx_reader/service/tts/tts_handler.dart';
 import 'package:anx_reader/utils/env_var.dart';
+import 'package:anx_reader/utils/get_path/get_temp_dir.dart';
 import 'package:anx_reader/utils/log/common.dart';
+import 'package:path/path.dart' as p;
 import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/utils/ui/status_bar.dart';
 import 'package:anx_reader/widgets/ai/ai_chat_stream.dart';
@@ -66,12 +71,42 @@ class ReadingPage extends ConsumerStatefulWidget {
   ConsumerState<ReadingPage> createState() => ReadingPageState();
 }
 
-final GlobalKey<ReadingPageState> readingPageKey =
-    GlobalKey<ReadingPageState>();
-final epubPlayerKey = GlobalKey<EpubPlayerState>();
+class ReadingPageKeyAccessor {
+  const ReadingPageKeyAccessor();
+  ReadingPageState? get currentState => ReadingPageState.activeState;
+  BuildContext? get currentContext => ReadingPageState.activeState?.context;
+  Widget? get currentWidget => ReadingPageState.activeState?.widget;
+}
+
+const readingPageKey = ReadingPageKeyAccessor();
+
+class EpubPlayerKeyAccessor {
+  const EpubPlayerKeyAccessor();
+  EpubPlayerState? get currentState =>
+      ReadingPageState.activeState?.epubPlayerKey.currentState;
+  BuildContext? get currentContext =>
+      ReadingPageState.activeState?.epubPlayerKey.currentContext;
+  Widget? get currentWidget =>
+      ReadingPageState.activeState?.epubPlayerKey.currentWidget;
+}
+
+const epubPlayerKey = EpubPlayerKeyAccessor();
+
+enum _PreviewExitAction {
+  exitDirectly,
+  importAndExit,
+}
 
 class ReadingPageState extends ConsumerState<ReadingPage>
     with WidgetsBindingObserver, TickerProviderStateMixin {
+  static final List<ReadingPageState> _activeStates = [];
+  static ReadingPageState? get activeState =>
+      _activeStates.isNotEmpty ? _activeStates.last : null;
+  @visibleForTesting
+  static List<ReadingPageState> get activeStatesForTesting => _activeStates;
+
+  final GlobalKey<EpubPlayerState> epubPlayerKey = GlobalKey<EpubPlayerState>();
+
   static const empty = SizedBox.shrink();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late Book _book;
@@ -97,6 +132,8 @@ class ReadingPageState extends ConsumerState<ReadingPage>
 
   @override
   void initState() {
+    super.initState();
+    _activeStates.add(this);
     _readerFocusNode = FocusNode(debugLabel: 'reading_page_focus');
 
     // Initialize AI panel sizes from persistent storage
@@ -118,6 +155,13 @@ class ReadingPageState extends ConsumerState<ReadingPage>
     setAwakeTimer(Prefs().awakeTime);
 
     _book = widget.book;
+    if (_book.isExternalPreview) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          AnxToast.show(L10n.of(context).readingExternalPreviewHint);
+        }
+      });
+    }
     heroTag = widget.heroTag ?? 'preventHeroWhenStart';
     // _volumeKeyBoard = VolumeKeyBoard.instance;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -137,10 +181,10 @@ class ReadingPageState extends ConsumerState<ReadingPage>
         }
       });
     }
-    super.initState();
   }
 
   Future<void> _checkRemoteProgressAndNotes() async {
+    if (_book.isExternalPreview) return;
     final md5 = _book.md5;
     if (md5 == null || md5.isEmpty || !Prefs().webdavStatus) return;
 
@@ -184,7 +228,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
 
   @override
   void dispose() {
-    if (!isAppShuttingDown) {
+    if (!isAppShuttingDown && !_book.isExternalPreview) {
       Sync().syncBookOnExit(_book);
     }
     _readTimeWatch.stop();
@@ -192,21 +236,95 @@ class ReadingPageState extends ConsumerState<ReadingPage>
     WakelockPlus.disable();
     showStatusBar();
     WidgetsBinding.instance.removeObserver(this);
-    readingTimeDao.insertReadingTime(
-      ReadingTime(
-        bookId: _book.id,
-        readingTime: _readTimeWatch.elapsed.inSeconds,
-      ),
-      startedAt: _sessionStart,
-    );
+    if (!_book.isExternalPreview) {
+      readingTimeDao.insertReadingTime(
+        ReadingTime(
+          bookId: _book.id,
+          readingTime: _readTimeWatch.elapsed.inSeconds,
+        ),
+        startedAt: _sessionStart,
+      );
+    } else {
+      bookNoteDao.clearTemporaryNotes();
+      final filePath = _book.filePath;
+      getAnxTempDir().then((tempDir) {
+        try {
+          if (p.isWithin(tempDir.path, filePath)) {
+            final tempEpub = File(filePath);
+            if (tempEpub.existsSync()) {
+              tempEpub.deleteSync();
+            }
+          }
+        } catch (_) {}
+      });
+    }
     _sessionStart = null;
     audioHandler.stop();
     _notesImportSession?.cancelIfResolving();
     // if (_volumeKeyListenerAttached) {
     //   unawaited(_volumeKeyBoard.removeListener());
     // }
+    _activeStates.remove(this);
     _readerFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<void> _importCurrentExternalBook() async {
+    final l10n = L10n.of(context);
+    final imported = await ExternalFileReceiver.importExternalBookToLibrary(
+      context: context,
+      ref: ref,
+      tempBook: _book,
+    );
+    if (imported != null && mounted) {
+      setState(() {
+        _book = imported;
+      });
+      epubPlayerKey.currentState?.updateBook(imported);
+      AnxToast.show(l10n.serviceImportSuccess);
+    }
+  }
+
+  Future<void> _handleCloseReadingPage() async {
+    if (!_book.isExternalPreview) {
+      Navigator.pop(context);
+      return;
+    }
+
+    final l10n = L10n.of(context);
+    final action = await showDialog<_PreviewExitAction>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l10n.readingExternalNotAddedTitle(_book.title)),
+        content: Text(l10n.readingExternalNotAddedContent),
+        actions: [
+          TextButton(
+            onPressed: () =>
+                Navigator.pop(ctx, _PreviewExitAction.exitDirectly),
+            child: Text(
+              l10n.readingExitWithoutSaving,
+              style: TextStyle(color: Theme.of(ctx).colorScheme.error),
+            ),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.pop(ctx, _PreviewExitAction.importAndExit),
+            child: Text(l10n.readingAddAndExit),
+          ),
+        ],
+      ),
+    );
+
+    if (action == null || !mounted) return;
+
+    if (action == _PreviewExitAction.importAndExit) {
+      await _importCurrentExternalBook();
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } else if (action == _PreviewExitAction.exitDirectly) {
+      Navigator.pop(context);
+    }
   }
 
   void requestReaderFocus() {
@@ -804,12 +922,34 @@ class ReadingPageState extends ConsumerState<ReadingPage>
                   title: Text(_book.title, overflow: TextOverflow.ellipsis),
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
-                    onPressed: () {
-                      // close reading page
-                      Navigator.pop(context);
-                    },
+                    onPressed: _handleCloseReadingPage,
                   ),
                   actions: [
+                    if (_book.isExternalPreview)
+                      Builder(builder: (context) {
+                        final isCompact =
+                            MediaQuery.sizeOf(context).width < 500;
+                        final primaryColor =
+                            Theme.of(context).colorScheme.primary;
+                        if (isCompact) {
+                          return IconButton(
+                            icon: Icon(
+                              Icons.library_add_outlined,
+                              color: primaryColor,
+                            ),
+                            tooltip: L10n.of(context).readingAddToBookshelf,
+                            onPressed: _importCurrentExternalBook,
+                          );
+                        }
+                        return TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: primaryColor,
+                          ),
+                          icon: const Icon(Icons.library_add_outlined),
+                          label: Text(L10n.of(context).readingAddToBookshelf),
+                          onPressed: _importCurrentExternalBook,
+                        );
+                      }),
                     if (EnvVar.enableAIFeature) aiButton,
                     IconButton(
                       icon: const Icon(Icons.copy),
@@ -920,8 +1060,14 @@ class ReadingPageState extends ConsumerState<ReadingPage>
       ),
     );
 
-    return Scaffold(
-      resizeToAvoidBottomInset: false,
+    return PopScope(
+      canPop: !_book.isExternalPreview,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _handleCloseReadingPage();
+      },
+      child: Scaffold(
+        resizeToAvoidBottomInset: false,
       body: Hero(
         tag: widget.heroTag ??
             (Prefs().openBookAnimation ? _book.coverFullPath : heroTag),
@@ -1103,6 +1249,7 @@ class ReadingPageState extends ConsumerState<ReadingPage>
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

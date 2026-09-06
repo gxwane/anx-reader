@@ -21,6 +21,7 @@ import 'package:anx_reader/providers/toc_search.dart';
 import 'package:anx_reader/service/book_metadata_extractor.dart';
 import 'package:anx_reader/service/convert_to_epub/txt/convert_from_txt.dart';
 import 'package:anx_reader/service/md5_service.dart';
+import 'package:anx_reader/service/receive_file/external_file_receiver.dart';
 import 'package:anx_reader/utils/webView/anx_headless_webview.dart';
 import 'package:anx_reader/utils/env_var.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
@@ -454,6 +455,8 @@ Future<void> importBook(File file, WidgetRef ref) async {
   _refreshBookListIfAlive(ref);
 }
 
+DateTime _lastPushToReadingPageTime = DateTime.fromMillisecondsSinceEpoch(0);
+
 Future<void> pushToReadingPage(
   WidgetRef ref,
   BuildContext context,
@@ -461,6 +464,13 @@ Future<void> pushToReadingPage(
   String? cfi,
   String? heroTag,
 }) async {
+  final now = DateTime.now();
+  if (now.difference(_lastPushToReadingPageTime).inMilliseconds < 500) {
+    AnxLog.info('pushToReadingPage: throttled rapid push for book ${book.title}');
+    return;
+  }
+  _lastPushToReadingPageTime = now;
+
   if (book.isDeleted) {
     AnxToast.show(L10n.of(context).bookDeleted);
     return;
@@ -505,7 +515,6 @@ Future<void> pushToReadingPage(
     navigatorKey.currentContext!,
     CupertinoPageRoute(
       builder: (c) => ReadingPage(
-        key: readingPageKey,
         book: book,
         cfi: cfi,
         initialThemes: initialThemes,
@@ -513,11 +522,13 @@ Future<void> pushToReadingPage(
       ),
     ),
   ).then((_) {
+    _lastPushToReadingPageTime = DateTime.fromMillisecondsSinceEpoch(0);
     AnxLog.info('ReadingPage: poped: ${book.title}');
     currentReading.finish();
     bookSearchBridge.state = null;
     chapterContentBridge.state = null;
     tocSearch.clear();
+    ExternalFileReceiver.clearLastHandled();
     AnxLog.info('Pop successfully ReadingPage: ${book.title}');
   });
 }

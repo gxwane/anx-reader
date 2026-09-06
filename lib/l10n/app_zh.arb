@@ -1058,5 +1058,19 @@
   "settingsAiPromptSendImmediately": "立即发送提示词模板",
   "settingsAiPromptSendImmediatelyTip": "关闭时点击提示词先填入输入框供微调，开启后点击直接发送",
   "aiPromptChipTooltip": "点击填入微调，长按直接发送",
-  "commonLoading": "加载中..."
+  "commonLoading": "加载中...",
+  "readingExternalPreviewMode": "临时预览模式",
+  "readingExternalPreviewHint": "临时预览模式 · 点击顶部可随时加入书架",
+  "readingAddToBookshelf": "加入书架",
+  "readingExternalNotAddedTitle": "《{title}》尚未加入书架",
+  "@readingExternalNotAddedTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "readingExternalNotAddedContent": "退出后本次临时阅读进度将不会保存，是否将其加入书架？",
+  "readingExitWithoutSaving": "直接退出",
+  "readingAddAndExit": "加入书架并退出"
 }

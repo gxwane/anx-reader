@@ -23,6 +23,12 @@
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。
 
 ### 新增
+- **全平台系统级书籍文件关联直接打开与现代临时预览模式（Cross-Platform File Association & Modern Ephemeral Preview Mode）**：
+  - **全平台系统级双击/分享关联打开（System-Wide File Association）**：在 Windows（Inno Setup 注册表 ProgID 与单实例 `WM_COPYDATA`）、macOS（`CFBundleDocumentTypes` 与 `AppDelegate.openFiles`）、iOS（Document Types 与 UTI）以及 Android（Intent 统一通道）深度集成系统文件关联与原生通道，支持双击直接打开 `.epub`, `.mobi`, `.azw3`, `.azw`, `.fb2`, `.txt`, `.pdf` 书籍文件；
+  - **书架已有书籍毫秒级秒开（Instant Bookshelf Matching Fast-Path）**：通过流式计算文件 MD5（`calculateFileMd5Stream` 杜绝大文件 OOM），若文件已存在于书架中，则直接唤醒并以已有书籍身份极速秒开（<50ms），不弹窗、不重复复制；
+  - **现代临时预览模式（Modern Ephemeral Preview Mode）**：若文件未在书架中，以临时预览身份（`isExternalPreview`）立即打开，不污染书架列表，不向云端 WebDAV 发起无效微同步或产生历史孤儿记录，严守用户外部物理文件绝不删除（Delete-Free）安全底线；
+  - **阅读器一键入库转正（In-Reader Add to Bookshelf）**：顶部常驻「加入书架」操作按钮与沉浸式横幅提示，点击即可原子化克隆文件至本地书库、写入数据库元数据并将临时笔记平滑迁移合并；
+  - **退出安全闭环与临时笔记清理（Safe Exit & Temporary Notes Cleanup）**：退出未入库的临时预览书籍时，提供友好确认弹窗（「加入书架并退出」 vs 「直接退出」），直接退出时自动清理临时笔记与格式转换缓存，保证存储空间与书架环境纯净无污染 (#975)。
 - **墨水屏全局禁用动效与极致防频闪模式（E-ink Anti-Flicker & Zero-Animation Mode）**：
   - **全平台零延迟瞬时路由切换（Zero-Animation Route Transitions）**：构建 `NoAnimationPageTransitionsBuilder` 并注入全局 Material 主题引擎，在开启 E-ink 模式后彻底消除全平台页面进入与退出的平移、缩放与渐隐动效，首帧瞬时渲染，杜绝残影；
   - **根级 Hero 封面跨屏飞行拦截（Root Hero Flight Interception）**：在应用根节点部署 `HeroMode(enabled: !eInkMode)` 并动态解绑 `HeroineController`，书籍打开及卡片交互不再产生跨屏移动重绘；

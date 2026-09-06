@@ -1166,5 +1166,19 @@
   "settingsAiPromptSendImmediately": "Send prompt templates immediately",
   "settingsAiPromptSendImmediatelyTip": "When disabled, clicking a prompt fills the input box for editing. When enabled, clicking sends immediately.",
   "aiPromptChipTooltip": "Tap to edit, long-press to send",
-  "commonLoading": "Loading..."
+  "commonLoading": "Loading...",
+  "readingExternalPreviewMode": "Preview Mode",
+  "readingExternalPreviewHint": "Preview Mode · Tap top bar anytime to add to bookshelf",
+  "readingAddToBookshelf": "Add to Bookshelf",
+  "readingExternalNotAddedTitle": "\"{title}\" is not in your bookshelf",
+  "@readingExternalNotAddedTitle": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "readingExternalNotAddedContent": "Progress will not be saved after exiting. Add it to your bookshelf?",
+  "readingExitWithoutSaving": "Exit Without Saving",
+  "readingAddAndExit": "Add and Exit"
 }

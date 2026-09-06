@@ -2,6 +2,7 @@
 
 ## [0.1.0-preview.6] - 2026-09-05
 
+- Feat(desktop): Full cross-platform file association and modern ephemeral preview mode for direct book opening (Windows, macOS, Android, iOS), featuring instant bookshelf matching (<50ms), zero-pollution temporary reading mode without storage or library pollution, in-reader [Add to Bookshelf] action, and safe exit handling with temporary notes cleanup (#975)
 - Feat(theme): Implement comprehensive E-ink anti-flicker and zero-animation mode, eliminating page transition latency, suppressing root Hero flight transitions, short-circuiting book-opening fade animations, disabling SmartDialog motion, and replacing 60FPS rotating spinners with high-contrast static indicators (#986)
 - Feat(ai): Support filling AI prompt templates into input box for fine-tuning before sending, with intelligent prefix replacement, trailing spacing, long-press direct send shortcut, and configurable settings toggle (#969)
 - Feat(bookshelf): Implement multi-selection batch management (batch status update, batch move to group, batch release storage space, batch soft delete with notes decoupling) and manual reading status marking (#841)
@@ -38,6 +39,7 @@
 - Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
 - Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 
+- Feat(desktop): 全平台（Windows / macOS / Android / iOS）系统级双击与外部书籍文件关联直接打开与现代临时预览模式，支持书架已有书籍毫秒级（<50ms）秒开、未入库书籍零污染临时预览、阅读器内一键「加入书架」并安全入库转正，以及退出时弹窗提示与临时笔记安全清理机制 (#975)
 - Feat(theme): 全面重构墨水屏 (E-ink) 极致防频闪与全局零动效模式，全平台消除页面路由平移/缩放过渡、根级拦截 Hero 封面跨屏飞行、短路开书淡出动效、禁用 SmartDialog 浮层动效，并采用高对比度静态加载指示器替代 60FPS 旋转加载圈 (#986)
 - Feat(ai): 支持 AI 快捷提示词模板填入输入框微调后再发送，支持上下文前缀智能互斥替换、长按直接发送快车道以及设置项开关全局配置 (#969)
 - Feat(bookshelf): 支持书架多选批量管理（批量修改阅读状态、批量移动至文件夹/分组、批量释放本地存储空间、批量软删除并永久保留笔记与阅读统计）及手动标记阅读状态（未读/在读/已读/弃读）(#841)
