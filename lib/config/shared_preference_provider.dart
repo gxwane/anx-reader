@@ -1074,6 +1074,15 @@ class Prefs extends ChangeNotifier {
     return prefs.getBool('autoAdjustReadingTheme') ?? false;
   }
 
+  set aiPromptSendImmediately(bool status) {
+    prefs.setBool('aiPromptSendImmediately', status);
+    notifyListeners();
+  }
+
+  bool get aiPromptSendImmediately {
+    return prefs.getBool('aiPromptSendImmediately') ?? false;
+  }
+
   // User prompts - simple read/write methods
   List<UserPrompt> get userPrompts {
     final jsonString = prefs.getString(_userPromptsKey);

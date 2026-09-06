@@ -2,6 +2,7 @@
 
 ## [0.1.0-preview.6] - 2026-09-05
 
+- Feat(ai): Support filling AI prompt templates into input box for fine-tuning before sending, with intelligent prefix replacement, trailing spacing, long-press direct send shortcut, and configurable settings toggle (#969)
 - Feat(bookshelf): Implement multi-selection batch management (batch status update, batch move to group, batch release storage space, batch soft delete with notes decoupling) and manual reading status marking (#841)
 - Fix(tts): Resolve background and lockscreen TTS stalling permanently at chapter boundaries by bypassing requestAnimationFrame on hidden document, eliminating mutual recursion, synchronizing lockscreen media metadata, and self-healing viewport and highlight position instantly upon screen wake-up (#544)
 - Fix(window): Eliminate ghost layer desktop icon click interception and mouse pass-through blockage on Windows by pausing active WebViews and hiding child runner window on minimize (#981, #243, #255, #830, #850)
@@ -36,6 +37,7 @@
 - Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
 - Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 
+- Feat(ai): 支持 AI 快捷提示词模板填入输入框微调后再发送，支持上下文前缀智能互斥替换、长按直接发送快车道以及设置项开关全局配置 (#969)
 - Feat(bookshelf): 支持书架多选批量管理（批量修改阅读状态、批量移动至文件夹/分组、批量释放本地存储空间、批量软删除并永久保留笔记与阅读统计）及手动标记阅读状态（未读/在读/已读/弃读）(#841)
 - Fix(tts): 彻底修复后台与锁屏状态下 TTS 听书跨章节自动连读卡死缺陷，在页面隐藏时跳过 requestAnimationFrame 动画并消除尾章互递归死锁，支持锁屏通知栏章节元数据动态同步，并实现手机熄屏听书亮屏唤醒瞬间视口与高亮毫秒级自愈对齐 (#544)
 - Fix(window): 彻底修复 Windows 窗口最小化/最大化后桌面图标无法点击与鼠标穿透遮挡问题，通过协调暂停 WebView 幽灵图层并同步隐藏原生子窗口彻底根除输入捕获 (#981, #243, #255, #830, #850)

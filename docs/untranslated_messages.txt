@@ -123,7 +123,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "de": [
@@ -250,7 +253,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "es": [
@@ -377,7 +383,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "fr": [
@@ -504,7 +513,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "it": [
@@ -631,7 +643,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "ja": [
@@ -758,7 +773,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "ko": [
@@ -885,7 +903,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "pt": [
@@ -1012,7 +1033,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "ro": [
@@ -1139,7 +1163,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "ru": [
@@ -1266,7 +1293,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "tr": [
@@ -1393,7 +1423,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "zh": [
@@ -1472,7 +1505,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "zh_LZH": [
@@ -1587,7 +1623,10 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ],
 
   "zh_TW": [
@@ -1659,6 +1698,9 @@
     "bookshelfBatchMovedSuccess",
     "bookshelfRemoveFromGroup",
     "bookshelfNewFolder",
-    "bookshelfImportBook"
+    "bookshelfImportBook",
+    "settingsAiPromptSendImmediately",
+    "settingsAiPromptSendImmediatelyTip",
+    "aiPromptChipTooltip"
   ]
 }
