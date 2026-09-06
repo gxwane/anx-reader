@@ -18,6 +18,7 @@ import 'package:anx_reader/utils/get_path/get_temp_dir.dart';
 import 'package:anx_reader/utils/load_default_font.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/utils/platform_utils.dart';
+import 'package:anx_reader/providers/bookshelf_selection_provider.dart';
 import 'package:anx_reader/providers/sync.dart';
 import 'package:anx_reader/providers/iap.dart';
 import 'package:anx_reader/config/shared_preference_provider.dart';
@@ -211,6 +212,10 @@ class _HomePageState extends ConsumerState<HomePage> {
       );
     }).toList();
 
+    final isSelectionMode = ref.watch(
+      bookshelfSelectionProvider.select((s) => s.isSelectionMode),
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         _expanded ??= constraints.maxWidth > 1000;
@@ -280,7 +285,9 @@ class _HomePageState extends ConsumerState<HomePage> {
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(500),
               ),
-              child: ClipRRect(
+              child: isSelectionMode
+                  ? const SizedBox.shrink()
+                  : ClipRRect(
                 borderRadius: BorderRadius.circular(32),
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),

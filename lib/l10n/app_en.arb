@@ -1111,5 +1111,56 @@
   "ttsDiagFallbackNotice": "Could not connect to service; showing preset voices. Please verify service status.",
   "ttsDiagEndpointMissingNotice": "Connected to service, but dynamic voice discovery is not supported by this server.",
   "ttsDiagTroubleshoot": "Troubleshoot",
-  "ttsDiagRetry": "Retry"
+  "ttsDiagRetry": "Retry",
+  "bookshelfBatchManage": "Batch Manage",
+  "bookshelfSelectedCount": "{count, plural, zero{0 selected} one{1 selected} other{{count} selected}}",
+  "@bookshelfSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfSelectAll": "Select all",
+  "bookshelfDeselectAll": "Deselect all",
+  "bookshelfBatchChangeStatus": "Change Status",
+  "bookshelfBatchMoveToGroup": "Move to Group",
+  "bookshelfBatchReleaseSpace": "Release Space",
+  "bookshelfBatchDelete": "Delete",
+  "bookshelfBatchDeleteConfirm": "Delete {count} selected books?",
+  "@bookshelfBatchDeleteConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfBatchDeleteNotice": "Local book files will be removed, but notes and reading statistics are kept safely.",
+  "bookshelfBatchReleasedSuccess": "Released storage for {count} books",
+  "@bookshelfBatchReleasedSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfBatchStatusUpdated": "Updated reading status for {count} books",
+  "@bookshelfBatchStatusUpdated": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfBatchMovedSuccess": "Moved {count} books",
+  "@bookshelfBatchMovedSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfRemoveFromGroup": "Remove from Group",
+  "bookshelfNewFolder": "New Folder",
+  "bookshelfImportBook": "Import book"
 }

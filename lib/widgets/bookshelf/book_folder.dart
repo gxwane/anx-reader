@@ -3,6 +3,7 @@ import 'package:anx_reader/enums/bookshelf_folder_style.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/tb_group.dart';
 import 'package:anx_reader/providers/book_list.dart';
+import 'package:anx_reader/providers/bookshelf_selection_provider.dart';
 import 'package:anx_reader/providers/tb_groups.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
 import 'package:anx_reader/widgets/bookshelf/book_item.dart';
@@ -170,13 +171,73 @@ class _BookFolderState extends ConsumerState<BookFolder> {
             folderPreview = buildStackedPreview();
         }
 
+        final isSelectionMode = ref.watch(
+          bookshelfSelectionProvider.select((s) => s.isSelectionMode),
+        );
+        final folderBookIds = widget.books.map((b) => b.id).toList();
+        final selectedFolderCount = ref.watch(
+          bookshelfSelectionProvider.select(
+            (s) => folderBookIds.where(s.selectedBookIds.contains).length,
+          ),
+        );
+        final isAllFolderSelected = selectedFolderCount > 0 &&
+            selectedFolderCount == folderBookIds.length;
+        final isSomeFolderSelected =
+            selectedFolderCount > 0 && !isAllFolderSelected;
+
         return scaleTransition(
           Column(
             children: [
               Expanded(
                 child: InkWell(
-                  onTap: () => openFolder(groupName),
-                  child: folderPreview,
+                  onTap: () {
+                    if (isSelectionMode) {
+                      ref
+                          .read(bookshelfSelectionProvider.notifier)
+                          .toggleFolder(folderBookIds);
+                    } else {
+                      openFolder(groupName);
+                    }
+                  },
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      folderPreview,
+                      if (isSelectionMode)
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isAllFolderSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : isSomeFolderSelected
+                                      ? Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withAlpha(200)
+                                      : Colors.black.withAlpha(100),
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 2,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            child: Icon(
+                              isSomeFolderSelected
+                                  ? Icons.remove
+                                  : Icons.check,
+                              size: 14,
+                              color: (isAllFolderSelected ||
+                                      isSomeFolderSelected)
+                                  ? Colors.white
+                                  : Colors.transparent,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
               SizedBox(
