@@ -141,6 +141,7 @@ class StyleWidgetState extends ConsumerState<StyleWidget> {
               .map((e) => DropdownMenuEntry(
                     value: e,
                     label: e.getLabel(context),
+                    enabled: !(Prefs().eInkMode && e == PageTurn.slide),
                   ))
               .toList(),
         ),

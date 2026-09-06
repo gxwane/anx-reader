@@ -1165,5 +1165,6 @@
   "bookshelfImportBook": "Import book",
   "settingsAiPromptSendImmediately": "Send prompt templates immediately",
   "settingsAiPromptSendImmediatelyTip": "When disabled, clicking a prompt fills the input box for editing. When enabled, clicking sends immediately.",
-  "aiPromptChipTooltip": "Tap to edit, long-press to send"
+  "aiPromptChipTooltip": "Tap to edit, long-press to send",
+  "commonLoading": "Loading..."
 }

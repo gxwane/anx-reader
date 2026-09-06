@@ -23,6 +23,13 @@
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。
 
 ### 新增
+- **墨水屏全局禁用动效与极致防频闪模式（E-ink Anti-Flicker & Zero-Animation Mode）**：
+  - **全平台零延迟瞬时路由切换（Zero-Animation Route Transitions）**：构建 `NoAnimationPageTransitionsBuilder` 并注入全局 Material 主题引擎，在开启 E-ink 模式后彻底消除全平台页面进入与退出的平移、缩放与渐隐动效，首帧瞬时渲染，杜绝残影；
+  - **根级 Hero 封面跨屏飞行拦截（Root Hero Flight Interception）**：在应用根节点部署 `HeroMode(enabled: !eInkMode)` 并动态解绑 `HeroineController`，书籍打开及卡片交互不再产生跨屏移动重绘；
+  - **开书 600ms 渐隐动画自动短路（Instant Book Open Bypass）**：`openBookAnimation` 在墨水屏模式下自动求值为 `false`，彻底跳过渐隐封面与定时器，点击即可瞬时加载正文；
+  - **SmartDialog 浮层动效全面抑制（SmartDialog Motion Suppression）**：动态配置 SmartDialog 的 `custom`、`attach`、`toast` 与 `loading` 四类全局浮层为 `useAnimation: false`，消除淡入与滑动闪烁；
+  - **高对比度静态加载指示器（Static Anti-Strobe Loading Indicator）**：重构 `showLoading()`，在墨水屏模式下以高对比度静态沙漏图标与加粗加载文本取代 60FPS 持续旋转的 `CircularProgressIndicator`，根除高频局刷抖动与电池消耗；
+  - **翻页与外观设置无缝协同（Settings & Navigation Harmony）**：在外观设置中为 E-INK 模式提供清晰说明，联动锁定开书动画开关状态，并在排版菜单中对滑动翻页提供友好禁用保护，默认锁定无动画翻页 (#986)。
 - **AI 提示词模板填入输入框微调后再发送（AI Prompt Template Fill & Fine-Tuning）**：
   - **点击填入微调（Tap to Fill & Focus）**：点击预设的 AI 快捷提示词芯片（上下文提示词、空状态引导词、章节总结、全书总结、思维导图与自定义 Prompt）时，由原先的“立即直接发送”优化为自动填充至输入框、光标定位至文本末尾并自动获取焦点，供用户追加具体指令或微调内容后再发送；
   - **上下文前缀智能互斥替换（Intelligent Prefix Replacement）**：在上下文前缀词（解释、看法、总结、分析、建议）之间切换时，自动识别并替换已有前缀词，杜绝“请分析 请解释 xxx”等多重前缀重复堆叠；输入框为空时自动附带尾随空格方便输入；
