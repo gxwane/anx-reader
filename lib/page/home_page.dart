@@ -10,6 +10,7 @@ import 'package:anx_reader/page/home_page/bookshelf_page.dart';
 import 'package:anx_reader/page/home_page/notes_page.dart';
 import 'package:anx_reader/page/home_page/settings_page.dart';
 import 'package:anx_reader/page/home_page/statistics_page.dart';
+import 'package:anx_reader/service/receive_file/external_file_receiver.dart';
 import 'package:anx_reader/service/receive_file/receive_share.dart';
 import 'package:anx_reader/service/vibration_service.dart';
 import 'package:anx_reader/utils/check_update.dart';
@@ -108,6 +109,7 @@ class _HomePageState extends ConsumerState<HomePage> {
       ref.read(iapProvider.future);
     }
     AnxToast.init(context);
+    ExternalFileReceiver.init(ref);
     checkUpdate(false);
     InitializationCheck.check();
     if (Prefs().webdavStatus) {

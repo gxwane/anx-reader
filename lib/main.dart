@@ -21,6 +21,7 @@ import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/utils/window_position_validator.dart';
 import 'package:anx_reader/utils/webView/active_webview_registry.dart';
 import 'package:anx_reader/providers/sync.dart';
+import 'package:anx_reader/service/receive_file/external_file_receiver.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -62,8 +63,9 @@ void applySmartDialogEinkMode(bool isEink) {
   );
 }
 
-Future<void> main() async {
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+  ExternalFileReceiver.setInitialFilePathFromArgs(args);
   await Prefs().initPrefs();
 
   // Initialize desktop window with validated position

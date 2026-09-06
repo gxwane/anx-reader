@@ -1216,13 +1216,26 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     super.didChangeDependencies();
   }
 
+  @override
+  void didUpdateWidget(EpubPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.book.id != book.id || widget.book.filePath != book.filePath) {
+      updateBook(widget.book);
+    }
+  }
+
+  void updateBook(Book newBook) {
+    setState(() {
+      book = newBook;
+    });
+  }
+
   Future<void> saveReadingProgress() async {
     if (cfi == '' || widget.cfi != null) return;
     final clampedPercentage = clampReadingProgress(percentage);
     final clampedResumePercentage = clampReadingProgress(
       resumePercentage > 0 ? resumePercentage : clampedPercentage,
     );
-    Book book = widget.book;
     book.lastReadPosition =
         encodeReadingRestoreTargetFromFraction(clampedResumePercentage);
     book.readingPercentage = clampedPercentage;
@@ -1234,9 +1247,11 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
       book.startReadingTime ??= DateTime.now();
     }
 
-    await bookDao.updateBook(book);
-    if (mounted) {
-      ref.read(bookListProvider.notifier).refresh();
+    if (book.id > 0) {
+      await bookDao.updateBook(book);
+      if (mounted) {
+        ref.read(bookListProvider.notifier).refresh();
+      }
     }
   }
 

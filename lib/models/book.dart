@@ -1,5 +1,6 @@
 import 'package:anx_reader/enums/reading_status.dart';
 import 'package:anx_reader/utils/get_path/get_base_path.dart';
+import 'package:path/path.dart' as p;
 
 class Book {
   int id;
@@ -61,12 +62,20 @@ class Book {
   }
 
   String get coverFullPath {
+    if (p.isAbsolute(coverPath)) {
+      return coverPath;
+    }
     return getBasePath(coverPath);
   }
 
   String get fileFullPath {
+    if (p.isAbsolute(filePath)) {
+      return filePath;
+    }
     return getBasePath(filePath);
   }
+
+  bool get isExternalPreview => id <= 0;
 
   Map<String, Object?> toMap() {
     return {

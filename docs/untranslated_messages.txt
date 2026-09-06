@@ -127,7 +127,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "de": [
@@ -258,7 +265,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "es": [
@@ -389,7 +403,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "fr": [
@@ -520,7 +541,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "it": [
@@ -651,7 +679,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "ja": [
@@ -782,7 +817,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "ko": [
@@ -913,7 +955,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "pt": [
@@ -1044,7 +1093,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "ro": [
@@ -1175,7 +1231,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "ru": [
@@ -1306,7 +1369,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "tr": [
@@ -1437,7 +1507,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "zh": [
@@ -1520,7 +1597,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "zh_LZH": [
@@ -1639,7 +1723,14 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ],
 
   "zh_TW": [
@@ -1715,6 +1806,13 @@
     "settingsAiPromptSendImmediately",
     "settingsAiPromptSendImmediatelyTip",
     "aiPromptChipTooltip",
-    "commonLoading"
+    "commonLoading",
+    "readingExternalPreviewMode",
+    "readingExternalPreviewHint",
+    "readingAddToBookshelf",
+    "readingExternalNotAddedTitle",
+    "readingExternalNotAddedContent",
+    "readingExitWithoutSaving",
+    "readingAddAndExit"
   ]
 }

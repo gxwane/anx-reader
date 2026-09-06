@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:anx_reader/main.dart';
 import 'package:anx_reader/service/book.dart';
+import 'package:anx_reader/service/receive_file/external_file_receiver.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_handler/share_handler.dart';
@@ -28,7 +29,11 @@ void receiveShareIntent(WidgetRef ref) {
         files.add(sourceFile);
       }
     }
-    await importBookList(files, navigatorKey.currentContext!, ref);
+    if (files.length == 1) {
+      await ExternalFileReceiver.handleIncomingFile(files.first, ref);
+    } else if (files.length > 1) {
+      await importBookList(files, navigatorKey.currentContext!, ref);
+    }
     handler.resetInitialSharedMedia();
   }
 

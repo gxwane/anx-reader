@@ -27,6 +27,29 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  file_channel_ =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          flutter_controller_->engine()->messenger(),
+          "anx_reader/desktop_file_open",
+          &flutter::StandardMethodCodec::GetInstance());
+
+  file_channel_->SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+             std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name() == "ready") {
+          is_flutter_ready_ = true;
+          for (const auto& file : pending_files_) {
+            file_channel_->InvokeMethod(
+                "onOpenFile",
+                std::make_unique<flutter::EncodableValue>(file));
+          }
+          pending_files_.clear();
+          result->Success(flutter::EncodableValue(true));
+        } else {
+          result->NotImplemented();
+        }
+      });
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -40,6 +63,10 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  if (file_channel_) {
+    file_channel_ = nullptr;
+  }
+
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
@@ -65,6 +92,28 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   switch (message) {
+    case WM_COPYDATA: {
+      auto cds = reinterpret_cast<PCOPYDATASTRUCT>(lparam);
+      if (cds != nullptr && cds->dwData == 0x414E58 && cds->lpData != nullptr &&
+          cds->cbData > 0) {
+        std::string file_path(reinterpret_cast<const char*>(cds->lpData),
+                              cds->cbData);
+        while (!file_path.empty() && file_path.back() == '\0') {
+          file_path.pop_back();
+        }
+        if (!file_path.empty()) {
+          if (is_flutter_ready_ && file_channel_) {
+            file_channel_->InvokeMethod(
+                "onOpenFile",
+                std::make_unique<flutter::EncodableValue>(file_path));
+          } else {
+            pending_files_.push_back(file_path);
+          }
+        }
+        return TRUE;
+      }
+      break;
+    }
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
       break;

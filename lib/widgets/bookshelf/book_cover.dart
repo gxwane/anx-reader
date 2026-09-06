@@ -47,13 +47,20 @@ class BookCover extends StatelessWidget {
       // Default cover with responsive text and icon
       child = LayoutBuilder(
         builder: (context, constraints) {
-          final coverWidth = constraints.maxWidth;
+          final coverWidth = constraints.hasBoundedWidth
+              ? constraints.maxWidth
+              : (constraints.hasBoundedHeight
+                  ? constraints.maxHeight * 0.72
+                  : 140.0);
+          final effectiveWidth = constraints.hasBoundedHeight
+              ? math.min(coverWidth, constraints.maxHeight * 0.72)
+              : coverWidth;
 
-          // Calculate responsive sizes based on width
-          final titleFontSize = coverWidth * 0.12;
-          final authorFontSize = coverWidth * 0.08;
-          final iconSize = coverWidth * 0.8;
-          final padding = coverWidth * 0.08;
+          // Calculate responsive sizes based on effective width with safe clamps
+          final titleFontSize = (effectiveWidth * 0.12).clamp(7.0, 36.0);
+          final authorFontSize = (effectiveWidth * 0.08).clamp(6.0, 18.0);
+          final iconSize = effectiveWidth * 0.8;
+          final padding = (effectiveWidth * 0.08).clamp(3.0, 20.0);
 
           final backgroundColor = Colors
               .primaries[book.title.hashCode % Colors.primaries.length]
@@ -73,21 +80,23 @@ class BookCover extends StatelessWidget {
                     padding: EdgeInsets.all(padding),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Title at top
                         if (showTitle)
-                          Text(
-                            book.title,
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: titleFontSize,
-                              fontWeight: FontWeight.bold,
-                              color: textColor,
-                              height: 1.2,
+                          Flexible(
+                            child: Text(
+                              book.title,
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.bold,
+                                color: textColor,
+                                height: 1.2,
+                              ),
                             ),
                           ),
-                        const Spacer(),
                         // Author at bottom
                         if (showAuthor)
                           Text(
