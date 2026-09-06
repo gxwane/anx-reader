@@ -1,3 +1,4 @@
+import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/providers/sync.dart';
 import 'package:anx_reader/widgets/bookshelf/sync_status_bottom_sheet.dart';
 import 'package:flutter/material.dart';
@@ -45,6 +46,7 @@ class _SyncButtonState extends ConsumerState<SyncButton>
     final isSyncing = ref.watch(syncProvider.select((s) => s.isSyncing));
 
     return IconButton(
+      tooltip: L10n.of(context).settingsSync,
       icon: isSyncing
           ? RepaintBoundary(
               child: RotationTransition(

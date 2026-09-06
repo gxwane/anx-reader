@@ -1003,5 +1003,56 @@
   "ttsDiagFallbackNotice": "未能连接到服务获取音色（已显示默认预设）。请检查服务状态。",
   "ttsDiagEndpointMissingNotice": "服务连接正常，但该服务端未提供动态音色发现接口，已启用预设音色。",
   "ttsDiagTroubleshoot": "排查原因",
-  "ttsDiagRetry": "重试"
+  "ttsDiagRetry": "重试",
+  "bookshelfBatchManage": "批量管理",
+  "bookshelfSelectedCount": "已选择 {count} 本",
+  "@bookshelfSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfSelectAll": "全选",
+  "bookshelfDeselectAll": "取消全选",
+  "bookshelfBatchChangeStatus": "修改状态",
+  "bookshelfBatchMoveToGroup": "移动分组",
+  "bookshelfBatchReleaseSpace": "释放空间",
+  "bookshelfBatchDelete": "批量删除",
+  "bookshelfBatchDeleteConfirm": "确定删除选中的 {count} 本书？",
+  "@bookshelfBatchDeleteConfirm": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfBatchDeleteNotice": "将清理选定书籍的本地物理文件，但您的读书笔记与阅读时长将永久保留。",
+  "bookshelfBatchReleasedSuccess": "已成功为 {count} 本书释放本地空间",
+  "@bookshelfBatchReleasedSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfBatchStatusUpdated": "已更新 {count} 本书的阅读状态",
+  "@bookshelfBatchStatusUpdated": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfBatchMovedSuccess": "已移动 {count} 本书",
+  "@bookshelfBatchMovedSuccess": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "bookshelfRemoveFromGroup": "移出分组",
+  "bookshelfNewFolder": "新建文件夹",
+  "bookshelfImportBook": "导入书籍"
 }

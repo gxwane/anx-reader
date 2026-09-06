@@ -1,4 +1,5 @@
 import 'package:anx_reader/dao/base_dao.dart';
+import 'package:anx_reader/enums/reading_status.dart';
 import 'package:anx_reader/models/book.dart';
 
 class BookDao extends BaseDao {
@@ -129,6 +130,103 @@ class BookDao extends BaseDao {
       where: "is_deleted = 0 AND (file_md5 IS NULL OR file_md5 = '')",
       orderBy: 'update_time DESC',
     );
+  }
+
+  Future<void> batchUpdateStatus(
+    List<int> bookIds,
+    ReadingStatus status,
+  ) async {
+    if (bookIds.isEmpty) return;
+    final now = DateTime.now().toIso8601String();
+    final placeholders = List.filled(bookIds.length, '?').join(',');
+    final db = await database;
+
+    await db.transaction((txn) async {
+      switch (status) {
+        case ReadingStatus.unread:
+          await txn.rawUpdate(
+            '''
+            UPDATE $table
+            SET reading_status = ?, update_time = ?
+            WHERE id IN ($placeholders)
+            ''',
+            [status.value, now, ...bookIds],
+          );
+          break;
+        case ReadingStatus.reading:
+          await txn.rawUpdate(
+            '''
+            UPDATE $table
+            SET reading_status = ?,
+                start_reading_time = COALESCE(start_reading_time, ?),
+                update_time = ?
+            WHERE id IN ($placeholders)
+            ''',
+            [status.value, now, now, ...bookIds],
+          );
+          break;
+        case ReadingStatus.finished:
+          await txn.rawUpdate(
+            '''
+            UPDATE $table
+            SET reading_status = ?,
+                finish_reading_time = ?,
+                read_count = CASE WHEN reading_status = ? THEN read_count ELSE read_count + 1 END,
+                update_time = ?
+            WHERE id IN ($placeholders)
+            ''',
+            [status.value, now, status.value, now, ...bookIds],
+          );
+          break;
+        case ReadingStatus.abandoned:
+          await txn.rawUpdate(
+            '''
+            UPDATE $table
+            SET reading_status = ?, update_time = ?
+            WHERE id IN ($placeholders)
+            ''',
+            [status.value, now, ...bookIds],
+          );
+          break;
+      }
+    });
+  }
+
+  Future<void> batchUpdateGroup(
+    List<int> bookIds,
+    int groupId,
+  ) async {
+    if (bookIds.isEmpty) return;
+    final now = DateTime.now().toIso8601String();
+    final placeholders = List.filled(bookIds.length, '?').join(',');
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.rawUpdate(
+        '''
+        UPDATE $table
+        SET group_id = ?, update_time = ?
+        WHERE id IN ($placeholders)
+        ''',
+        [groupId, now, ...bookIds],
+      );
+    });
+  }
+
+  Future<void> batchSoftDelete(List<int> bookIds) async {
+    if (bookIds.isEmpty) return;
+    final now = DateTime.now().toIso8601String();
+    final placeholders = List.filled(bookIds.length, '?').join(',');
+    final db = await database;
+    await db.transaction((txn) async {
+      await txn.rawUpdate(
+        '''
+        UPDATE $table
+        SET is_deleted = 1, update_time = ?
+        WHERE id IN ($placeholders)
+        ''',
+        [now, ...bookIds],
+      );
+    });
   }
 }
 

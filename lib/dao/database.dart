@@ -112,6 +112,10 @@ class DBHelper {
 
   DBHelper._internal();
 
+  static void setDatabaseForTesting(Database? db) {
+    _database = db;
+  }
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await initDB();

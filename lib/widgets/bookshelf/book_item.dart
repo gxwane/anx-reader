@@ -6,6 +6,7 @@ import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/page/book_detail.dart';
 import 'package:anx_reader/providers/book_list.dart';
+import 'package:anx_reader/providers/bookshelf_selection_provider.dart';
 import 'package:anx_reader/providers/sync_status.dart';
 import 'package:anx_reader/service/book.dart';
 import 'package:anx_reader/utils/platform_utils.dart';
@@ -66,6 +67,16 @@ class BookItem extends ConsumerWidget {
                 const Icon(Icons.info_outline, size: 18),
                 const SizedBox(width: 10),
                 Text(L10n.of(context).notesPageDetail),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'select',
+            child: Row(
+              children: [
+                const Icon(Icons.checklist, size: 18),
+                const SizedBox(width: 10),
+                Text(L10n.of(context).bookshelfBatchManage),
               ],
             ),
           ),
@@ -169,6 +180,10 @@ class BookItem extends ConsumerWidget {
 
       if (result == 'open') {
         pushToReadingPage(ref, context, book);
+      } else if (result == 'select') {
+        ref
+            .read(bookshelfSelectionProvider.notifier)
+            .enterSelectionMode(book.id);
       } else if (result == 'detail') {
         Navigator.push(
           context,
@@ -238,20 +253,38 @@ class BookItem extends ConsumerWidget {
             }) ??
             BookSyncStatusEnum.checking;
 
+    final isSelectionMode = ref.watch(
+      bookshelfSelectionProvider.select((s) => s.isSelectionMode),
+    );
+    final isSelected = ref.watch(
+      bookshelfSelectionProvider
+          .select((s) => s.selectedBookIds.contains(book.id)),
+    );
+
     return GestureDetector(
       onTap: () {
-        pushToReadingPage(ref, context, book);
+        if (isSelectionMode) {
+          ref.read(bookshelfSelectionProvider.notifier).toggle(book.id);
+        } else {
+          pushToReadingPage(ref, context, book);
+        }
       },
       onLongPress: () {
-        final cb = onOpenBookSheet;
-        if (cb != null) {
-          cb(book);
+        if (isSelectionMode) {
+          ref.read(bookshelfSelectionProvider.notifier).toggle(book.id);
         } else {
-          handleLongPress(context);
+          final cb = onOpenBookSheet;
+          if (cb != null) {
+            cb(book);
+          } else {
+            handleLongPress(context);
+          }
         }
       },
       onSecondaryTapUp: (details) {
-        if (AnxPlatform.isDesktop) {
+        if (isSelectionMode) {
+          ref.read(bookshelfSelectionProvider.notifier).toggle(book.id);
+        } else if (AnxPlatform.isDesktop) {
           showDesktopMenu(context, details.globalPosition);
         } else {
           final cb = onOpenBookSheet;
@@ -283,7 +316,37 @@ class BookItem extends ConsumerWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      child: BookCover(book: book),
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          BookCover(book: book),
+                          if (isSelectionMode)
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isSelected
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.black.withAlpha(100),
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: 2,
+                                  ),
+                                ),
+                                padding: const EdgeInsets.all(2),
+                                child: Icon(
+                                  Icons.check,
+                                  size: 14,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : Colors.transparent,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ],
                 ),

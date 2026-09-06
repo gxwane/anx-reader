@@ -107,7 +107,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "de": [
@@ -218,7 +234,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "es": [
@@ -329,7 +361,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "fr": [
@@ -440,7 +488,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "it": [
@@ -551,7 +615,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "ja": [
@@ -662,7 +742,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "ko": [
@@ -773,7 +869,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "pt": [
@@ -884,7 +996,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "ro": [
@@ -995,7 +1123,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "ru": [
@@ -1106,7 +1250,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "tr": [
@@ -1217,7 +1377,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "zh": [
@@ -1280,7 +1456,23 @@
     "fontSourceInvalid",
     "fontSourceOfflineNotice",
     "fontSourceDeleteConfirm",
-    "fontSourceSwitchOfficial"
+    "fontSourceSwitchOfficial",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "zh_LZH": [
@@ -1379,7 +1571,23 @@
     "ttsDiagFallbackNotice",
     "ttsDiagEndpointMissingNotice",
     "ttsDiagTroubleshoot",
-    "ttsDiagRetry"
+    "ttsDiagRetry",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ],
 
   "zh_TW": [
@@ -1435,6 +1643,22 @@
     "fontSourceInvalid",
     "fontSourceOfflineNotice",
     "fontSourceDeleteConfirm",
-    "fontSourceSwitchOfficial"
+    "fontSourceSwitchOfficial",
+    "bookshelfBatchManage",
+    "bookshelfSelectedCount",
+    "bookshelfSelectAll",
+    "bookshelfDeselectAll",
+    "bookshelfBatchChangeStatus",
+    "bookshelfBatchMoveToGroup",
+    "bookshelfBatchReleaseSpace",
+    "bookshelfBatchDelete",
+    "bookshelfBatchDeleteConfirm",
+    "bookshelfBatchDeleteNotice",
+    "bookshelfBatchReleasedSuccess",
+    "bookshelfBatchStatusUpdated",
+    "bookshelfBatchMovedSuccess",
+    "bookshelfRemoveFromGroup",
+    "bookshelfNewFolder",
+    "bookshelfImportBook"
   ]
 }

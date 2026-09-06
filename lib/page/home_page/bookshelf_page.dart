@@ -17,10 +17,12 @@ import 'package:anx_reader/service/book.dart';
 import 'package:anx_reader/page/search/search_page.dart';
 import 'package:anx_reader/utils/get_path/get_temp_dir.dart';
 import 'package:anx_reader/utils/color/hash_color.dart';
+import 'package:anx_reader/providers/bookshelf_selection_provider.dart';
 import 'package:anx_reader/utils/platform_utils.dart';
 import 'package:anx_reader/utils/log/common.dart';
 import 'package:anx_reader/widgets/bookshelf/book_bottom_sheet.dart';
 import 'package:anx_reader/widgets/bookshelf/book_folder.dart';
+import 'package:anx_reader/widgets/bookshelf/bookshelf_batch_action_bar.dart';
 import 'package:anx_reader/widgets/bookshelf/sync_button.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
 import 'package:anx_reader/widgets/common/tag_chip.dart';
@@ -130,6 +132,9 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
     final statusFilter = ref.watch(readingStatusFilterNotifierProvider);
     final selectedTags = ref.watch(tagSelectionProvider);
     final tagsAsync = ref.watch(tagListProvider);
+    final selectionState = ref.watch(bookshelfSelectionProvider);
+    final isSelectionMode = selectionState.isSelectionMode;
+    final selectedCount = selectionState.selectedBookIds.length;
 
     Widget buildFilterBar() {
       final statusChips = [
@@ -444,7 +449,7 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
                   : ReorderableBuilder(
                       // lock all index of books
                       lockedIndices: lockedIndices,
-                      enableDraggable: true,
+                      enableDraggable: !isSelectionMode,
                       longPressDelay: AnxPlatform.isDesktop
                           ? Duration.zero
                           : const Duration(milliseconds: 300),
@@ -620,6 +625,45 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
       ],
     );
 
+    final booksAsync = ref.watch(bookListProvider);
+    final visibleBooks =
+        booksAsync.valueOrNull?.expand((group) => group).toList() ?? [];
+    final visibleBookIds = visibleBooks.map((b) => b.id).toList();
+    final allSelected =
+        visibleBookIds.isNotEmpty && selectedCount == visibleBookIds.length;
+
+    PreferredSizeWidget selectionAppBar = AppBar(
+      forceMaterialTransparency: true,
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: () {
+          ref.read(bookshelfSelectionProvider.notifier).exitSelectionMode();
+        },
+      ),
+      title: Text(
+        L10n.of(context).bookshelfSelectedCount(selectedCount),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+      ),
+      actions: [
+        TextButton.icon(
+          icon: Icon(
+            allSelected ? Icons.deselect : Icons.select_all,
+            size: 20,
+          ),
+          label: Text(
+            allSelected
+                ? L10n.of(context).bookshelfDeselectAll
+                : L10n.of(context).bookshelfSelectAll,
+          ),
+          onPressed: () {
+            ref
+                .read(bookshelfSelectionProvider.notifier)
+                .toggleAll(visibleBookIds);
+          },
+        ),
+      ],
+    );
+
     PreferredSizeWidget appBar = AppBar(
       forceMaterialTransparency: true,
       title: Container(
@@ -653,13 +697,22 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
             ),
           )),
       actions: [
+        IconButton(
+          icon: const Icon(Icons.checklist),
+          tooltip: L10n.of(context).bookshelfBatchManage,
+          onPressed: () {
+            ref.read(bookshelfSelectionProvider.notifier).enterSelectionMode();
+          },
+        ),
         const SyncButton(),
         IconButton(
           icon: const Icon(Icons.add),
+          tooltip: L10n.of(context).bookshelfImportBook,
           onPressed: _isImporting ? null : _importBook,
         ),
         IconButton(
             icon: const Icon(Icons.sort),
+            tooltip: L10n.of(context).bookshelfSort,
             onPressed: () {
               showMenu(
                 context: context,
@@ -732,10 +785,28 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
                   ],
                 ),
               ),
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: appBar,
-          body: body,
+        child: PopScope(
+          canPop: !isSelectionMode,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            ref.read(bookshelfSelectionProvider.notifier).exitSelectionMode();
+          },
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: isSelectionMode ? selectionAppBar : appBar,
+            body: Stack(
+              children: [
+                body,
+                if (isSelectionMode)
+                  const Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: BookshelfBatchActionBar(),
+                  ),
+              ],
+            ),
+          ),
         ));
   }
 }
