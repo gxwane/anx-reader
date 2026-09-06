@@ -926,6 +926,15 @@
   "storageMigrationFailed": "Migration failed. Data remains in the original location.",
   "storagePathPermissionLost": "Custom storage path is no longer accessible. Data has been reset to default location.",
   "storagePathNoPermission": "No write permission for the selected folder",
+  "storageExistingLibraryTitle": "Existing Library Detected",
+  "storageExistingLibraryContent": "The selected folder appears to contain an existing Anx Reader library. Would you like to mount it directly without copying data?\n\n{path}",
+  "@storageExistingLibraryContent": {
+    "placeholders": {
+      "path": { "type": "String" }
+    }
+  },
+  "storageMountLibrary": "Mount Library",
+  "storageRestartRequired": "Storage location updated. Please restart the app for changes to take effect.",
   "bookBottomSheetReplaceFile": "Replace File",
   "bookBottomSheetOriginalFileSize": "Original file size: {size}",
   "bookBottomSheetNewFileSize": "New file size: {size}",
