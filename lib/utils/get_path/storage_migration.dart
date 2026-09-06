@@ -7,6 +7,19 @@ import 'package:path_provider/path_provider.dart';
 typedef MigrationProgressCallback = void Function(
     String currentItem, int progress, int total);
 
+/// Returns true if [path] looks like an existing Anx Reader library directory.
+/// Detection heuristic: the directory must exist and contain at least one of
+/// the canonical Anx sub-directories ('databases', 'file', 'cover', 'font').
+bool isAnxLibraryDirectory(String path) {
+  final dir = Directory(path);
+  if (!dir.existsSync()) return false;
+  const anxSubDirs = {'databases', 'file', 'cover', 'font'};
+  return dir
+      .listSync(followLinks: false)
+      .whereType<Directory>()
+      .any((d) => anxSubDirs.contains(d.path.split(Platform.pathSeparator).last));
+}
+
 /// Performs data migration from source path to destination path.
 /// Used for custom storage location feature on Windows/macOS.
 /// Returns true if migration was successful.
@@ -15,7 +28,6 @@ Future<bool> performStorageMigration({
   required String destinationPath,
   MigrationProgressCallback? onProgress,
 }) async {
-  // Items to migrate: 5 folders + 1 log file = 6 items
   final dataFolders = ['file', 'cover', 'font', 'bgimg', 'databases'];
   final successfullyMigrated = <String>[];
   const int totalItems = 6; // 5 folders + 1 log file
@@ -34,12 +46,10 @@ Future<bool> performStorageMigration({
         continue;
       }
 
-      // Create destination directory if it doesn't exist
       if (!destDir.existsSync()) {
         await destDir.create(recursive: true);
       }
 
-      // Copy all contents
       await _copyDirectory(sourceDir, destDir);
       successfullyMigrated.add(folder);
 
@@ -57,7 +67,7 @@ Future<bool> performStorageMigration({
       AnxLog.info('StorageMigration: Copied log file successfully');
     }
 
-    // All copies successful, now delete old data
+    // All copies successful — now delete old data
     AnxLog.info(
         'StorageMigration: All data copied, cleaning up source data...');
     for (final folder in successfullyMigrated) {
@@ -69,7 +79,6 @@ Future<bool> performStorageMigration({
       }
     }
 
-    // Delete source log file
     if (sourceLogFile.existsSync()) {
       await sourceLogFile.delete();
     }
@@ -97,13 +106,21 @@ Future<String> getDefaultStoragePath() async {
   return (await getApplicationSupportDirectory()).path;
 }
 
-/// Recursively copies a directory
+/// Recursively copies a directory.
+/// If a file already exists at the destination with the same byte-length as
+/// the source, it is skipped (idempotent / resume-safe behaviour).
 Future<void> _copyDirectory(Directory source, Directory destination) async {
   await for (final entity in source.list(recursive: false)) {
-    final newPath =
-        '${destination.path}${Platform.pathSeparator}${entity.path.split(Platform.pathSeparator).last}';
+    final lastName = entity.path.split(Platform.pathSeparator).last;
+    final newPath = '${destination.path}${Platform.pathSeparator}$lastName';
 
     if (entity is File) {
+      final destFile = File(newPath);
+      // Skip if destination already has the same-size file (idempotent)
+      if (destFile.existsSync() &&
+          destFile.lengthSync() == entity.lengthSync()) {
+        continue;
+      }
       await entity.copy(newPath);
     } else if (entity is Directory) {
       final newDir = Directory(newPath);

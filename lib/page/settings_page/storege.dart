@@ -62,9 +62,15 @@ class _StorageSettingsState extends ConsumerState<StorageSettings>
     final result = await FilePicker.platform.getDirectoryPath();
     if (result == null) return;
 
-    // Check if directory is empty
     final isEmpty = await isDirectoryEmpty(result);
+
     if (!isEmpty) {
+      // Branch A: existing Anx library — offer to mount directly
+      if (isAnxLibraryDirectory(result)) {
+        await _offerMountExistingLibrary(result);
+        return;
+      }
+      // Branch B: non-empty, non-Anx directory — reject
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -76,7 +82,7 @@ class _StorageSettingsState extends ConsumerState<StorageSettings>
       return;
     }
 
-    // Check write permission by creating a test file
+    // Branch C: empty directory — verify write permission, then queue migration
     try {
       final testFile =
           File('$result${Platform.pathSeparator}.anx_permission_test');
@@ -98,6 +104,45 @@ class _StorageSettingsState extends ConsumerState<StorageSettings>
       _selectedNewPath = result;
     });
   }
+
+  /// Shows a confirmation dialog when user selects a directory that already
+  /// contains an Anx Reader library. On confirm, mounts without copying data.
+  Future<void> _offerMountExistingLibrary(String path) async {
+    if (!mounted) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(L10n.of(ctx).storageExistingLibraryTitle),
+        content: Text(
+          L10n.of(ctx).storageExistingLibraryContent(path),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(L10n.of(ctx).commonCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(L10n.of(ctx).storageMountLibrary),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    Prefs().customStoragePath = path;
+    setState(() {
+      _currentStoragePath = path;
+      _selectedNewPath = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(L10n.of(context).storageRestartRequired),
+      ),
+    );
+  }
+
+
 
   Future<void> _startMigration() async {
     if (_selectedNewPath == null || _currentStoragePath == null) return;
