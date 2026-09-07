@@ -33,6 +33,10 @@ abstract class TtsServiceProvider extends ServiceProvider<dynamic> {
   /// Network request timeout for single sentence audio synthesis.
   Duration get requestTimeout => const Duration(seconds: 15);
 
+  /// Validate configuration before attempting speech synthesis.
+  /// Returns a descriptive error message if invalid, or null if valid.
+  String? validateConfig() => null;
+
   /// Generate speech audio from text.
   /// Only required for online TTS services.
   /// System TTS doesn't use this method.

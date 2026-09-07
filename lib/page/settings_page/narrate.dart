@@ -51,6 +51,22 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
 
   Future<void> _testSpeak(String text, String? voiceShortName,
       {bool isMainButton = false}) async {
+    final ttsServiceId = ref.read(ttsServiceProvider);
+    final currentProvider = tts_svc.getTtsService(ttsServiceId).provider;
+    final validationError = currentProvider.validateConfig();
+    if (validationError != null) {
+      if (mounted) {
+        final configuredUrl = currentProvider.getConfig()['url']?.toString();
+        TtsDiagnosticDialog.show(
+          context,
+          error: validationError,
+          url: configuredUrl,
+          timeout: currentProvider.requestTimeout,
+        );
+      }
+      return;
+    }
+
     if (isMainButton) {
       if (_mainTestLoading) return;
       setState(() {
@@ -117,7 +133,7 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
     final serviceId = Prefs().ttsService;
     selectedVoiceModel =
         tts_svc.getTtsService(serviceId).provider.getSelectedVoice();
-    if (serviceId == 'edge') {
+    if (serviceId == 'edge' || serviceId == 'dashscope') {
       _showVoiceList = true;
     }
     _testTextController.text = "Hello, this is a test.";
@@ -339,7 +355,9 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
         final endpointChanged = !mapEquals(prevFiltered, nextFiltered);
 
         setState(() {
-          if (endpointChanged) {
+          if (endpointChanged &&
+              ttsServiceId != 'edge' &&
+              ttsServiceId != 'dashscope') {
             _showVoiceList = false;
             _manuallyCollapsedGroups.clear();
             expandedGroups.clear();
@@ -484,14 +502,17 @@ class _NarrateSettingsState extends ConsumerState<NarrateSettings>
           DropdownMenuItem(
               value: 'openai',
               child: Text(L10n.of(context).settingsNarrateOpenAiTts)),
+          DropdownMenuItem(
+              value: 'dashscope',
+              child: Text(L10n.of(context).settingsNarrateDashScopeTts)),
         ],
         onChanged: (value) async {
           if (value != null && value != currentServiceId) {
             await TtsHandler().switchTtsType(value);
             ref.read(ttsServiceProvider.notifier).setService(value);
 
-            // For edge TTS, the voice list is local/predefined, so auto-open voice list
-            if (value == 'edge') {
+            // For edge and dashscope TTS, the voice list is local/predefined, so auto-open voice list
+            if (value == 'edge' || value == 'dashscope') {
               _showVoiceList = true;
             } else {
               // Hide voice list when switching services, require manual fetch

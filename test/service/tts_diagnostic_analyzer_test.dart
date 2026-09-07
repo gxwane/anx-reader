@@ -106,6 +106,40 @@ void main() {
       expect(r2.statusCode, equals(403));
     });
 
+    test('classifies missing API key and credential exceptions into apiKeyMissing scenario', () {
+      final r1 = TtsDiagnosticAnalyzer.analyze(
+        Exception('DashScope TTS config missing (API key)'),
+      );
+      expect(r1.scenario, equals(TtsDiagnosticScenario.apiKeyMissing));
+      expect(r1.suggestions, contains(TtsDiagnosticSuggestion.enterApiKey));
+
+      final r2 = TtsDiagnosticAnalyzer.analyze(
+        Exception('OpenAI TTS config missing (key)'),
+      );
+      expect(r2.scenario, equals(TtsDiagnosticScenario.apiKeyMissing));
+      expect(r2.suggestions, contains(TtsDiagnosticSuggestion.enterApiKey));
+
+      final r3 = TtsDiagnosticAnalyzer.analyze(
+        Exception('Azure TTS config missing (key or region)'),
+      );
+      expect(r3.scenario, equals(TtsDiagnosticScenario.apiKeyMissing));
+
+      final r4 = TtsDiagnosticAnalyzer.analyze(
+        Exception('Aliyun TTS config missing (appkey)'),
+      );
+      expect(r4.scenario, equals(TtsDiagnosticScenario.apiKeyMissing));
+    });
+
+    test('prioritizes server 401 invalid API key over apiKeyMissing (no false positive)', () {
+      final report = TtsDiagnosticAnalyzer.analyze(
+        Exception('HTTP 401: {"error": "Invalid API key provided"}'),
+      );
+      expect(report.scenario, equals(TtsDiagnosticScenario.authFailed));
+      expect(report.statusCode, equals(401));
+      expect(report.suggestions, contains(TtsDiagnosticSuggestion.checkApiKey));
+      expect(report.suggestions.contains(TtsDiagnosticSuggestion.enterApiKey), isFalse);
+    });
+
     test('classifies 404 endpoint not found', () {
       final report = TtsDiagnosticAnalyzer.analyze(
         Exception('HTTP 404: Not Found'),

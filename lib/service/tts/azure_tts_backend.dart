@@ -69,15 +69,27 @@ class AzureTtsProvider extends TtsServiceProvider {
   }
 
   @override
+  String? validateConfig() {
+    final config = getConfig();
+    final key = config['key']?.toString().trim();
+    final region = config['region']?.toString().trim();
+    if (key == null || key.isEmpty || region == null || region.isEmpty) {
+      return 'Azure TTS config missing (key or region)';
+    }
+    return null;
+  }
+
+  @override
   Future<Uint8List> speak(
       String text, String? voice, double rate, double pitch) async {
-    final config = getConfig();
-    final String? key = config['key']?.toString();
-    final String? region = config['region']?.toString();
-
-    if (key == null || key.isEmpty || region == null || region.isEmpty) {
-      throw Exception('Azure TTS config missing (key or region)');
+    final validationError = validateConfig();
+    if (validationError != null) {
+      throw Exception(validationError);
     }
+
+    final config = getConfig();
+    final String key = config['key']!.toString().trim();
+    final String region = config['region']!.toString().trim();
 
     final String url =
         "https://$region.tts.speech.microsoft.com/cognitiveservices/v1";

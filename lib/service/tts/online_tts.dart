@@ -549,6 +549,13 @@ class OnlineTts extends BaseTts {
   // ============ Public API ============
   @override
   Future<void> speak({String? content, bool resetLocation = true}) async {
+    final validationError = backend.validateConfig();
+    if (validationError != null) {
+      AnxLog.warning('OnlineTts: provider configuration invalid: $validationError');
+      updateTtsState(TtsStateEnum.stopped);
+      return;
+    }
+
     final int epoch = ++_sessionEpoch;
     _shouldStop = false;
     updateTtsState(TtsStateEnum.playing);

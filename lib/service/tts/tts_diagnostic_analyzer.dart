@@ -1,6 +1,7 @@
 enum TtsDiagnosticScenario {
   unreachable, // 502, 503, 504, Connection Refused, 10061, SocketException, ClientException
   authFailed,  // 401, 403
+  apiKeyMissing, // Missing API key / credentials
   notFound,    // 404
   timeout,     // TimeoutException
   unknown,     // Generic/Unknown
@@ -13,6 +14,7 @@ enum TtsDiagnosticSuggestion {
   lanWifiFirewall,
   publicDns,
   checkApiKey,
+  enterApiKey,
   checkEndpointPath,
   checkGpuTimeout,
   genericError,
@@ -127,7 +129,7 @@ class TtsDiagnosticAnalyzer {
       );
     }
 
-    // 2. Authentication failure scenario
+    // 2. Authentication failure scenario (Server 401/403/unauthorized)
     if (lower.contains('401') ||
         lower.contains('403') ||
         lower.contains('unauthorized')) {
@@ -137,6 +139,24 @@ class TtsDiagnosticAnalyzer {
         suggestions: const [TtsDiagnosticSuggestion.checkApiKey],
         rawError: rawError,
         statusCode: lower.contains('401') ? 401 : 403,
+      );
+    }
+
+    // 3. Missing API key / credentials scenario (Local pre-flight check or missing config exception)
+    if (lower.contains('config missing') ||
+        lower.contains('key missing') ||
+        lower.contains('missing (api key)') ||
+        lower.contains('missing (key)') ||
+        lower.contains('missing (appkey)') ||
+        lower.contains('missing (accesskey') ||
+        lower.contains('api key missing') ||
+        lower.contains('api key required') ||
+        lower.contains('no api key')) {
+      return TtsDiagnosticReport(
+        scenario: TtsDiagnosticScenario.apiKeyMissing,
+        targetInfo: targetInfo,
+        suggestions: const [TtsDiagnosticSuggestion.enterApiKey],
+        rawError: rawError,
       );
     }
 

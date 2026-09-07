@@ -127,24 +127,38 @@ class AliyunTtsProvider extends TtsServiceProvider {
   }
 
   @override
-  Future<Uint8List> speak(
-      String text, String? voice, double rate, double pitch) async {
+  String? validateConfig() {
     final config = getConfig();
     final String? appkey = config['appkey']?.toString().trim();
     final String? accessKeyId = config['accessKeyId']?.toString().trim();
     final String? accessKeySecret =
         config['accessKeySecret']?.toString().trim();
-    final String url = config['url']?.toString().trim() ?? _defaultUrl;
 
     if (appkey == null || appkey.isEmpty) {
-      throw Exception('Aliyun TTS config missing (appkey)');
+      return 'Aliyun TTS config missing (appkey)';
     }
     if (accessKeyId == null || accessKeyId.isEmpty) {
-      throw Exception('Aliyun TTS config missing (accessKeyId)');
+      return 'Aliyun TTS config missing (accessKeyId)';
     }
     if (accessKeySecret == null || accessKeySecret.isEmpty) {
-      throw Exception('Aliyun TTS config missing (accessKeySecret)');
+      return 'Aliyun TTS config missing (accessKeySecret)';
     }
+    return null;
+  }
+
+  @override
+  Future<Uint8List> speak(
+      String text, String? voice, double rate, double pitch) async {
+    final validationError = validateConfig();
+    if (validationError != null) {
+      throw Exception(validationError);
+    }
+
+    final config = getConfig();
+    final String appkey = config['appkey']!.toString().trim();
+    final String accessKeyId = config['accessKeyId']!.toString().trim();
+    final String accessKeySecret = config['accessKeySecret']!.toString().trim();
+    final String url = config['url']?.toString().trim() ?? _defaultUrl;
 
     final token = await _ensureToken(accessKeyId, accessKeySecret);
     final resolvedVoice = resolveVoice(voice);
@@ -224,7 +238,7 @@ class AliyunTtsProvider extends TtsServiceProvider {
 
     final queryString = _canonicalizedQuery(params);
     final stringToSign = _createStringToSign('GET', '/', queryString);
-    final signature = _sign(stringToSign, '${accessKeySecret}&');
+    final signature = _sign(stringToSign, '$accessKeySecret&');
     final signedQuery = 'Signature=$signature&$queryString';
     final url = Uri.parse('https://$_tokenHost/?$signedQuery');
 
