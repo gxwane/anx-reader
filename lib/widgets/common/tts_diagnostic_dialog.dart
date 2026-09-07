@@ -43,6 +43,8 @@ class _TtsDiagnosticDialogState extends State<TtsDiagnosticDialog> {
         return l10n.ttsDiagConnectionFailedTitle;
       case TtsDiagnosticScenario.authFailed:
         return l10n.ttsDiagAuthFailedTitle(report.statusCode ?? 401);
+      case TtsDiagnosticScenario.apiKeyMissing:
+        return l10n.ttsDiagApiKeyMissingTitle;
       case TtsDiagnosticScenario.notFound:
         return l10n.ttsDiagNotFoundTitle;
       case TtsDiagnosticScenario.timeout:
@@ -68,6 +70,8 @@ class _TtsDiagnosticDialogState extends State<TtsDiagnosticDialog> {
         return l10n.ttsDiagStepPublicDns;
       case TtsDiagnosticSuggestion.checkApiKey:
         return l10n.ttsDiagStepAuthKey;
+      case TtsDiagnosticSuggestion.enterApiKey:
+        return l10n.ttsDiagStepEnterApiKey;
       case TtsDiagnosticSuggestion.checkEndpointPath:
         return l10n.ttsDiagStepNotFound;
       case TtsDiagnosticSuggestion.checkGpuTimeout:
@@ -83,13 +87,20 @@ class _TtsDiagnosticDialogState extends State<TtsDiagnosticDialog> {
     final theme = Theme.of(context);
     final isError = widget.report.scenario == TtsDiagnosticScenario.authFailed ||
         widget.report.scenario == TtsDiagnosticScenario.unknown;
-    final iconColor = isError ? theme.colorScheme.error : Colors.amber[700];
+    final iconColor = isError
+        ? theme.colorScheme.error
+        : (widget.report.scenario == TtsDiagnosticScenario.apiKeyMissing
+            ? theme.colorScheme.primary
+            : Colors.amber[700]);
+    final iconData = widget.report.scenario == TtsDiagnosticScenario.apiKeyMissing
+        ? Icons.vpn_key_outlined
+        : (isError ? Icons.error_outline : Icons.warning_amber_rounded);
 
     return AlertDialog(
       title: Row(
         children: [
           Icon(
-            isError ? Icons.error_outline : Icons.warning_amber_rounded,
+            iconData,
             color: iconColor,
             size: 26,
           ),

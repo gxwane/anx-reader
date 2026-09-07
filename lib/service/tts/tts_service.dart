@@ -1,6 +1,7 @@
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/service/tts/aliyun/aliyun_tts_backend.dart';
 import 'package:anx_reader/service/tts/azure_tts_backend.dart';
+import 'package:anx_reader/service/tts/dashscope/dashscope_tts_backend.dart';
 import 'package:anx_reader/service/tts/edge_tts_backend.dart';
 import 'package:anx_reader/service/tts/openai_tts_backend.dart';
 import 'package:anx_reader/service/tts/self_hosted_tts_backend.dart';
@@ -15,7 +16,8 @@ enum TtsService {
   selfHosted,
   aliyun,
   azure,
-  openai;
+  openai,
+  dashscope;
   // Future services can be added here: google, aws, elevenlabs, etc.
 
   /// Get the provider for this TTS service.
@@ -33,6 +35,8 @@ enum TtsService {
         return AzureTtsProvider();
       case TtsService.openai:
         return OpenAiTtsProvider();
+      case TtsService.dashscope:
+        return DashscopeTtsProvider();
     }
   }
 

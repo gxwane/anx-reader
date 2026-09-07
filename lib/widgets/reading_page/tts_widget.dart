@@ -7,6 +7,9 @@ import 'package:anx_reader/service/tts/tts_service.dart' as tts_svc;
 import 'package:anx_reader/widgets/reading_page/widget_title.dart';
 import 'package:anx_reader/page/book_player/epub_player.dart';
 import 'package:anx_reader/page/settings_page/narrate.dart';
+import 'package:anx_reader/service/tts/online_tts.dart';
+import 'package:anx_reader/service/tts/tts_factory.dart';
+import 'package:anx_reader/widgets/common/tts_diagnostic_dialog.dart';
 import 'package:anx_reader/widgets/reading_page/more_settings/more_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:icons_plus/icons_plus.dart';
@@ -208,9 +211,26 @@ class _TtsWidgetState extends State<TtsWidget> {
               ),
               IconButton(
                 onPressed: () async {
-                  ttsState == TtsStateEnum.playing
-                      ? audioHandler.pause()
-                      : audioHandler.play();
+                  if (ttsState == TtsStateEnum.playing) {
+                    audioHandler.pause();
+                  } else {
+                    final currentTts = TtsFactory().current;
+                    if (currentTts is OnlineTts) {
+                      final validationError = currentTts.backend.validateConfig();
+                      if (validationError != null) {
+                        final configuredUrl =
+                            currentTts.backend.getConfig()['url']?.toString();
+                        TtsDiagnosticDialog.show(
+                          context,
+                          error: validationError,
+                          url: configuredUrl,
+                          timeout: currentTts.backend.requestTimeout,
+                        );
+                        return;
+                      }
+                    }
+                    audioHandler.play();
+                  }
                 },
                 icon: ttsState == TtsStateEnum.playing
                     ? const Icon(EvaIcons.pause_circle_outline)

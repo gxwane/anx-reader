@@ -106,17 +106,27 @@ class OpenAiTtsProvider extends TtsServiceProvider {
   }
 
   @override
+  String? validateConfig() {
+    final key = getConfig()['key']?.toString().trim();
+    if (key == null || key.isEmpty) {
+      return 'OpenAI TTS config missing (key)';
+    }
+    return null;
+  }
+
+  @override
   Future<Uint8List> speak(
       String text, String? voice, double rate, double pitch) async {
+    final validationError = validateConfig();
+    if (validationError != null) {
+      throw Exception(validationError);
+    }
+
     final config = getConfig();
     final String url = config['url']?.toString().trim() ?? _defaultUrl;
-    final String? key = config['key']?.toString();
+    final String key = config['key']!.toString().trim();
     final String model = config['model']?.toString().trim() ?? _defaultModel;
     final String resolvedVoice = resolveVoice(voice);
-
-    if (key == null || key.isEmpty) {
-      throw Exception('OpenAI TTS config missing (key)');
-    }
 
     final instructions = _buildInstructions(
       config['instructions']?.toString(),
