@@ -24,6 +24,7 @@
 - **WebDAV 双向同步乒乓循环消除**：重构 `Sync.syncDatabase` 的双向同步判定基准，引入 `lastSyncedLocalDbTime` 与 `SyncLocalChangeDetector` 纯函数检测器，彻底根除从远端下载数据库后因本地文件 mtime 刷新而误判为本地有新改动、并在下次自动同步中再次上传相同数据库的无限乒乓循环；在上传快照前捕获本地时间戳，消除上传期间用户产生新改动被误标为已同步的竞态隐患。
 
 ### 新增
+- **TTS 听书对话智能断句优化与承接引语自然合并（Smart Dialogue Sentence Splitting & Lookahead Attribution Merger）**：彻底修复听书模式机械按句号、感叹号、问号切分句子，导致类似 `“我去！”他震惊地喊道。` 或 `“真的吗？”老人疑惑地问。` 被强行切分为两段单独语音发音，造成短句发音生硬突兀、语调脱节、长久停顿的重大听书体验缺陷（Upstream Issue #970）。在底层 Foliate-js 阅读引擎（`assets/foliate-js/src/tts.js`）的分句生成器中引入轻量级前瞻智能合并（Smart Lookahead Merger）算法，支持跨多级 DOM 节点探查；当闭引号（含中英文单双引号 `”`、`’`、`"`、`'` 以及日文/繁体角引号 `」`、`』`）前出现终止标点时，智能识别后文紧邻的言语动作引语标签（如 `他喊道`、`老人问`、`他说`、`微笑着说`、`she cried` 等）并将其自然合并为一个连贯完整的发音与高亮 Range 单元；同时对连续多角色对话（如 `“好。”“走。”`）及非引语长段叙事保持精准避让独立分句，无需用户进行繁琐的规则配置，全自动实现沉浸自然的开箱即用听书体验。
 - **全平台系统级书籍文件关联直接打开与现代临时预览模式（Cross-Platform File Association & Modern Ephemeral Preview Mode）**：
   - **全平台系统级双击/分享关联打开（System-Wide File Association）**：在 Windows（Inno Setup 注册表 ProgID 与单实例 `WM_COPYDATA`）、macOS（`CFBundleDocumentTypes` 与 `AppDelegate.openFiles`）、iOS（Document Types 与 UTI）以及 Android（Intent 统一通道）深度集成系统文件关联与原生通道，支持双击直接打开 `.epub`, `.mobi`, `.azw3`, `.azw`, `.fb2`, `.txt`, `.pdf` 书籍文件；
   - **书架已有书籍毫秒级秒开（Instant Bookshelf Matching Fast-Path）**：通过流式计算文件 MD5（`calculateFileMd5Stream` 杜绝大文件 OOM），若文件已存在于书架中，则直接唤醒并以已有书籍身份极速秒开（<50ms），不弹窗、不重复复制；
