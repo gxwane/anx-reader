@@ -10,7 +10,59 @@ function rangeIsEmpty(range) {
     return range.collapsed || range.toString().trim() === ''
 }
 
-const quoteChars = new Set(['"', "'", '“', '”', '‘', '’'])
+const quoteChars = new Set(['"', "'", '“', '”', '‘', '’', '「', '」', '『', '』'])
+const closingQuoteChars = new Set(['"', "'", '”', '’', '」', '』'])
+const openingQuoteChars = new Set(['"', "'", '“', '‘', '「', '『'])
+
+const attributionChineseVerbRegex = /[说道问喊叫叹笑喝喃答骂怒回语应斥劝呼嚷吼哼哭催想]/
+const attributionChineseGestureRegex = /[点摇]了?[点摇]?头|皱了?皱?眉|冷笑|苦笑|微笑|大笑|干笑|撇了?撇?嘴|白了?一眼|叹了?口?气|深吸|倒吸/
+const attributionEnglishRegex = /^(?:he|she|it|they|i|we|the\s+\w+|[A-Z]\w+)\s+(?:said|asked|shouted|cried|whispered|replied|answered|yelled|screamed|sighed|muttered|exclaimed|called|laughed|demanded|murmured|gasped|groaned|snapped|growled|hissed)\b/i
+
+const getTextAfter = (node, offset, block, maxLength = 40) => {
+    let result = (node.textContent ?? '').slice(offset)
+    if (result.length >= maxLength) return result.slice(0, maxLength)
+
+    const doc = node.ownerDocument
+    if (!doc || !block) return result
+
+    const walker = doc.createTreeWalker(block, NodeFilter.SHOW_TEXT)
+    walker.currentNode = node
+    let nextNode = walker.nextNode()
+    while (nextNode && result.length < maxLength) {
+        if (!shouldSkipTextNode(nextNode)) {
+            result += nextNode.textContent ?? ''
+        }
+        nextNode = walker.nextNode()
+    }
+    return result.slice(0, maxLength)
+}
+
+const shouldMergeWithAttribution = textAfter => {
+    if (!textAfter) return false
+    const trimmed = textAfter.trimStart()
+    if (!trimmed) return false
+
+    // If next character starts a new quote, do NOT merge
+    if (openingQuoteChars.has(trimmed[0])) return false
+
+    // Extract clause up to first sentence terminator or comma, max 25 chars
+    const clauseMatch = trimmed.match(/^([^。！？，；：…—"“”'‘’「」『』\n]{1,25})/)
+    if (!clauseMatch) return false
+    const clause = clauseMatch[1].trim()
+    if (!clause) return false
+
+    // Check Chinese speech verb / manner / gesture
+    if (attributionChineseVerbRegex.test(clause) || attributionChineseGestureRegex.test(clause)) {
+        return true
+    }
+
+    // Check English attribution
+    if (attributionEnglishRegex.test(trimmed)) {
+        return true
+    }
+
+    return false
+}
 
 const isLocalLink = href => {
     if (!href) return false
@@ -59,11 +111,16 @@ const isSentenceTerminator = (char, nextChar) => {
 
 const advancePastQuotes = (text, index) => {
     let end = index
-    while (end < text.length && quoteChars.has(text[end])) end++
+    while (end < text.length && closingQuoteChars.has(text[end])) {
+        if (text[end] === '“' || text[end] === '‘' || text[end] === '「' || text[end] === '『') break
+        end++
+        if (text[end - 1] === '"' && text[end] === '"') break
+        if (text[end - 1] === "'" && text[end] === "'") break
+    }
     return end
 }
 
-function* getBlocks(doc) {
+export function* getBlocks(doc) {
     const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT)
     let startNode = null
     let startOffset = 0
@@ -110,6 +167,11 @@ function* getBlocks(doc) {
             const nextChar = text[index + 1]
             if (isSentenceTerminator(char, nextChar)) {
                 const endOffset = advancePastQuotes(text, index + 1)
+                const hasClosingQuote = endOffset > index + 1 && closingQuoteChars.has(text[index + 1])
+                if (hasClosingQuote && shouldMergeWithAttribution(getTextAfter(node, endOffset, currentBlock))) {
+                    index = endOffset
+                    continue
+                }
                 const range = doc.createRange()
                 range.setStart(startNode, startOffset)
                 range.setEnd(node, endOffset)
@@ -137,6 +199,7 @@ function* getBlocks(doc) {
     const remaining = flushRange()
     if (remaining) yield remaining
 }
+
 
 class ListIterator {
     #arr = []
