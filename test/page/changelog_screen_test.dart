@@ -403,12 +403,12 @@ void main() {
       // Must not be fallback default content
       expect(extracted, isNot(equals(defaultChangelogContent)));
 
-      // Must contain preview.5 items
-      expect(extracted, contains('Fix(changelog):'));
-      expect(extracted, contains('重构更新日志解析器'));
+      // Must contain preview.7 items
+      expect(extracted, contains('DashScope'));
+      expect(extracted, contains('阿里云百炼'));
 
-      // Must stop before preview.4
-      expect(extracted, isNot(contains('## [0.1.0-preview.4]')));
+      // Must stop before preview.6
+      expect(extracted, isNot(contains('## [0.1.0-preview.6]')));
       expect(extracted, isNot(contains('addColumnIfNotExists')));
       expect(extracted, isNot(contains('数据库迁移幂等性加固')));
 
@@ -416,16 +416,17 @@ void main() {
       final zhNotes = processChangelogContent(extracted, isChinese: true);
       final enNotes = processChangelogContent(extracted, isChinese: false);
 
-      expect(zhNotes, contains('重构更新日志解析器'));
-      expect(zhNotes, isNot(contains('Modernize Changelog parser')));
+      expect(zhNotes, contains('新增阿里云百炼'));
+      expect(zhNotes, isNot(contains('Support Alibaba Cloud DashScope')));
 
-      expect(enNotes, contains('Modernize Changelog parser'));
-      expect(enNotes, isNot(contains('重构更新日志解析器')));
+      expect(enNotes, contains('Support Alibaba Cloud DashScope'));
+      expect(enNotes, isNot(contains('新增阿里云百炼')));
     });
 
     test('assets/CHANGELOG.md historical preview versions are non-empty and properly delimited', () {
       final changelogContent = File('assets/CHANGELOG.md').readAsStringSync();
       final versionsToCheck = [
+        '0.1.0-preview.6',
         '0.1.0-preview.5',
         '0.1.0-preview.4',
         '0.1.0-preview.3',

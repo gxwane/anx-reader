@@ -1,18 +1,33 @@
 # Changelog
 
-## [0.1.0-preview.6] - 2026-09-05
+## [0.1.0-preview.7] - 2026-09-07
 
 - Feat(tts): Support Alibaba Cloud DashScope (Qwen3-TTS) Speech Generation engine with 1,000,000 free characters per month, featuring 20 curated natural emotional voices, 80% bandwidth optimization with MP3 compression, dynamic speech rate instruction injection, and resilient 25s two-phase synthesis pipeline (#980)
 - Feat(desktop): Full cross-platform file association and modern ephemeral preview mode for direct book opening (Windows, macOS, Android, iOS), featuring instant bookshelf matching (<50ms), zero-pollution temporary reading mode without storage or library pollution, in-reader [Add to Bookshelf] action, and safe exit handling with temporary notes cleanup (#975)
 - Feat(theme): Implement comprehensive E-ink anti-flicker and zero-animation mode, eliminating page transition latency, suppressing root Hero flight transitions, short-circuiting book-opening fade animations, disabling SmartDialog motion, and replacing 60FPS rotating spinners with high-contrast static indicators (#986)
 - Feat(ai): Support filling AI prompt templates into input box for fine-tuning before sending, with intelligent prefix replacement, trailing spacing, long-press direct send shortcut, and configurable settings toggle (#969)
 - Feat(bookshelf): Implement multi-selection batch management (batch status update, batch move to group, batch release storage space, batch soft delete with notes decoupling) and manual reading status marking (#841)
+- Feat(tts): Implement smart dialogue sentence splitting with lookahead attribution merging, automatically merging short dialogue before closing quotes with immediate character speech/manner tags (e.g. "He shouted", "She asked", "老者沉思道") into a single audio synthesis unit, eliminating awkward pauses and unnatural intonation (#970)
+- Fix(storage): Resolve custom storage location migration failure and "empty folder required" hard-block when redirecting to an existing library; migration is now resume-safe (skips same-size files), and selecting a directory that contains an existing Anx Reader library prompts a direct mount option instead of rejecting (#745, #839)
 - Fix(tts): Resolve background and lockscreen TTS stalling permanently at chapter boundaries by bypassing requestAnimationFrame on hidden document, eliminating mutual recursion, synchronizing lockscreen media metadata, and self-healing viewport and highlight position instantly upon screen wake-up (#544)
 - Fix(window): Eliminate ghost layer desktop icon click interception and mouse pass-through blockage on Windows by pausing active WebViews and hiding child runner window on minimize (#981, #243, #255, #830, #850)
 - Fix(ai): Implement GeminiThoughtSignatureClient to capture and inject thought_signature across multi-turn tool calling, eliminating 400 ApiException on Gemini 2.0/2.5/3.0 reasoning models (#977)
 - Fix(reader): Restore reader focus automatically after text selection and context menu dismissal, eliminating hardware turn-page key (arrows, volume buttons) unresponsiveness and accidental horizontal WebView container panning (#966)
-- Fix(storage): Resolve custom storage location migration failure and "empty folder required" hard-block when redirecting to an existing library; migration is now resume-safe (skips same-size files), and selecting a directory that contains an existing Anx Reader library prompts a direct mount option instead of rejecting (#745, #839)
-- Feat(tts): Implement smart dialogue sentence splitting with lookahead attribution merging, automatically merging short dialogue before closing quotes with immediate character speech/manner tags (e.g. "He shouted", "She asked", "老者沉思道") into a single audio synthesis unit, eliminating awkward pauses and unnatural intonation (#970)
+
+- Feat(tts): 新增阿里云百炼 (DashScope Qwen3-TTS) 语音大模型引擎，每月提供 100 万字符永久免费额度，内置 20 款官方精选自然情感声线，支持 MP3 压缩节省 80% 网络带宽，提供语速倍速指令动态注入与 25 秒两阶段合成网络韧性防护 (#980)
+- Feat(desktop): 全平台（Windows / macOS / Android / iOS）系统级双击与外部书籍文件关联直接打开与现代临时预览模式，支持书架已有书籍毫秒级（<50ms）秒开、未入库书籍零污染临时预览、阅读器内一键「加入书架」并安全入库转正，以及退出时弹窗提示与临时笔记安全清理机制 (#975)
+- Feat(theme): 全面重构墨水屏 (E-ink) 极致防频闪与全局零动效模式，全平台消除页面路由平移/缩放过渡、根级拦截 Hero 封面跨屏飞行、短路开书淡出动效、禁用 SmartDialog 浮层动效，并采用高对比度静态加载指示器替代 60FPS 旋转加载圈 (#986)
+- Feat(ai): 支持 AI 快捷提示词模板填入输入框微调后再发送，支持上下文前缀智能互斥替换、长按直接发送快车道以及设置项开关全局配置 (#969)
+- Feat(bookshelf): 支持书架多选批量管理（批量修改阅读状态、批量移动至文件夹/分组、批量释放本地存储空间、批量软删除并永久保留笔记与阅读统计）及手动标记阅读状态（未读/在读/已读/弃读）(#841)
+- Feat(tts): 重构听书对话智能断句优化与承接引语自然合并，识别闭引号后的言语动作标签并合并为完整发音单元，消除短句突兀停顿 (#970)
+- Fix(storage): 修复自定义存储位置迁移失败与已有书库硬拦截报错，支持直接挂载已有书库、非空目录智能合并及跨卷安全重定位 (#745, #839)
+- Fix(tts): 彻底修复后台与锁屏状态下 TTS 听书跨章节自动连读卡死缺陷，在页面隐藏时跳过 requestAnimationFrame 动画并消除尾章互递归死锁，支持锁屏通知栏章节元数据动态同步，并实现手机熄屏听书亮屏唤醒瞬间视口与高亮毫秒级自愈对齐 (#544)
+- Fix(window): 彻底修复 Windows 窗口最小化/最大化后桌面图标无法点击与鼠标穿透遮挡问题，通过协调暂停 WebView 幽灵图层并同步隐藏原生子窗口彻底根除输入捕获 (#981, #243, #255, #830, #850)
+- Fix(ai): 实现 GeminiThoughtSignatureClient 请求拦截器，在多轮工具调用时自动捕获并回填 thought_signature 思考签名（或自动兜底官方标记），彻底修复 Gemini 2.0/2.5/3.0 思考模型报 400 ApiException 缺陷 (#977)
+- Fix(reader): 选中文本或关闭上下文菜单后自动恢复阅读器焦点，彻底解决物理翻页键（方向键、音量键）失效及 WebView 容器异常左右平移缺陷 (#966)
+
+## [0.1.0-preview.6] - 2026-09-05
+
 - Feat(ui): Modernize universal scrollbars and platform-adaptive scrolling, featuring native clamping/bouncing physics, duplicate scrollbar prevention, detached controller crash protection, purified TOC scrollbar-free gesture interaction, and unified theme styling
 - Fix(reader): Modernize Table of Contents (TOC) and TTS accordion chevrons (right when collapsed, down when expanded with RTL support), and eliminate misleading progress arrow and row height jumping in TOC
 - Feat(tts): Implement human-friendly dynamic network diagnostics and discovery status feedback for self-hosted TTS, intelligently analyzing ports, local loopback proxies, and LAN topology
@@ -42,15 +57,6 @@
 - Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
 - Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 
-- Feat(tts): 新增阿里云百炼 (DashScope Qwen3-TTS) 语音大模型引擎，每月提供 100 万字符永久免费额度，内置 20 款官方精选自然情感声线，支持 MP3 压缩节省 80% 网络带宽，提供语速倍速指令动态注入与 25 秒两阶段合成网络韧性防护 (#980)
-- Feat(desktop): 全平台（Windows / macOS / Android / iOS）系统级双击与外部书籍文件关联直接打开与现代临时预览模式，支持书架已有书籍毫秒级（<50ms）秒开、未入库书籍零污染临时预览、阅读器内一键「加入书架」并安全入库转正，以及退出时弹窗提示与临时笔记安全清理机制 (#975)
-- Feat(theme): 全面重构墨水屏 (E-ink) 极致防频闪与全局零动效模式，全平台消除页面路由平移/缩放过渡、根级拦截 Hero 封面跨屏飞行、短路开书淡出动效、禁用 SmartDialog 浮层动效，并采用高对比度静态加载指示器替代 60FPS 旋转加载圈 (#986)
-- Feat(ai): 支持 AI 快捷提示词模板填入输入框微调后再发送，支持上下文前缀智能互斥替换、长按直接发送快车道以及设置项开关全局配置 (#969)
-- Feat(bookshelf): 支持书架多选批量管理（批量修改阅读状态、批量移动至文件夹/分组、批量释放本地存储空间、批量软删除并永久保留笔记与阅读统计）及手动标记阅读状态（未读/在读/已读/弃读）(#841)
-- Fix(tts): 彻底修复后台与锁屏状态下 TTS 听书跨章节自动连读卡死缺陷，在页面隐藏时跳过 requestAnimationFrame 动画并消除尾章互递归死锁，支持锁屏通知栏章节元数据动态同步，并实现手机熄屏听书亮屏唤醒瞬间视口与高亮毫秒级自愈对齐 (#544)
-- Fix(window): 彻底修复 Windows 窗口最小化/最大化后桌面图标无法点击与鼠标穿透遮挡问题，通过协调暂停 WebView 幽灵图层并同步隐藏原生子窗口彻底根除输入捕获 (#981, #243, #255, #830, #850)
-- Fix(ai): 实现 GeminiThoughtSignatureClient 请求拦截器，在多轮工具调用时自动捕获并回填 thought_signature 思考签名（或自动兜底官方标记），彻底修复 Gemini 2.0/2.5/3.0 思考模型报 400 ApiException 缺陷 (#977)
-- Fix(reader): 选中文本或关闭上下文菜单后自动恢复阅读器焦点，彻底解决物理翻页键（方向键、音量键）失效及 WebView 容器异常左右平移缺陷 (#966)
 - Feat(ui): 全局滚动体验现代化与平台自适应滚动条，支持桌面/移动自适应滚动物理、双重滚动条防重、未挂载控制器崩溃保护、阅读目录防重影与纯净手势交互，以及统一主题样式
 - Fix(reader): 全面规范书籍目录树（TOC）与朗读设置折叠箭头方向（折叠为向右箭头，展开为向下箭头，自适应 RTL），并彻底消除当前章节误导性的向右箭头与突增行高，统一单行规整排版
 - Feat(tts): 引入人话级智能网络拓扑诊断分析器与模型发现状态反馈，动态识别服务端口、本地代理拦截（502）与局域网拓扑，消除晦涩的底层网络报错
