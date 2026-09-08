@@ -24,13 +24,17 @@ class TtsHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   Function? _getCurrentText;
   Function? _getNextText;
   Function? _getPrevText;
+  bool Function()? _isCrossChapterDecoupled;
 
   Future<void> init(Function getCurrentText, Function getNextText,
-      Function getPrevText) async {
+      Function getPrevText,
+      {bool Function()? isCrossChapterDecoupled}) async {
     _getCurrentText = getCurrentText;
     _getNextText = getNextText;
     _getPrevText = getPrevText;
-    await tts.init(getCurrentText, getNextText, getPrevText);
+    _isCrossChapterDecoupled = isCrossChapterDecoupled;
+    await tts.init(getCurrentText, getNextText, getPrevText,
+        isCrossChapterDecoupled: isCrossChapterDecoupled);
   }
 
   Future<void> switchTtsType(String serviceId) async {
@@ -38,7 +42,8 @@ class TtsHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
     if (_getCurrentText != null &&
         _getNextText != null &&
         _getPrevText != null) {
-      await tts.init(_getCurrentText!, _getNextText!, _getPrevText!);
+      await tts.init(_getCurrentText!, _getNextText!, _getPrevText!,
+          isCrossChapterDecoupled: _isCrossChapterDecoupled);
     }
   }
 

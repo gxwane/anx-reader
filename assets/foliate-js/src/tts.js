@@ -106,7 +106,13 @@ const isSentenceTerminator = (char, nextChar) => {
         if (/\s/.test(nextChar)) return true
         return false
     }
-    return char === '!' || char === '?' || char === '。' || char === '！' || char === '？'
+    if (char === ';') {
+        if (!nextChar) return true
+        if (quoteChars.has(nextChar)) return true
+        if (/\s/.test(nextChar)) return true
+        return false
+    }
+    return char === '!' || char === '?' || char === '。' || char === '！' || char === '？' || char === '；'
 }
 
 const advancePastQuotes = (text, index) => {

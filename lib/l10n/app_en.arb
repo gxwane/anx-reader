@@ -1199,5 +1199,8 @@
   },
   "readingExternalNotAddedContent": "Progress will not be saved after exiting. Add it to your bookshelf?",
   "readingExitWithoutSaving": "Exit Without Saving",
-  "readingAddAndExit": "Add and Exit"
+  "readingAddAndExit": "Add and Exit",
+  "ttsReturnToVoice": "Return to Voice",
+  "ttsReadFromHere": "Read from Here",
+  "ttsPausedBufferDrained": "Buffer completed, tap to decide"
 }

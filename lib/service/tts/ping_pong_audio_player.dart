@@ -47,6 +47,7 @@ class PingPongAudioPlayer {
   AudioPlayer? _playerB;
   int _activePlayerIndex = 0; // 0 for A, 1 for B
   double _volume = 1.0;
+  double _playbackRate = 1.0;
 
   StreamSubscription<void>? _subA;
   StreamSubscription<void>? _subB;
@@ -70,8 +71,9 @@ class PingPongAudioPlayer {
   bool get isInitialized => _playerA != null && _playerB != null;
 
   /// Ensures both persistent player instances are created and configured.
-  Future<void> ensureInitialized({double volume = 1.0}) async {
+  Future<void> ensureInitialized({double volume = 1.0, double rate = 1.0}) async {
     _volume = volume;
+    _playbackRate = rate;
     if (isInitialized) return;
     if (_initCompleter != null) return _initCompleter!.future;
 
@@ -91,6 +93,8 @@ class PingPongAudioPlayer {
         _playerB!.setPlayerMode(PlayerMode.mediaPlayer),
         _playerA!.setVolume(_volume),
         _playerB!.setVolume(_volume),
+        _playerA!.setPlaybackRate(_playbackRate),
+        _playerB!.setPlaybackRate(_playbackRate),
       ]);
 
       _subA = _playerA!.onPlayerComplete.listen((_) {
@@ -123,6 +127,20 @@ class PingPongAudioPlayer {
     ]);
   }
 
+  /// Sets playback rate on both player instances for instant zero-latency DSP speed changes.
+  Future<void> setPlaybackRate(double rate) async {
+    _playbackRate = rate;
+    if (!isInitialized) return;
+    try {
+      await Future.wait([
+        _playerA!.setPlaybackRate(rate),
+        _playerB!.setPlaybackRate(rate),
+      ]);
+    } catch (e) {
+      AnxLog.warning('PingPongPlayer: failed to setPlaybackRate: $e');
+    }
+  }
+
   bool _isNextPrewarmed = false;
 
   /// Cancels any pre-warmed audio on the next player (e.g. when pitch/rate changes).
@@ -140,7 +158,7 @@ class PingPongAudioPlayer {
   /// This decodes and prepares the audio buffer in advance on the idle player
   /// while the active player is still playing.
   Future<void> prewarmNext(Uint8List audioBytes, {String? mimeType}) async {
-    if (!isInitialized) await ensureInitialized(volume: _volume);
+    if (!isInitialized) await ensureInitialized(volume: _volume, rate: _playbackRate);
     final detectedMime = mimeType ?? detectAudioMimeType(audioBytes);
     final source = BytesSource(audioBytes, mimeType: detectedMime);
     try {
@@ -154,10 +172,11 @@ class PingPongAudioPlayer {
 
   /// Starts playback directly on the active player (for initial start or seek).
   Future<void> playActive(Uint8List audioBytes, {String? mimeType}) async {
-    if (!isInitialized) await ensureInitialized(volume: _volume);
+    if (!isInitialized) await ensureInitialized(volume: _volume, rate: _playbackRate);
     final detectedMime = mimeType ?? detectAudioMimeType(audioBytes);
     final source = BytesSource(audioBytes, mimeType: detectedMime);
     _isNextPrewarmed = false;
+    await activePlayer.setPlaybackRate(_playbackRate);
     await activePlayer.play(source, volume: _volume);
   }
 
@@ -165,11 +184,13 @@ class PingPongAudioPlayer {
   ///
   /// Returns the newly active player index.
   Future<int> advanceToNext({Uint8List? fallbackBytes}) async {
-    if (!isInitialized) await ensureInitialized(volume: _volume);
+    if (!isInitialized) await ensureInitialized(volume: _volume, rate: _playbackRate);
 
-    // Stop previous player
+    // Stop previous player synchronously to avoid COM workqueue cross-thread collision on Windows
     final oldPlayer = activePlayer;
-    unawaited(oldPlayer.stop());
+    try {
+      await oldPlayer.stop();
+    } catch (_) {}
 
     // Toggle index
     _activePlayerIndex = _activePlayerIndex == 0 ? 1 : 0;
@@ -179,6 +200,7 @@ class PingPongAudioPlayer {
 
     if (wasPrewarmed) {
       try {
+        await newActivePlayer.setPlaybackRate(_playbackRate);
         await newActivePlayer.resume();
         return _activePlayerIndex;
       } catch (e) {
@@ -189,6 +211,7 @@ class PingPongAudioPlayer {
 
     if (fallbackBytes != null) {
       final mime = detectAudioMimeType(fallbackBytes);
+      await newActivePlayer.setPlaybackRate(_playbackRate);
       await newActivePlayer.play(BytesSource(fallbackBytes, mimeType: mime),
           volume: _volume);
     }

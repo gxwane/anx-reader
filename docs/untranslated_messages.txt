@@ -144,7 +144,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "de": [
@@ -292,7 +295,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "es": [
@@ -440,7 +446,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "fr": [
@@ -588,7 +597,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "it": [
@@ -736,7 +748,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "ja": [
@@ -884,7 +899,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "ko": [
@@ -1032,7 +1050,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "pt": [
@@ -1180,7 +1201,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "ro": [
@@ -1328,7 +1352,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "ru": [
@@ -1476,7 +1503,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "tr": [
@@ -1624,7 +1654,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "zh": [
@@ -1714,7 +1747,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "zh_LZH": [
@@ -1850,7 +1886,10 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ],
 
   "zh_TW": [
@@ -1933,6 +1972,9 @@
     "readingExternalNotAddedTitle",
     "readingExternalNotAddedContent",
     "readingExitWithoutSaving",
-    "readingAddAndExit"
+    "readingAddAndExit",
+    "ttsReturnToVoice",
+    "ttsReadFromHere",
+    "ttsPausedBufferDrained"
   ]
 }

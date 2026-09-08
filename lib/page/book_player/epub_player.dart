@@ -177,6 +177,36 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   _ActiveAiBookSearch? _activeAiBookSearch;
   late final Future<int?> _batteryLevelFuture = _readBatteryLevelSafely();
 
+  final ValueNotifier<bool> isTtsViewportDecoupledNotifier =
+      ValueNotifier<bool>(false);
+  bool get isTtsViewportDecoupled => isTtsViewportDecoupledNotifier.value;
+  int _ttsSectionIndex = 0;
+  int _ttsCurrentSection = 0;
+  String _ttsActiveCfi = '';
+
+  int get ttsSectionIndex => _ttsSectionIndex;
+  int get ttsCurrentSection => _ttsCurrentSection;
+  String get ttsActiveCfi => _ttsActiveCfi;
+
+  bool get isTtsViewportDecoupledCrossChapter =>
+      isTtsViewportDecoupled && _ttsCurrentSection != _ttsSectionIndex;
+
+  Future<void> ttsResumeFollow() async {
+    // Do NOT pre-set notifier to false here.
+    // JS will call onTtsViewportDecoupledChanged(false, ...) after highlight renders,
+    // which will update isTtsViewportDecoupledNotifier at the correct moment.
+    await webViewController.callAsyncJavaScript(
+      functionBody: 'return await window.ttsResumeFollow()',
+    );
+  }
+
+  Future<void> ttsReadFromHere() async {
+    isTtsViewportDecoupledNotifier.value = false;
+    await audioHandler.stop();
+    await initTts();
+    await audioHandler.play();
+  }
+
   // Scroll wheel debounce
   Timer? _scrollDebounceTimer;
   double _accumulatedScrollDelta = 0;
@@ -477,7 +507,10 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     }
   }
 
-  void ttsStop() => webViewController.evaluateJavascript(source: "ttsStop()");
+  void ttsStop() {
+    isTtsViewportDecoupledNotifier.value = false;
+    webViewController.evaluateJavascript(source: "ttsStop()");
+  }
 
   Future<String> ttsNext() async {
     try {
@@ -844,6 +877,9 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
           // if (chapterHref != location['chapterHref']) {
           //   refreshToc();
           // }
+          if (location['sectionIndex'] != null) {
+            _ttsCurrentSection = (location['sectionIndex'] as num).toInt();
+          }
           setState(() {
             cfi = location['cfi'] ?? '';
             percentage = clampedPercentage;
@@ -869,9 +905,30 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
                 chapterTotalPages: chapterTotalPages,
               );
           widget.updateParent();
-          saveReadingProgress();
+          if (!isTtsViewportDecoupled) {
+            saveReadingProgress();
+          } else {
+            AnxLog.info(
+                'Suppressing saveReadingProgress during decoupled TTS browsing to protect audio reading position');
+          }
           readingPageKey.currentState?.resetAwakeTimer();
         });
+    controller.addJavaScriptHandler(
+      handlerName: 'onTtsViewportDecoupledChanged',
+      callback: (args) {
+        if (args.isEmpty || args[0] is! Map) return;
+        final data = args[0] as Map;
+        final isTtsActive =
+            TtsHandler().ttsStateNotifier.value != TtsStateEnum.stopped;
+        final decoupled = isTtsActive && (data['decoupled'] == true);
+        _ttsCurrentSection = (data['currentSection'] as num?)?.toInt() ?? 0;
+        _ttsSectionIndex = (data['ttsSection'] as num?)?.toInt() ?? 0;
+        _ttsActiveCfi = data['activeCfi']?.toString() ?? '';
+        if (isTtsViewportDecoupledNotifier.value != decoupled) {
+          isTtsViewportDecoupledNotifier.value = decoupled;
+        }
+      },
+    );
     controller.addJavaScriptHandler(
         handlerName: 'onClick',
         callback: (args) {
@@ -1231,7 +1288,7 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   }
 
   Future<void> saveReadingProgress() async {
-    if (cfi == '' || widget.cfi != null) return;
+    if (isTtsViewportDecoupled || cfi == '' || widget.cfi != null) return;
     final clampedPercentage = clampReadingProgress(percentage);
     final clampedResumePercentage = clampReadingProgress(
       resumePercentage > 0 ? resumePercentage : clampedPercentage,
@@ -1269,7 +1326,10 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
   void dispose() {
     _scrollDebounceTimer?.cancel();
     _animationController?.dispose();
-    saveReadingProgress();
+    if (!isTtsViewportDecoupled) {
+      saveReadingProgress();
+    }
+    isTtsViewportDecoupledNotifier.dispose();
     removeOverlay();
     try {
       ActiveWebViewRegistry().unregisterInAppWebView(webViewController);

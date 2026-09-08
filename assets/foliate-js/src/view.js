@@ -129,6 +129,36 @@ export class View extends HTMLElement {
   #currentTtsRange = null
   #lastTtsRangeOnStop = null
   #isTtsSyncPending = false
+  #isTtsViewportDecoupled = false
+  #ttsSectionIndex = null
+  #ttsActiveCfi = null
+
+  get isTtsViewportDecoupled() {
+    return this.#isTtsViewportDecoupled
+  }
+  get ttsSectionIndex() {
+    return this.#ttsSectionIndex
+  }
+  get ttsActiveCfi() {
+    return this.#ttsActiveCfi
+  }
+  setTtsViewportDecoupled(value) {
+    this.#isTtsViewportDecoupled = !!value
+  }
+  setTtsSectionIndex(value) {
+    this.#ttsSectionIndex = value
+  }
+  setTtsActiveCfi(value) {
+    this.#ttsActiveCfi = value
+  }
+  markTtsViewportDecoupled() {
+    if (this.tts && this.#ttsSectionIndex != null) {
+      this.#isTtsViewportDecoupled = true
+      if (typeof window !== 'undefined' && typeof window.onTtsViewportDecoupledChanged === 'function') {
+        window.onTtsViewportDecoupledChanged(true, this.#index, this.#ttsSectionIndex, this.#ttsActiveCfi)
+      }
+    }
+  }
 
   #onVisibilityChange = () => {
     if (typeof document !== 'undefined' && !document.hidden && (this.tts || this.#lastTtsRangeOnStop)) {
@@ -162,6 +192,9 @@ export class View extends HTMLElement {
     this.#currentTtsRange = null
     this.#lastTtsRangeOnStop = null
     this.#isTtsSyncPending = false
+    this.#isTtsViewportDecoupled = false
+    this.#ttsSectionIndex = null
+    this.#ttsActiveCfi = null
   }
   async open(book) {
     this.book = book
@@ -610,7 +643,8 @@ a[${noteRefTouchAttr}] {
     }
   }
   getCFI(index, range) {
-    const baseCFI = this.book.sections[index].cfi ?? CFI.fake.fromIndex(index)
+    const section = this.book.sections?.[index]
+    const baseCFI = section?.cfi ?? CFI.fake.fromIndex(index ?? 0)
     if (!range) return baseCFI
     return CFI.joinIndir(baseCFI, CFI.fromRange(range))
   }
@@ -713,9 +747,11 @@ a[${noteRefTouchAttr}] {
     }
   }
   async prev(distance) {
+    if (this.tts) this.markTtsViewportDecoupled()
     await this.renderer.prev(distance)
   }
   async next(distance) {
+    if (this.tts) this.markTtsViewportDecoupled()
     await this.renderer.next(distance)
   }
   goLeft() {
@@ -788,22 +824,46 @@ a[${noteRefTouchAttr}] {
       if (typeof document !== 'undefined' && document.hidden && this.#currentTtsRange) {
         this.#lastTtsRangeOnStop = this.#currentTtsRange;
       }
+      this.tts = null;
       this.#currentTtsRange = null;
+      this.#isTtsViewportDecoupled = false;
+      this.#ttsSectionIndex = null;
+      this.#ttsActiveCfi = null;
       return this.#getOverlayer(this.#index)?.overlayer.remove(this.oldValue);
     }
 
     const doc = this.renderer.getContents()?.[0]?.doc;
     if (!doc) return;
+
+    // Guard: When decoupled and viewport is in a different section,
+    // do NOT destroy or overwrite the active TTS instance of the playing section
+    if (this.#isTtsViewportDecoupled && this.#ttsSectionIndex != null && this.#index !== this.#ttsSectionIndex) {
+      return;
+    }
+
     if (this.tts && this.tts.doc === doc) return;
 
     this.#currentTtsRange = null;
     this.#lastTtsRangeOnStop = null;
+    this.#isTtsViewportDecoupled = false;
+    this.#ttsSectionIndex = this.#index;
 
     this.tts = new TTS(
       doc,
       textWalker,
       (range) => {
         this.#currentTtsRange = range;
+
+        // If decoupled and viewport is in a different section, avoid corrupting overlayer
+        if (this.#isTtsViewportDecoupled && this.#index !== this.#ttsSectionIndex) {
+          // Extra defensive guard: TTS may have been stopped (ttsSectionIndex reset to null)
+          // while this highlight callback was still in-flight. Ignore it to avoid getCFI crash.
+          if (this.#ttsSectionIndex == null) return null;
+          const value = this.getCFI(this.#ttsSectionIndex, range);
+          this.#ttsActiveCfi = value;
+          return value;
+        }
+
         const obj = this.#getOverlayer(this.#index);
         let value = null;
         if (obj) {
@@ -815,12 +875,15 @@ a[${noteRefTouchAttr}] {
           overlayer.add(value, range, Overlayer.highlight, { color: '#39c5bc83' });
           this.oldValue = value;
         }
-        if (typeof document === 'undefined' || !document.hidden) {
+        this.#ttsActiveCfi = value;
+
+        // Only scroll to anchor if viewport is NOT decoupled
+        if (!this.#isTtsViewportDecoupled && (typeof document === 'undefined' || !document.hidden)) {
           this.renderer?.scrollToAnchor?.(range);
         }
         return value;
       },
-      (range) => this.getCFI(this.#index, range),
+      (range) => this.getCFI(this.#ttsSectionIndex ?? this.#index, range),
     );
   }
 
@@ -870,6 +933,53 @@ a[${noteRefTouchAttr}] {
       }
     });
   }
+
+  async restoreTtsHighlightFromCfi(cfi) {
+    if (!cfi) return;
+    try {
+      const resolved = this.resolveCFI(cfi);
+      if (!resolved) return;
+      const { index, anchor } = resolved;
+      const contents = this.renderer.getContents?.() ?? [];
+      const content = contents.find(c => c.index === index);
+      if (!content?.doc) return;
+      const range = anchor(content.doc);
+      if (!range) return;
+      this.#currentTtsRange = range;
+      if (content.overlayer) {
+        if (this.oldValue) content.overlayer.remove(this.oldValue);
+        const value = this.getCFI(index, range);
+        content.overlayer.add(value, range, Overlayer.highlight, { color: '#39c5bc83' });
+        this.oldValue = value;
+      }
+    } catch (e) {
+      console.error('restoreTtsHighlightFromCfi error:', e);
+    }
+  }
+
+  async initBackgroundTTS(sectionIndex) {
+    const section = this.book.sections?.[sectionIndex];
+    if (!section?.createDocument) return null;
+    const doc = await section.createDocument();
+    if (!doc) return null;
+
+    this.#ttsSectionIndex = sectionIndex;
+    this.#currentTtsRange = null;
+    this.tts = new TTS(
+      doc,
+      textWalker,
+      (range) => {
+        this.#currentTtsRange = range;
+        if (this.#ttsSectionIndex == null) return null;
+        const value = this.getCFI(this.#ttsSectionIndex, range);
+        this.#ttsActiveCfi = value;
+        return value;
+      },
+      (range) => this.getCFI(this.#ttsSectionIndex ?? sectionIndex, range),
+    );
+    return this.tts;
+  }
+
   startMediaOverlay() {
     const { index } = this.renderer.getContents()[0]
     return this.mediaOverlay.start(index)

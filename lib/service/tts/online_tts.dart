@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/page/reading_page.dart';
@@ -22,8 +23,8 @@ class OnlineTts extends BaseTts {
   OnlineTts._internal();
 
   // ============ Configuration ============
-  static const int _bufferCapacity = 10;
-  static const int _batchSize = 5; // Max concurrent fetches
+  static const int _bufferCapacity = 6;
+  static const int _batchSize = 2; // Conservative batch size to prevent local GPU queue congestion
   static const int _maxRetries = 2;
 
   // ============ Audio Engine & Concurrency ============
@@ -38,6 +39,7 @@ class OnlineTts extends BaseTts {
   TtsSegment? _currentSegment;
   String? _currentVoiceText;
   int _audioFetchVersion = 0; // Version counter for audio fetches
+  int _consecutiveFailures = 0; // Circuit breaker counter for consecutive fetch failures
   // ============ Prefetcher State ============
   bool _isPrefetcherRunning = false;
   Completer<void>? _prefetcherCompleter;
@@ -102,8 +104,10 @@ class OnlineTts extends BaseTts {
   @override
   set rate(double rate) {
     Prefs().ttsRate = rate;
-    // Clear pending audio so it will be re-fetched with new rate
-    _clearPendingAudio();
+    // Fast path: Hardware DSP zero-latency playback rate change
+    // Changes playback rate on the hardware audio player instantly without
+    // discarding buffered segments or triggering re-fetch / starvation timeouts!
+    unawaited(_pingPongPlayer.setPlaybackRate(rate));
   }
 
   @override
@@ -123,7 +127,8 @@ class OnlineTts extends BaseTts {
   // ============ Initialization ============
   @override
   Future<void> init(Function getCurrentText, Function getNextText,
-      Function getPrevText) async {
+      Function getPrevText,
+      {bool Function()? isCrossChapterDecoupled}) async {
     getHereFunction = getCurrentText;
     getNextTextFunction = getNextText;
     getPrevTextFunction = getPrevText;
@@ -132,7 +137,7 @@ class OnlineTts extends BaseTts {
 
   // ============ Audio Player Management ============
   Future<void> _ensurePlayer() async {
-    await _pingPongPlayer.ensureInitialized(volume: volume);
+    await _pingPongPlayer.ensureInitialized(volume: volume, rate: rate);
   }
 
   Future<void> _disposePlayer() async {
@@ -188,6 +193,7 @@ class OnlineTts extends BaseTts {
     _bufferKeys.clear();
     _currentSegment = null;
     _currentVoiceText = null;
+    _consecutiveFailures = 0;
   }
 
   /// Clear audio for all pending segments (not currently playing)
@@ -280,9 +286,12 @@ class OnlineTts extends BaseTts {
     if (state == null) return [];
 
     try {
+      final isInitial = _buffer.isEmpty && _currentSegment == null;
+      final offset = isInitial ? 1 : (_buffer.length + 1);
       final sentences = await state.ttsCollectDetails(
         count: count,
-        includeCurrent: _buffer.isEmpty && _currentSegment == null,
+        includeCurrent: isInitial,
+        offset: offset,
       );
 
       // Filter out already buffered sentences
@@ -352,19 +361,9 @@ class OnlineTts extends BaseTts {
         if (epoch != _sessionEpoch) return;
         AnxLog.severe(
             'Fetch timeout (attempt ${attempt + 1}/$_maxRetries): "${segment.sentence.text.substring(0, segment.sentence.text.length.clamp(0, 20))}..."');
-        if (attempt == _maxRetries) {
-          if (segment.fetchVersion == targetVersion && epoch == _sessionEpoch) {
-            segment.isSilent = true;
-          }
-        }
       } catch (e) {
         if (epoch != _sessionEpoch) return;
         AnxLog.severe('Fetch error (attempt ${attempt + 1}): $e');
-        if (attempt == _maxRetries) {
-          if (segment.fetchVersion == targetVersion && epoch == _sessionEpoch) {
-            segment.isSilent = true;
-          }
-        }
       }
     }
   }
@@ -393,12 +392,15 @@ class OnlineTts extends BaseTts {
         await _waitIfPaused(epoch);
         if (_shouldStop || epoch != _sessionEpoch) break;
 
-        // Wait for buffer to have a segment with starvation protection
+        // Wait for buffer to have a segment with starvation protection, aligned with backend timeout
         final bufferWaitStart = DateTime.now();
+        final maxBufferWaitSec =
+            math.max(35, backend.requestTimeout.inSeconds + 10);
         while (_buffer.isEmpty && !_shouldStop && epoch == _sessionEpoch) {
-          if (DateTime.now().difference(bufferWaitStart).inSeconds >= 10) {
+          if (DateTime.now().difference(bufferWaitStart).inSeconds >=
+              maxBufferWaitSec) {
             AnxLog.warning(
-                'OnlineTts: buffer starvation timeout (10s), stopping');
+                'OnlineTts: buffer starvation timeout (${maxBufferWaitSec}s), stopping');
             await stop();
             break;
           }
@@ -409,18 +411,41 @@ class OnlineTts extends BaseTts {
         // Get the FIRST segment (preserving order)
         final segment = _buffer.first;
 
-        // Starvation protection: wait up to 8s for segment audio to be ready
-        final waitStart = DateTime.now();
+        // Starvation protection: wait for segment audio to be ready, aligned with backend timeout
+        DateTime waitStart = DateTime.now();
+        int lastFetchVersion = segment.fetchVersion;
+        final maxSegmentWaitSec =
+            math.max(35, backend.requestTimeout.inSeconds + 10);
         while (!segment.isReady && !_shouldStop && epoch == _sessionEpoch) {
-          if (DateTime.now().difference(waitStart).inSeconds >= 8) {
+          if (segment.fetchVersion != lastFetchVersion) {
+            lastFetchVersion = segment.fetchVersion;
+            waitStart = DateTime.now(); // Reset timeout when settings/version change
+          }
+          if (DateTime.now().difference(waitStart).inSeconds >=
+              maxSegmentWaitSec) {
             AnxLog.warning(
-                'OnlineTts: starvation timeout (8s) waiting for segment audio; marking silent');
-            segment.isSilent = true;
+                'OnlineTts: starvation timeout (${maxSegmentWaitSec}s) waiting for segment audio');
             break;
           }
           await Future.delayed(const Duration(milliseconds: 20));
         }
         if (_shouldStop || epoch != _sessionEpoch) break;
+
+        // Circuit breaker: handle unready segment to prevent infinite silent skipping
+        if (!segment.isReady) {
+          _consecutiveFailures++;
+          AnxLog.severe(
+              'OnlineTts: segment audio failed to load (consecutive failures: $_consecutiveFailures)');
+          if (_consecutiveFailures >= 2) {
+            AnxLog.severe(
+                'OnlineTts: circuit breaker tripped, pausing playback to protect reading location');
+            await pause();
+            break;
+          }
+          segment.isSilent = true;
+        } else {
+          _consecutiveFailures = 0;
+        }
 
         // 2. CRITICAL GATE: Pause barrier BEFORE consuming buffer & firing hardware audio!
         await _waitIfPaused(epoch);
@@ -428,6 +453,8 @@ class OnlineTts extends BaseTts {
 
         // Remove from buffer now that it's ready to play
         _buffer.removeAt(0);
+        final segmentKey = _segmentKey(segment.sentence);
+        _bufferKeys.remove(segmentKey);
         _currentSegment = segment;
         _currentVoiceText = segment.sentence.text;
 
@@ -503,20 +530,65 @@ class OnlineTts extends BaseTts {
 
   Future<bool> _advanceReaderPosition(int epoch) async {
     try {
-      final nextVoiceText = await getNextTextFunction();
+      dynamic nextVoiceText = await getNextTextFunction();
       if (_shouldStop || epoch != _sessionEpoch) return false;
-      if ((nextVoiceText == null || nextVoiceText.toString().trim().isEmpty) &&
+
+      // If buffer is NOT empty, we still have audio in flight/queued to play.
+      // Never declare EOF or block player progress while buffer has content.
+      if (_buffer.isNotEmpty) {
+        return true;
+      }
+
+      // If text is empty (blank paragraph, illustration page, chapter divider),
+      // retry up to maxBlankSkips times to skip across non-textual nodes.
+      int blankSkips = 0;
+      const maxBlankSkips = 6;
+      while ((nextVoiceText == null ||
+              nextVoiceText.toString().trim().isEmpty) &&
+          blankSkips < maxBlankSkips &&
           _buffer.isEmpty) {
-        AnxLog.info('OnlineTts: End of book reached, stopping playback');
+        blankSkips++;
+        await Future.delayed(const Duration(milliseconds: 25));
+        if (_shouldStop || epoch != _sessionEpoch) return false;
+
+        // If producer managed to populate buffer during this small wait, exit immediately
+        if (_buffer.isNotEmpty) {
+          return true;
+        }
+
+        try {
+          nextVoiceText = await getNextTextFunction();
+        } catch (e) {
+          AnxLog.warning(
+              'OnlineTts: getNextTextFunction retry ($blankSkips/$maxBlankSkips) error: $e');
+        }
+      }
+
+      if (_shouldStop || epoch != _sessionEpoch) return false;
+
+      // If buffer has items now, proceed
+      if (_buffer.isNotEmpty) {
+        return true;
+      }
+
+      // If still empty after retries, check if truly at end of book
+      if (nextVoiceText == null || nextVoiceText.toString().trim().isEmpty) {
+        AnxLog.info(
+            'OnlineTts: End of book reached after $blankSkips blank skips, stopping playback');
         await stop();
         return false;
       }
+
       return true;
     } catch (e) {
       AnxLog.severe('OnlineTts getNextTextFunction error: $e');
       if (_buffer.isEmpty) {
-        await stop();
-        return false;
+        // Double check after a slight backoff before hard stopping
+        await Future.delayed(const Duration(milliseconds: 50));
+        if (_buffer.isEmpty && !_shouldStop && epoch == _sessionEpoch) {
+          await stop();
+          return false;
+        }
       }
       return true;
     }
@@ -524,6 +596,9 @@ class OnlineTts extends BaseTts {
 
   @visibleForTesting
   int get sessionEpoch => _sessionEpoch;
+
+  @visibleForTesting
+  List<TtsSegment> get bufferForTest => _buffer;
 
   @visibleForTesting
   void resetForTest() {

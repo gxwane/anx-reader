@@ -39,6 +39,9 @@ class _TtsWidgetState extends State<TtsWidget> {
         widget.epubPlayerKey.currentState!.initTts,
         widget.epubPlayerKey.currentState!.ttsNext,
         widget.epubPlayerKey.currentState!.ttsPrev,
+        isCrossChapterDecoupled: () =>
+            widget.epubPlayerKey.currentState?.isTtsViewportDecoupledCrossChapter ??
+            false,
       )
           .then((value) {
         audioHandler.play();

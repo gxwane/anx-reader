@@ -1192,15 +1192,15 @@ class ReadingPageState extends ConsumerState<ReadingPage>
                     ],
                   ),
                   controller,
-                  // TTS floating action button: always in the tree when toolbar
-                  // is hidden; TtsFab handles its own show/hide internally so
-                  // its State (expanded flag) is never destroyed mid-session.
-                  if (bottomBarOffstage)
-                    const Positioned(
+                  // TTS floating action button: in the tree when toolbar is hidden,
+                  // handles its own coupled/decoupled morphing state internally.
+                  if (bottomBarOffstage) ...[
+                    Positioned(
                       right: 16,
                       bottom: 24,
-                      child: TtsFab(),
+                      child: TtsFab(epubPlayerKey: epubPlayerKey),
                     ),
+                  ],
                 ],
               ),
             ),

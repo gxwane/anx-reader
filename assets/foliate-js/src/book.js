@@ -2631,6 +2631,7 @@ const onRelocated = (currentInfo) => {
     resumeFraction,
     bookmark: currentInfo.bookmark,
     writingMode: reader.view.renderer.writingMode,
+    sectionIndex: reader.view.renderer.currentSection ?? 0,
   })
 }
 
@@ -2676,17 +2677,35 @@ window.changeStyle = (newStyle) => {
   }
 }
 
-window.goToHref = href => reader.view.goTo(href)
+window.goToHref = href => {
+  reader.view?.markTtsViewportDecoupled?.()
+  return reader.view.goTo(href)
+}
 
-window.goToCfi = cfi => reader.view.goTo(cfi)
+window.goToCfi = cfi => {
+  reader.view?.markTtsViewportDecoupled?.()
+  return reader.view.goTo(cfi)
+}
 
-window.goToNoteTarget = target => reader.goToNoteTarget(target)
+window.goToNoteTarget = target => {
+  reader.view?.markTtsViewportDecoupled?.()
+  return reader.goToNoteTarget(target)
+}
 
-window.goToPercent = percent => reader.view.goToFraction(percent)
+window.goToPercent = percent => {
+  reader.view?.markTtsViewportDecoupled?.()
+  return reader.view.goToFraction(percent)
+}
 
-window.nextPage = () => reader.view.next()
+window.nextPage = () => {
+  reader.view?.markTtsViewportDecoupled?.()
+  return reader.view.next()
+}
 
-window.prevPage = () => reader.view.prev()
+window.prevPage = () => {
+  reader.view?.markTtsViewportDecoupled?.()
+  return reader.view.prev()
+}
 
 window.setScroll = () => {
   style.scroll = true
@@ -2732,15 +2751,77 @@ window.addBookmarkHere = () => reader.handleBookmark(false)
 
 window.removeAnnotation = (cfi) => reader.removeAnnotation(cfi)
 
-window.prevSection = () => reader.view.renderer.prevSection()
+window.prevSection = () => {
+  reader.view?.markTtsViewportDecoupled?.()
+  return reader.view.renderer.prevSection()
+}
 
-window.nextSection = () => reader.view.renderer.nextSection()
+window.nextSection = () => {
+  reader.view?.markTtsViewportDecoupled?.()
+  return reader.view.renderer.nextSection()
+}
 
 window.initTts = () => reader.view.initTTS()
 
 window.ttsStop = () => reader.view.initTTS(true)
 
 window.ttsSyncPosition = () => reader.view?.syncTtsPosition?.()
+
+window.onTtsViewportDecoupledChanged = (decoupled, currentSection, ttsSection, activeCfi) => {
+  callFlutter('onTtsViewportDecoupledChanged', {
+    decoupled: !!decoupled,
+    currentSection: currentSection ?? reader.view?.renderer?.currentSection ?? 0,
+    ttsSection: ttsSection ?? reader.view?.ttsSectionIndex ?? 0,
+    activeCfi: activeCfi ?? reader.view?.ttsActiveCfi ?? '',
+  })
+}
+
+window.isTtsViewportDecoupled = () => reader.view?.isTtsViewportDecoupled ?? false
+
+window.ttsResumeFollow = async () => {
+  if (!reader.view) return
+  const currentSection = reader.view.renderer?.currentSection ?? 0
+  const ttsSection = reader.view.ttsSectionIndex ?? currentSection
+  const activeCfi = reader.view.ttsActiveCfi
+
+  if (activeCfi) {
+    // 1. Unified path for both same-chapter and cross-chapter:
+    // goTo(activeCfi) ensures paginator navigates/flips directly to the exact page of activeCfi
+    await reader.view.goTo(activeCfi)
+    await new Promise(r => requestAnimationFrame(r))
+
+    // 2. Ensure current TTS instance is bound to the active document
+    window.initTts?.()
+
+    // 3. Read dynamic latest CFI to avoid stale closure if audio advanced during navigation
+    const targetCfi = reader.view.ttsActiveCfi || activeCfi
+
+    // 4. Align TTS internal cursor with target sentence to prevent jumping back to chapter start
+    const synced = reader.view.tts?.highlightCfi?.(targetCfi)
+    if (!synced && typeof reader.view.restoreTtsHighlightFromCfi === 'function') {
+      await reader.view.restoreTtsHighlightFromCfi(targetCfi)
+    }
+    await new Promise(r => requestAnimationFrame(r))
+  } else {
+    reader.view.syncTtsPosition?.()
+    await new Promise(r => requestAnimationFrame(r))
+  }
+
+  // 5. Post-unlock decoupled state after navigation and highlight are completely settled
+  reader.view.setTtsViewportDecoupled(false)
+  const finalSection = reader.view.renderer?.currentSection ?? ttsSection
+  reader.view.setTtsSectionIndex(finalSection)
+  window.onTtsViewportDecoupledChanged(false, finalSection, finalSection, reader.view.ttsActiveCfi || activeCfi)
+}
+
+window.ttsReadFromHere = () => {
+  if (!reader.view) return null
+  const currentSec = reader.view.renderer?.currentSection ?? 0
+  reader.view.setTtsViewportDecoupled(false)
+  reader.view.setTtsSectionIndex(currentSec)
+  window.onTtsViewportDecoupledChanged(false, currentSec, currentSec, '')
+  return window.ttsHere()
+}
 
 window.ttsHere = () => {
   initTts()
@@ -2771,8 +2852,10 @@ window.ttsCurrentDetail = () => {
 }
 
 window.ttsCollectDetails = (count = 1, includeCurrent = false, offset = 1) => {
-  initTts()
-  return reader.view.tts.collectDetails(count, { includeCurrent, offset })
+  if (!reader.view?.tts) {
+    initTts()
+  }
+  return reader.view?.tts?.collectDetails(count, { includeCurrent, offset }) ?? []
 }
 
 window.ttsHighlightByCfi = cfi => {
@@ -2783,46 +2866,93 @@ window.ttsHighlightByCfi = cfi => {
 window.ttsNextSection = async () => {
   const renderer = reader.view?.renderer
   if (!renderer) return null
-  const contentBefore = renderer.getContents()?.[0]
-  const oldIndex = contentBefore?.index ?? renderer.currentSection ?? 0
-  const oldChapter = contentBefore?.chapterIndex ?? renderer.currentChapter ?? 0
+  const currentSection = renderer.currentSection ?? 0
+  const ttsSection = reader.view?.ttsSectionIndex ?? currentSection
+  const totalSections = reader.view?.book?.sections?.length ?? 0
+  const nextSectionIndex = ttsSection + 1
 
-  const target = await nextSection()
-  if (!target) return null
-
-  const contentAfter = renderer.getContents()?.[0]
-  const newIndex = contentAfter?.index ?? renderer.currentSection ?? 0
-  const newChapter = contentAfter?.chapterIndex ?? renderer.currentChapter ?? 0
-
-  if (newIndex === oldIndex && newChapter === oldChapter) {
-    return null
+  if (nextSectionIndex >= totalSections) {
+    return null // Truly end of book!
   }
+
+  // Check if decoupled
+  if (reader.view?.isTtsViewportDecoupled) {
+    // 1C: Contextual Reconvergence!
+    // If the user's viewport happens to already be at the next chapter:
+    if (currentSection === nextSectionIndex) {
+      reader.view.setTtsViewportDecoupled(false)
+      reader.view.setTtsSectionIndex(nextSectionIndex)
+      initTts()
+      const result = reader.view?.tts?.next(true)
+      window.onTtsViewportDecoupledChanged?.(false, nextSectionIndex, nextSectionIndex, reader.view?.ttsActiveCfi || '')
+      return result ?? null
+    }
+
+    // 1B: Headless background seamless advance!
+    // Viewport stays on currentSection, audio seamlessly continues to nextSectionIndex!
+    const bgTts = await reader.view.initBackgroundTTS?.(nextSectionIndex)
+    if (!bgTts) return null
+    reader.view.setTtsSectionIndex(nextSectionIndex)
+    const result = bgTts.start()
+    window.onTtsViewportDecoupledChanged?.(true, currentSection, nextSectionIndex, reader.view?.ttsActiveCfi || '')
+    return result ?? null
+  }
+
+  const target = await reader.view.renderer.nextSection()
+  if (!target) return null
+  const contentAfter = renderer.getContents()?.[0]
+  const newIndex = contentAfter?.index ?? renderer.currentSection ?? nextSectionIndex
+
+  reader.view?.setTtsViewportDecoupled?.(false)
+  reader.view?.setTtsSectionIndex?.(newIndex)
 
   initTts()
   const result = reader.view?.tts?.next(true)
+  window.onTtsViewportDecoupledChanged?.(false, newIndex, newIndex, reader.view?.ttsActiveCfi || '')
   return result ?? null
 }
 
 window.ttsPrevSection = async (last) => {
   const renderer = reader.view?.renderer
   if (!renderer) return null
-  const contentBefore = renderer.getContents()?.[0]
-  const oldIndex = contentBefore?.index ?? renderer.currentSection ?? 0
-  const oldChapter = contentBefore?.chapterIndex ?? renderer.currentChapter ?? 0
+  const currentSection = renderer.currentSection ?? 0
+  const ttsSection = reader.view?.ttsSectionIndex ?? currentSection
+  const prevSectionIndex = ttsSection - 1
 
-  const target = await prevSection()
-  if (!target) return null
-
-  const contentAfter = renderer.getContents()?.[0]
-  const newIndex = contentAfter?.index ?? renderer.currentSection ?? 0
-  const newChapter = contentAfter?.chapterIndex ?? renderer.currentChapter ?? 0
-
-  if (newIndex === oldIndex && newChapter === oldChapter) {
+  if (prevSectionIndex < 0) {
     return null
   }
 
+  if (reader.view?.isTtsViewportDecoupled) {
+    if (currentSection === prevSectionIndex) {
+      reader.view.setTtsViewportDecoupled(false)
+      reader.view.setTtsSectionIndex(prevSectionIndex)
+      initTts()
+      const result = last ? reader.view?.tts?.end() : (reader.view?.tts?.next(true) ?? null)
+      window.onTtsViewportDecoupledChanged?.(false, prevSectionIndex, prevSectionIndex, reader.view?.ttsActiveCfi || '')
+      return result
+    }
+
+    const bgTts = await reader.view.initBackgroundTTS?.(prevSectionIndex)
+    if (!bgTts) return null
+    reader.view.setTtsSectionIndex(prevSectionIndex)
+    const result = last ? bgTts.end() : (bgTts.next(true) ?? null)
+    window.onTtsViewportDecoupledChanged?.(true, currentSection, prevSectionIndex, reader.view?.ttsActiveCfi || '')
+    return result
+  }
+
+  const target = await reader.view.renderer.prevSection()
+  if (!target) return null
+  const contentAfter = renderer.getContents()?.[0]
+  const newIndex = contentAfter?.index ?? renderer.currentSection ?? prevSectionIndex
+
+  reader.view?.setTtsViewportDecoupled?.(false)
+  reader.view?.setTtsSectionIndex?.(newIndex)
+
   initTts()
-  return last ? reader.view?.tts?.end() : (reader.view?.tts?.next(true) ?? null)
+  const result = last ? reader.view?.tts?.end() : (reader.view?.tts?.next(true) ?? null)
+  window.onTtsViewportDecoupledChanged?.(false, newIndex, newIndex, reader.view?.ttsActiveCfi || '')
+  return result
 }
 
 window.ttsNext = async () => {

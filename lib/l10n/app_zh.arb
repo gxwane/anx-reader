@@ -1086,5 +1086,8 @@
   },
   "readingExternalNotAddedContent": "退出后本次临时阅读进度将不会保存，是否将其加入书架？",
   "readingExitWithoutSaving": "直接退出",
-  "readingAddAndExit": "加入书架并退出"
+  "readingAddAndExit": "加入书架并退出",
+  "ttsReturnToVoice": "回到播放处",
+  "ttsReadFromHere": "从当前页朗读",
+  "ttsPausedBufferDrained": "缓冲已播完，点击选择操作"
 }

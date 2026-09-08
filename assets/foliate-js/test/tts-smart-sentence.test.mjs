@@ -60,3 +60,13 @@ test('GIVEN English dialogue followed by attribution, THEN merges into single se
   const sentences = getSentences('<p>"No!" she cried.</p>')
   assert.deepEqual(sentences, ['"No!" she cried.'])
 })
+
+test('GIVEN sentence with fullwidth semicolon, THEN splits clauses naturally', () => {
+  const sentences = getSentences('<p>做堆叠；另一方面微处理器的功能太强大了。</p>')
+  assert.deepEqual(sentences, ['做堆叠；', '另一方面微处理器的功能太强大了。'])
+})
+
+test('GIVEN sentence with English semicolon, THEN splits clauses with trailing space', () => {
+  const sentences = getSentences('<p>First clause; second clause.</p>')
+  assert.deepEqual(sentences, ['First clause;', ' second clause.'])
+})

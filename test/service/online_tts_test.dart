@@ -231,5 +231,22 @@ void main() {
       expect(() async => await tts.stop(), returnsNormally);
       expect(tts.ttsStateNotifier.value, equals(TtsStateEnum.stopped));
     });
+
+    test('Fast-path rate change invokes setPlaybackRate on AudioPlayer', () async {
+      final tts = OnlineTts();
+      audioMethodCalls.clear();
+
+      tts.rate = 1.35;
+      await Future.delayed(const Duration(milliseconds: 30));
+
+      expect(Prefs().ttsRate, equals(1.35));
+      expect(tts.rate, equals(1.35));
+
+      final rateCalls = audioMethodCalls
+          .where((c) => c.method == 'setPlaybackRate')
+          .toList();
+      expect(rateCalls.isNotEmpty, isTrue);
+      expect(rateCalls.last.arguments['playbackRate'], equals(1.35));
+    });
   });
 }

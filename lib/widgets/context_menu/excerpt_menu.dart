@@ -318,6 +318,8 @@ class ExcerptMenuState extends State<ExcerptMenu> {
                 () => playerState.initTts(fromCfi: widget.annoCfi),
                 playerState.ttsNext,
                 playerState.ttsPrev,
+                isCrossChapterDecoupled: () =>
+                    playerState.isTtsViewportDecoupledCrossChapter,
               );
 
               // Start TTS - audioHandler.play() will call TTS speak

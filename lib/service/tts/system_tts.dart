@@ -83,7 +83,8 @@ class SystemTts extends BaseTts {
 
   @override
   Future<void> init(Function getCurrentText, Function getNextText,
-      Function getPrevText) async {
+      Function getPrevText,
+      {bool Function()? isCrossChapterDecoupled}) async {
     getHereFunction = getCurrentText;
     getNextTextFunction = getNextText;
     getPrevTextFunction = getPrevText;

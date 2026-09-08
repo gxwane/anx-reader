@@ -18,7 +18,8 @@ abstract class BaseTts {
   void updateTtsState(TtsStateEnum newState);
 
   Future<void> init(
-      Function getCurrentText, Function getNextText, Function getPrevText);
+      Function getCurrentText, Function getNextText, Function getPrevText,
+      {bool Function()? isCrossChapterDecoupled});
 
   Future<void> speak({String? content, bool resetLocation = true});
 
