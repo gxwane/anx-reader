@@ -2,12 +2,12 @@
 
 ## [0.1.0-preview.8] - 2026-09-19
 
-- Change(sync): Roll back the custom WebDAV sync engines (v1 sidecar micro-sync and v2 immutable-object engine) to the upstream whole-database snapshot behavior; cloud micro-sync, group UUID mapping, Markdown notes mirroring and conflict-copy protection are removed, legacy sync metadata must be archived out of the sync namespace, and published changelog entries remain unchanged
+- Change(sync): Roll back the custom WebDAV sync engines (v1 sidecar micro-sync and v2 immutable-object engine) to the upstream whole-database snapshot behavior; cloud micro-sync, group UUID mapping, Markdown notes mirroring and conflict-copy protection are removed, legacy sync metadata must be archived out of the sync namespace, and superseded preview.6/7 sync announcements were withdrawn from the in-repo changelog
 - Change(db): Converge the database schema to v9, keeping the reader context fingerprint columns and adding `(book_id, cfi)` note and `(book_id, date)` reading-time unique indexes; legacy production databases must be converted by a one-time out-of-app tool before use
 - Feat(sync): Replace the restore entry with a local transactional restore that swaps the six business tables in one SQLite write transaction, rejecting wrong versions, duplicate identities, noncanonical dates, negative durations, dangling groups and cycles with the live database unchanged, and requiring WebDAV off plus a full app restart first
 - Fix(statistics): Remove the statistics delete UI and DAO hard-delete endpoint; leaving the statistics page and removing books never delete reading records, note saves keep their identity, and reading time accumulates as plain seconds
 
-- Change(sync): 自研 WebDAV 同步（v1 边车微同步与 v2 不可变对象引擎）整体回退为上游原版整库快照同步；云端微同步、分组 UUID 映射、Markdown 笔记镜像与冲突副本保护一并移除，旧同步元数据需人工移出同步命名空间归档，已发布版本条目保持不变
+- Change(sync): 自研 WebDAV 同步（v1 边车微同步与 v2 不可变对象引擎）整体回退为上游原版整库快照同步；云端微同步、分组 UUID 映射、Markdown 笔记镜像与冲突副本保护一并移除，旧同步元数据需人工移出同步命名空间归档，已发布版本中已回退的同步功能条目已从仓库变更日志撤下
 - Change(db): 数据库结构收敛至 v9，保留阅读器上下文指纹列并新增 `(book_id, cfi)` 笔记与 `(book_id, date)` 阅读时长唯一索引；生产旧库须经应用外一次性工具离线转换后接入
 - Feat(sync): 恢复入口改为本地事务恢复，在单个 SQLite 写事务内替换六张业务表；错误版本、重复身份、非规范日期、负时长、悬空分组与环路一律拒绝且原库不变，执行前须关闭 WebDAV 并完全退出应用
 - Fix(statistics): 移除统计删除 UI 与 DAO 硬删除端点，退出统计页、移除书籍不再删除阅读记录；笔记保存保持唯一身份，阅读时长按普通秒数累加

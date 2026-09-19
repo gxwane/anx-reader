@@ -71,9 +71,9 @@ CREATE TABLE tb_notes (
   chapter TEXT,
   type TEXT,
   color TEXT,
-  reader_note TEXT,
   create_time TEXT,
   update_time TEXT,
+  reader_note TEXT,
   context_prefix TEXT,
   context_suffix TEXT
 )

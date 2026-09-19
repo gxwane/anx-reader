@@ -67,6 +67,8 @@ void main() {
         inMemoryDatabasePath,
         options: OpenDatabaseOptions(singleInstance: false),
       );
+      // Faithful baseline v8 layout: reader_note was appended after
+      // update_time by the historical migration, never placed mid-table.
       await db.execute('''
         CREATE TABLE tb_notes (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -76,9 +78,9 @@ void main() {
           chapter TEXT,
           type TEXT,
           color TEXT,
-          reader_note TEXT,
           create_time TEXT,
-          update_time TEXT
+          update_time TEXT,
+          reader_note TEXT
         )
       ''');
       await db.execute(createReadingTimeSQL);
