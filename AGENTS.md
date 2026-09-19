@@ -12,18 +12,25 @@ Anx Reader is a cross-platform Flutter e-book reader with EPUB/MOBI/AZW3/FB2/TXT
 - `lib/models/`: Pure domain entities and Freezed data models.
 - `lib/dao/`: SQLite database schema, helpers, migrations, and table DAOs.
   - **Notes Decoupling Invariant**: Deleting a book from the bookshelf only sets `tb_books.is_deleted = 1` and cleans local physical files. Book notes (`tb_notes`) and reading statistics (`tb_reading_time`) are permanently retained as user knowledge assets.
-- `lib/service/sync/`: 4-tier WebDAV synchronization engine, payloads, record merger, and offline resilience queue.
-  - **WebDAV Cloud Topology Standard**:
+  - **Database v9 Schema Invariant**: `currentDbVersion = 9`. A freshly created database and a clean baseline-v8 upgrade converge to the same schema: reader context fingerprint columns (`context_prefix` / `context_suffix`) on `tb_notes`, a `(book_id, cfi)` unique index on notes and a `(book_id, date)` unique index on reading time. Legacy production databases are converted offline outside the app; the runtime has no old-schema compatibility branch.
+  - **Statistics Retention Invariant**: Statistics have no delete UI or DAO hard-delete endpoint; leaving the statistics page never deletes reading records.
+  - **Reading Time Identity Invariant**: Reading time is stored as plain seconds per `(book_id, normalized date)` and local writes accumulate inside a transaction. No component encoding, installation identity or open-time history deduplication remains.
+  - **Note Identity & Relocation Invariant**: Note saves update/insert atomically by `(book_id, cfi)` and retain existing note IDs. CFI relocation processes one book per batch: otherwise-valid in-place updates succeed, while occupation, swap, duplicate target, contradictory or stale instructions reject the whole batch and leave every original record unchanged; a later SQL failure rolls back earlier updates. No tombstone rows are produced.
+  - **Local Restore Invariant**: Settings restore validates a private current-version backup copy before replacing the six business tables in one live SQLite transaction; it never drops the two unique indexes and never imports backup schema, triggers or cloud state. Duplicate identities, noncanonical dates, negative durations, dangling groups or cycles reject the restore with the live database unchanged. Restore requires WebDAV disabled and a full app restart first, does not restore missing assets and does not roll back cloud history.
+  - **Backup Discovery Boundary**: `lib/service/local_database_backups.dart` only lists existing local backup files. No whole-database WebDAV download/replacement fallback remains; background sync entries treat restore maintenance as unavailable sync, not an unhandled error.
+- `lib/service/bookshelf/`: Organize persistence depends only on DAOs and plan models; its Provider construction and refresh orchestration live in `lib/providers/bookshelf_organize.dart`.
+- `lib/service/sync/`: Baseline upstream WebDAV whole-database snapshot sync (4 files: `sync_client_base`, `sync_client_factory`, `sync_connection_tester`, `webdav_client`) plus `lib/service/database_sync_manager.dart` for safe download, validation and replacement. The custom v1/v2 engine (sidecar progress/notes payloads, record merger, offline queue, Markdown mirror, asset passes, transport runtime and cooldown store) is removed and must not be reintroduced without a new design.
+  - **WebDAV Cloud Topology** (within the app namespace):
     ```text
     <WebDAV Root>/
-    ├── sync/
-    │   ├── progress/<file_md5>.json          # Tier 1: Single-book progress micro-sync (~240B, <30ms exit)
-    │   ├── notes/<file_md5>.json             # Tier 1: Single-book notes payload with tombstones
-    │   ├── latest_progress.json              # Tier 2: Bookshelf global progress index (read-modify-write)
-    │   └── markdown_notes/<title - author>.md # Tier 3: PKM Obsidian/Logseq Markdown mirror
-    └── <db_name>.db                          # Tier 4: Non-destructive DB snapshot merge
+    └── anx-reader-gx-preview/
+        ├── database9.db                  # Whole-database snapshot (version-named)
+        └── data/
+            ├── file/<filename>
+            └── cover/<filename>
     ```
-- `lib/service/notes/`: PKM Markdown formatting, YAML Frontmatter, Dataview tags, and cross-platform filename sanitization.
+  - **Baseline Sync Limitations**: `syncFiles()` prunes local and remote assets not referenced by the current database, and a failed database download may still be followed by the asset stage. These baseline behaviors are retained as-is; they are mitigated by backups and single-device operations, not by new runtime machinery.
+- `lib/service/notes/`: Book note export and external note import (Moon+ Reader `.mrexpt`, pending-import scaffolding).
 - `lib/service/font/`: Font asset subsystem, OpenType/TrueType/TTC random-access stream parser (<64KB read), PostScript stable ID contract, and JIT lazy Flutter engine loading.
 - `lib/providers/`: Riverpod reactive state management.
 - `lib/service/book_player/`: Local HTTP server and Foliate-js bridge.

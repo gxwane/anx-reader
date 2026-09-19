@@ -1082,20 +1082,37 @@ class EpubPlayerState extends ConsumerState<EpubPlayer>
     controller.addJavaScriptHandler(
       handlerName: 'onAnnotationsRelocated',
       callback: (args) async {
-        if (args.isEmpty || args[0] is! List) return;
+        if (args.isEmpty || args[0] is! List) {
+          return const <String, Object?>{
+            'success': false,
+            'updatedCount': 0,
+            'failure': 'invalidInput',
+          };
+        }
         final list = (args[0] as List);
         final converted = list
             .whereType<Map>()
             .map((item) => Map<String, dynamic>.from(item))
             .toList();
-        if (converted.isEmpty) return;
+        if (converted.isEmpty) {
+          return const <String, Object?>{
+            'success': true,
+            'updatedCount': 0,
+          };
+        }
         AnxLog.info(
             'EpubPlayer(${widget.book.id}): batch relocating ${converted.length} annotations');
-        await bookNoteDao.batchUpdateCfiWithTombstones(
-            widget.book.id, converted);
-        if (mounted) {
+        final result = await bookNoteDao.relocateCfis(
+          widget.book.id,
+          converted.cast<Map<String, Object?>>(),
+        );
+        if (!result.isSuccess) {
+          AnxLog.warning(
+              'EpubPlayer(${widget.book.id}): annotation relocation rejected: ${result.failure?.name}');
+        } else if (mounted) {
           ref.invalidate(bookNotesControllerProvider(widget.book));
         }
+        return result.toJson();
       },
     );
     controller.addJavaScriptHandler(

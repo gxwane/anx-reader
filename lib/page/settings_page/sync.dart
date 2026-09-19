@@ -72,7 +72,7 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
                 ),
               ),
             ),
-            SettingsTile.navigation(
+            SettingsTile(
                 title: Text(L10n.of(context).settingsSyncWebdavSyncNow),
                 leading: const Icon(Icons.sync_alt),
                 // value: Text(Prefs().syncDirection),
@@ -108,7 +108,7 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
                     Prefs().autoSync = value;
                   });
                 }),
-            SettingsTile.navigation(
+            SettingsTile(
                 title: Text(L10n.of(context).restoreBackup),
                 leading: const Icon(Icons.restore),
                 onPressed: (context) {
@@ -119,13 +119,13 @@ class _SyncSettingState extends ConsumerState<SyncSetting> {
         SettingsSection(
           title: Text(L10n.of(context).exportAndImport),
           tiles: [
-            SettingsTile.navigation(
+            SettingsTile(
                 title: Text(L10n.of(context).exportAndImportExport),
                 leading: const Icon(Icons.cloud_upload),
                 onPressed: (context) {
                   exportData(context);
                 }),
-            SettingsTile.navigation(
+            SettingsTile(
                 title: Text(L10n.of(context).exportAndImportImport),
                 leading: const Icon(Icons.cloud_download),
                 onPressed: (context) {

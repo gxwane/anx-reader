@@ -7,9 +7,65 @@
 
 ---
 
-## [0.1.0-preview.5] - 2026-09-02
+## [0.1.0-preview.8] - 2026-09-19
+
+### 变更
+- **WebDAV 同步能力整体回退（WebDAV Sync Rollback）**：自研 WebDAV 同步（v1 边车微同步与 v2 不可变对象引擎）因非收敛缺陷整体回退，应用恢复为上游原版整库快照同步行为；preview.6/7 期间的云端微同步、分组 UUID 映射、Markdown 笔记镜像与冲突副本保护能力一并移除。旧云端同步元数据（`sync/`、`latest_progress.json`、`markdown_notes/` 等）需人工移出同步命名空间归档，已发布版本的历史条目保持不变。
+- **数据库结构收敛至 v9**：保留阅读器上下文指纹（`context_prefix` / `context_suffix`）与 v8 阅读状态字段，新增 `(book_id, cfi)` 笔记唯一索引与 `(book_id, date)` 阅读时长唯一索引；不再提供旧库兼容打开，生产旧库须经应用外一次性工具离线转换后接入。
+- **应用内本地事务恢复**：恢复入口改为在单个 SQLite 写事务内替换六张业务表，校验目标 v9 版本与业务记录；重复身份、非法日期、负时长、分组环或悬空引用一律拒绝且原库不变。执行前须关闭 WebDAV 并完全退出应用，恢复期间不得阅读或触发同步。
+
+### 修复
+- **统计删除入口移除**：移除统计页删除与 DAO 硬删除端点，退出统计页、移除书籍均不再删除阅读统计或笔记。
+- **笔记与阅读时长身份约束**：保存笔记按 `(book_id, cfi)` 原子更新并保留原笔记 ID；阅读时长按规范日期以普通秒数在事务内累加。
+- **设置项导航箭头一致性**：同步与导出/导入等直接执行项、模态对话框项不再显示误导性的子页面箭头。
+
+## [0.1.0-preview.7] - 2026-09-07
 
 ### 新增
+- **听书视口解耦与单一变形 FAB（Decoupled Reader Viewport & Morphing FAB during TTS Listening）**：彻底重构听书时手动翻页的交互体验。当用户在听书朗读期间翻阅前后页面或浏览跨章节内容时，视口不再因音频播放下一句而被强行暴力拉回（Snap-Back）；右下角原有悬浮按钮智能变形为 `[🎯 回到朗读处]`（英文 `Return to Voice`）药丸胶囊，点击一键精准平滑翻页回到当前正在发音的句子并绘制高亮；内核深度落实 **1B 后台无头静默连播** 与 **1C 上下文情境重合自愈**：用户浏览其他章节时，音频通过内存无头文档静默连读下一章，永不断播、绝不误判读完猝死；当用户手动浏览的章节与音频跨章自然切入的章节重合时，视口自愈吸附并恢复跟随；严密筑牢阅读进度防线，杜绝自由浏览期间切后台导致听书进度被意外覆盖。
+- **阿里云百炼 Qwen3-TTS 语音大模型接入（Alibaba Cloud DashScope Qwen3-TTS Integration）**：全面接入阿里云百炼（DashScope）新一代 Qwen3-TTS（通义千问语音大模型）语音合成服务，为个人与开发者提供每月 **1,000,000 字符** 永久免费额度，只需配置 API Key 即可零门槛畅享高质量、自然拟真的情感语音（Upstream Issue #980）。内置 20 款官方精选优质声线（涵盖芊悦、苏瑶、晨煦、千雪、茉兔、月白、四月、凯、田叔、萌宝、徐大爷、小婉、沧明子、燕铮莺、十三妹、阿闻以及沪/京/陕/闽台方言特色音色）；请求载荷全面启用 MP3 压缩编码，相比未压缩 WAV 大幅节省 80% 网络带宽与首字延迟；支持 `language_type: Auto` 自适应多语种书籍朗读；针对云端缺乏数值语速参数的限制，创新实现语速倍速指令动态注入机制，并在两阶段合成（任务生成 + 音频直链下载）全链路部署 25 秒网络韧性防护；与设置页音色列表无缝联动，打造开箱即用的高品质中文听书新标杆。
+- **TTS 听书对话智能断句优化与承接引语自然合并（Smart Dialogue Sentence Splitting & Lookahead Attribution Merger）**：彻底修复听书模式机械按句号、感叹号、问号切分句子，导致类似 `“我去！”他震惊地喊道。` 或 `“真的吗？”老人疑惑地问。` 被强行切分为两段单独语音发音，造成短句发音生硬突兀、语调脱节、长久停顿的重大听书体验缺陷（Upstream Issue #970）。在底层 Foliate-js 阅读引擎（`assets/foliate-js/src/tts.js`）的分句生成器中引入轻量级前瞻智能合并（Smart Lookahead Merger）算法，支持跨多级 DOM 节点探查；当闭引号（含中英文单双引号 `”`、`’`、`"`、`'` 以及日文/繁体角引号 `」`、`』`）前出现终止标点时，智能识别后文紧邻的言语动作引语标签（如 `他喊道`、`老人问`、`他说`、`微笑着说`、`she cried` 等）并将其自然合并为一个连贯完整的发音与高亮 Range 单元；同时对连续多角色对话（如 `“好。”“走。”`）及非引语长段叙事保持精准避让独立分句，无需用户进行繁琐的规则配置，全自动实现沉浸自然的开箱即用听书体验。
+- **全平台系统级书籍文件关联直接打开与现代临时预览模式（Cross-Platform File Association & Modern Ephemeral Preview Mode）**：
+  - **全平台系统级双击/分享关联打开（System-Wide File Association）**：在 Windows（Inno Setup 注册表 ProgID 与单实例 `WM_COPYDATA`）、macOS（`CFBundleDocumentTypes` 与 `AppDelegate.openFiles`）、iOS（Document Types 与 UTI）以及 Android（Intent 统一通道）深度集成系统文件关联与原生通道，支持双击直接打开 `.epub`, `.mobi`, `.azw3`, `.azw`, `.fb2`, `.txt`, `.pdf` 书籍文件；
+  - **书架已有书籍毫秒级秒开（Instant Bookshelf Matching Fast-Path）**：通过流式计算文件 MD5（`calculateFileMd5Stream` 杜绝大文件 OOM），若文件已存在于书架中，则直接唤醒并以已有书籍身份极速秒开（<50ms），不弹窗、不重复复制；
+  - **现代临时预览模式（Modern Ephemeral Preview Mode）**：若文件未在书架中，以临时预览身份（`isExternalPreview`）立即打开，不污染书架列表，不向云端 WebDAV 发起无效微同步或产生历史孤儿记录，严守用户外部物理文件绝不删除（Delete-Free）安全底线；
+  - **阅读器一键入库转正（In-Reader Add to Bookshelf）**：顶部常驻「加入书架」操作按钮与沉浸式横幅提示，点击即可原子化克隆文件至本地书库、写入数据库元数据并将临时笔记平滑迁移合并；
+  - **退出安全闭环与临时笔记清理（Safe Exit & Temporary Notes Cleanup）**：退出未入库的临时预览书籍时，提供友好确认弹窗（「加入书架并退出」 vs 「直接退出」），直接退出时自动清理临时笔记与格式转换缓存，保证存储空间与书架环境纯净无污染 (#975)。
+- **墨水屏全局禁用动效与极致防频闪模式（E-ink Anti-Flicker & Zero-Animation Mode）**：
+  - **全平台零延迟瞬时路由切换（Zero-Animation Route Transitions）**：构建 `NoAnimationPageTransitionsBuilder` 并注入全局 Material 主题引擎，在开启 E-ink 模式后彻底消除全平台页面进入与退出的平移、缩放与渐隐动效，首帧瞬时渲染，杜绝残影；
+  - **根级 Hero 封面跨屏飞行拦截（Root Hero Flight Interception）**：在应用根节点部署 `HeroMode(enabled: !eInkMode)` 并动态解绑 `HeroineController`，书籍打开及卡片交互不再产生跨屏移动重绘；
+  - **开书 600ms 渐隐动画自动短路（Instant Book Open Bypass）**：`openBookAnimation` 在墨水屏模式下自动求值为 `false`，彻底跳过渐隐封面与定时器，点击即可瞬时加载正文；
+  - **SmartDialog 浮层动效全面抑制（SmartDialog Motion Suppression）**：动态配置 SmartDialog 的 `custom`、`attach`、`toast` 与 `loading` 四类全局浮层为 `useAnimation: false`，消除淡入与滑动闪烁；
+  - **高对比度静态加载指示器（Static Anti-Strobe Loading Indicator）**：重构 `showLoading()`，在墨水屏模式下以高对比度静态沙漏图标与加粗加载文本取代 60FPS 持续旋转的 `CircularProgressIndicator`，根除高频局刷抖动与电池消耗；
+  - **翻页与外观设置无缝协同（Settings & Navigation Harmony）**：在外观设置中为 E-INK 模式提供清晰说明，联动锁定开书动画开关状态，并在排版菜单中对滑动翻页提供友好禁用保护，默认锁定无动画翻页 (#986)。
+- **AI 提示词模板填入输入框微调后再发送（AI Prompt Template Fill & Fine-Tuning）**：
+  - **点击填入微调（Tap to Fill & Focus）**：点击预设的 AI 快捷提示词芯片（上下文提示词、空状态引导词、章节总结、全书总结、思维导图与自定义 Prompt）时，由原先的“立即直接发送”优化为自动填充至输入框、光标定位至文本末尾并自动获取焦点，供用户追加具体指令或微调内容后再发送；
+  - **上下文前缀智能互斥替换（Intelligent Prefix Replacement）**：在上下文前缀词（解释、看法、总结、分析、建议）之间切换时，自动识别并替换已有前缀词，杜绝“请分析 请解释 xxx”等多重前缀重复堆叠；输入框为空时自动附带尾随空格方便输入；
+  - **长按直接发送快车道与触感反馈（Long-Press Direct Send Shortcut）**：为保留高频用户的快捷直发效率，移动端长按提示词芯片直接触发即时发送，并附带轻度震动反馈（HapticFeedback）；
+  - **桌面端悬浮提示与全局设置开关（Desktop Tooltip & Configurable Settings）**：桌面端鼠标悬浮展示操作指引 Tooltip（与移动端触控完全解耦，消除手势冲突）；在「AI 提示词设置」中提供「立即发送提示词模板」全局开关，支持一键切换习惯偏好 (#969)。
+- **书架多选批量管理与手动标记阅读状态（Bookshelf Multi-Selection Batch Management & Manual Reading Status）**：
+  - **多选批量管理模式（Batch Selection Mode）**：书架顶部支持一键进入批量管理模式，支持单选/全选/反选与实时选中计数，提供顶部常驻取消按钮与 Android 返回键/Escape 原生手势退出；
+  - **批量动作操作栏（Batch Action Bar）**：提供底部悬浮管理工具栏，涵盖批量修改阅读状态（未读/在读/已读/弃读）、批量移动分组/新建文件夹/移出分组、批量释放本地存储空间（保留云端与笔记）、以及批量安全软删除（严格遵循笔记解耦契约，清理物理文件同时永久保留用户阅读笔记与统计资产）；
+  - **书籍封面与文件夹多态徽章（Checkmark Badges & Folder Selection）**：支持单书封面高亮角标与文件夹局部/全选三态指示（全选显示勾选、部分选中显示减号），点击文件夹支持批量整组切换；
+  - **阅读状态手动标记与多处协同（Reading Status Alignment）**：在书籍详情页、长按菜单、桌面右键菜单及底部批量管理中无缝协同手动标记阅读状态，书架列表即时响应过滤与排序 (#841)。
+
+### 修复
+- **自定义存储位置迁移失败与已有旧书库重定向修复（Custom Storage Migration Robustness & Existing Library Mount）**：修复 Windows 下更改存储目录时易报"迁移失败，数据仍在原位置"的问题，以及选择存储目录时因存在任何文件就被硬性拦截"请选择空文件夹"的交互缺陷。迁移逻辑现支持幂等恢复（跳过目标端已有同大小文件），防止因文件重名冲突抛出异常；目录选择新增三路分支判断：选择空目录时正常迁移数据，选择含有合法 Anx 书库结构（`databases/` 或 `file/`）的目录时弹出确认弹窗直接挂载而无需复制数据，其他非空目录继续提示选择空目录（#745, #839）。
+- **TTS 听书后台与锁屏跨章节自动连读卡死修复（TTS Background & Lockscreen Cross-Chapter Transition Fix）**：彻底修复在系统朗读（System TTS）与在线朗读（Online TTS / Edge TTS）过程中，手机灭屏锁屏或应用切至后台时，音频播放至当前章节末尾后永久卡死停止、直到用户点亮屏幕唤醒应用后才突发跳入下一章继续播放的重大体验缺陷（Upstream Issue #544）。深入分析 WebKit 与 Chromium 内核底层机制，定位到系统灭屏（`document.hidden === true`）时浏览器内核为了省电挂起垂直同步（VSYNC）并暂停所有 `requestAnimationFrame` 驱动帧，导致底层 Foliate-js 翻页滚动动画 Promise 永久无法 resolve 并反向死锁挂起 Flutter 端 `callAsyncJavaScript`；重构 `assets/foliate-js/src/paginator.js`，在页面隐藏状态下直接跳过逐帧动画实施 `<1ms` 瞬时重定位，配备物理时间看门狗与 `visibilitychange` 状态变化自愈监听；在 `book.js` 中重构 `nextSection` / `prevSection` 调度体系，支持单文件虚拟章节跨章节定位，消除书籍末尾处的互递归死锁；在 `OnlineTts` 与 `SystemTts` 中建立确定性的章节结束与全书末尾优雅停播机制；在章节切换时通过 `AudioService` 动态刷新锁屏通知栏上的媒体章节标题与元数据；并在底层 `view.js` 与 Flutter 生命周期中引入 `visibilitychange` 视口瞬时自愈对齐（Self-Healing）与 rAF 防抖排版就绪机制，彻底消除手机熄屏听书播放多页后亮屏时视口停留在陈旧页面的延迟脱节盲区，实现开屏即对齐当前发音句子与高亮。
+- **Windows 窗口最小化/最大化桌面图标无法点击与鼠标穿透遮挡修复（Windows Window State Desktop Mouse Hit-Test & Ghost Layer Fix）**：彻底修复 Windows 端在阅读器打开状态下将窗口最小化或最大化后，桌面图标无法点击、鼠标点击被隐藏的阅读器 WebView 幽灵图层无形拦截的重大体验缺陷（Upstream Issue #981 及关联重复反馈 #243, #255, #830, #850）。分析并定位 Microsoft Edge WebView2 在窗口最小化时 DirectComposition 输入层驻留桌面截获鼠标事件的核心机制，构建 `ActiveWebViewRegistry` 统一调度活动 WebView 生命周期，在窗口最小化与后台隐藏时立即触发 `pause()` 调用底层 `put_IsVisible(false)` 释放输入层并在恢复时即时 `resume()`；同时在 Win32 Runner 原生层实现双重防御——在 `WM_SIZE (SIZE_MINIMIZED)` 时主动调用 `ShowWindow(SW_HIDE)` 隐藏原生渲染子窗口，修复 `WM_ACTIVATE` 在窗口失焦时错误向子窗口 `SetFocus` 导致的焦点争夺，并在 `FlutterWindow` 中确保被插件拦截的窗口尺寸与激活消息仍能可靠通知到 Runner 基础生命周期，全链路保障桌面交互纯净无阻。
+- **Gemini AI 工具调用 400 ApiException 思考签名缺失修复（Gemini AI Tool Calling Missing thought_signature Fix）**：彻底修复使用 Gemini 2.0 / 2.5 / 3.0 等具备思考推理能力（Thinking Models）的模型进行 AI 助手多轮工具调用时抛出 `ApiException(400): Function call is missing a thought_signature in functionCall parts` 的缺陷。实现专用 HTTP 客户端拦截器 `GeminiThoughtSignatureClient`，自动监听并提取服务端返回的 `thoughtSignature` / `thought_signature`（支持 JSON 与 SSE 流式事件），并在后续携带 `functionCall` 与 `functionResponse` 的多轮会话回传请求中自动对齐回填，或在极端缺失时自动注入 Google 官方标准跳过标记 `skip_thought_signature_validator`，对底层第三方 SDK 保持零侵入与高内聚，彻底恢复 Gemini 工具调用的全链路稳定性 (#977)。
+- **正文划词选区与上下文菜单焦点自动恢复及硬件翻页键穿透平移修复（Reader Text Selection Focus Recovery & Hardware Turn-Page Pan Fix）**：彻底修复在正文选中文本、划线或弹出操作菜单后，因原生 WebView 抢占焦点导致 Flutter 端硬件翻页键（Windows 方向键/空格/PageDown 及移动端音量键）失效、并向底层 WebView 穿透导致页面出现横向左右异常平移的缺陷。将阅读页焦点请求公开为 `requestReaderFocus()`，并在 `EpubPlayerState` 建立 `restoreReaderFocus()` 响应链路；在上下文菜单关闭（`onClose`）、选区取消回调（`onSelectionCleared`）、挂起锁释放以及点击空白处关闭浮层时全链路可靠回收焦点，确保阅读器硬件翻页状态机始终保持跟手响应。
+
+## [0.1.0-preview.6] - 2026-09-05
+
+### 修复
+- **书籍目录树与朗读设置折叠箭头及交互体验优化（TOC & Settings Chevron Direction UX Alignment & Visual Rhythm）**：全面修复正文目录树（`book_toc.dart`）与朗读设置中章节/分类在折叠状态下错误展示向下箭头（`Icons.expand_more` / `keyboard_arrow_down`）的心智模型反模式，统一定制校正为折叠时向右箭头 `chevron_right` (`>`)，展开时向下箭头 `keyboard_arrow_down` (`v`)，并自适应 RTL（从右至左）文字方向；彻底移除当前无子目录章节下方误用向右箭头 `>`（`keyboard_arrow_right_rounded`）展示章节内页码导致的“伪子节点”认知错觉与 40dp 到 60dp 的行高跳变，统一采用规整平整的标准单行排版，当前阅读章节依托主题色高亮与粗体清晰呈现。
+- **通用网络拓扑智能诊断分析器与无偏见自动展开（Universal Network Topology Diagnostics & Unbiased Auto-Expansion）**：
+  - **人话级智能拓扑诊断（Dynamic Diagnostic Analyzer）**：彻底根除在自建/本地语音服务异常时向用户甩出 `Exception: 502` 或 `Connection refused (10061)` 等晦涩报错的技术壁垒；构建纯 Dart 解耦的 `TtsDiagnosticAnalyzer` 领域分析器，动态规整用户输入的 URL（含无协议前缀容错与精确端口提取），严密识别本地回环（`127.0.0.0/8`, `::1`）、RFC 1918 局域网私网与公网域名；针对 502 网关拦截、连接被拒、401 鉴权缺失、404 端点未实现及超时等场景提供包含真实端口与主机名的结构化排查指引（智能提示 Clash 本地代理旁路、防火墙放行等），同时提供可折叠技术日志与一键复制功能；
+  - **无语言偏见智能展开与探测状态感知（Unbiased Auto-Expansion & Transparent Discovery）**：对所有语种实施平权自动展开（单分类时无条件展开，当前生效模型所在分类自动展开），并记录用户主动折叠意图；在自建语音探测失败时于列表顶部展示友好提示横幅与一键重试/排查按钮，彻底消除以往静默回退默认预设导致用户误以为不支持模型获取的认知断层。
+- **Microsoft Edge 微软自然语音与本地自建/OpenAI兼容 TTS 开放生态（Edge-TTS & Local Self-Hosted TTS Ecosystem）**：
+  - **Microsoft Edge 自然语音（Edge-TTS）**：提供完全免 Key、零配置门槛的微软高质量多语种神经网络语音服务（涵盖晓晓、云希、云健、台湾晓臻、香港晓曼及美日英法德等核心音色）；算法深度对齐 Windows File Time（1601纪元、300秒对齐窗口、100ns高精度时钟戳）与 `TrustedClientToken` 动态 SHA-256 签名（`Sec-MS-GEC`），通过单连接 WebSocket 流式拉取 24kHz/48kbps 高清 MP3 音频帧并精准剥离二进制私有包头，全面支持 XML 实体转义与自适应语速语调微调；
+  - **本地自建 / OpenAI 兼容语音（Self-Hosted Local TTS）**：深度兼容遵循 OpenAI `/v1/audio/speech` 规范的本地或局域网 AI 语音模型（包括 CosyVoice、GPT-SoVITS、ChatTTS、Piper、Ollama 等）；支持局域网免鉴权模式（留空 API Key 时严格省略 `Authorization` 请求头，杜绝内网 401 报错），支持 `/v1/audio/voices`、`/v1/voices`、`/v1/models` 多层级动态音色发现，将单句合成超时放宽至 30 秒以从容应对本地 GPU/CPU 模型的长推理与冷启动耗时，并配备响应体二进制非音频错误拦截保护。
 - **TTS 流式朗读 Ping-Pong 乒乓双播放器与视听解耦（Gapless Ping-Pong Audio Pipeline & Visual Decoupling）**：彻底消除在线与自建 TTS 朗读断句时的 300ms~500ms 停顿感。构建双 `AudioPlayer` 乒乓轮换架构，在第 N 句播放的同时后台预热解码第 N+1 句音频，并在播放结束瞬间以 <5ms 极速切换 resume；将 WebView DOM 划线高亮完全解耦为异步观察者，不再同步阻塞音频主时钟；引入单调递增会话 Epoch 纪元令牌，防范快速切章或停止时的竞态与音频残留。
 - **字体子系统现代化重构与综合字体管理中心（Font Subsystem Modernization & Font Hub）**：
   - **综合字体管理中心（Font Hub）**：打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时搜索预览、一键切换当前阅读字体、当前使用字体高亮徽章，以及自定义字体的安全删除确认对话框；在设置外观与阅读设置中建立直达入口；
@@ -22,14 +78,16 @@
   - **双轨渲染管线与代码块排版保护（Direct CSS Pipeline & Monospace Guard）**：系统字体直接通过原生 CSS 声明生效，消除无谓的 Dart 堆内存字体装载与本地 HTTP 中转；在本地 HTTP 字体服务中引入严格的 `path.isWithin` 目录防遍历安全隔离；在阅读渲染引擎中强化代码块等宽字体保护规则（`<pre>`, `<code>`, `<kbd>`, `<samp>` 等及其高亮子节点），杜绝语法高亮污染；
   - **零拷贝轻量流式解析器（OpenType Stream Parser）**：以随机读取模式解析 OpenType/TrueType/TTC 元数据（单次读取 < 64KB），彻底替代以往将整个几十兆字体全量加载至内存的同步 I/O，并建立不可变的 PostScript 稳定标识体系与 JIT 延迟加载。
 - **划线笔记跨格式坐标归一化与上下文指纹自愈重定位（W3C Context Fingerprint & Fuzzy Relocation）**：
-  - 划线时自动提取符合 W3C Web Annotation 规范的上下文指纹（前后各 32 字符），随笔记存入 SQLite 数据库（升级至 v9，具备幂等无损迁移）；
+  - 划线时自动提取符合 W3C Web Annotation 规范的上下文指纹（前后各 32 字符），随笔记存入 SQLite 数据库（具备幂等无损迁移）；
   - 当电子书重排版、排版引擎微调或版本更新导致传统 CFI 坐标失效时，基于多候选扫描与非对称相似度评分模型（Dice-Sørensen Bigram，阈值 $\ge 0.7$）毫秒级自动重定位正确文本区间；
-  - 纠偏结果通过单次 IPC 批量回写，在事务中保留原笔记 ID、正文与批注内容。
+  - 纠偏结果通过单次 IPC 批量回写，在同一事务内保留原笔记 ID、正文与批注内容；目标 CFI 被其他记录占用、发生交换或同批目标重复时整批拒绝并原样回滚，不会静默覆盖、部分成功或生成墓碑记录。
 - **解耦笔记与书架物理文件，持久保留与展示历史笔记资产**：彻底消除从书架移除电子书（释放存储空间）后笔记在“笔记页”被意外隐身的问题。将用户的划线批注作为独立的第一等知识资产持久保留与平权展示，保持笔记列表纯净无多余标签；对本地物理文件已移除的笔记在尝试跳转原文时进行安全拦截与精准提示，杜绝文件缺失崩溃。
-- **支持一键批量删除单书全部笔记**：在笔记主列表卡片支持左滑快捷删除，并在书籍笔记详情页顶部操作区提供清空全部笔记入口；配备防误触二次确认弹窗以及桌面端分屏状态自愈机制。
-- **工业级 OpenCC 简繁转换引擎重构**：彻底废除旧的 2270 字符单字暴力线性替换，引入 OpenCC 分词字典与 Trie 前缀树匹配引擎，精准解决「頭髮/發展」、「皇后/前後」、「吃麵/表面」、「乾燥/幹活」等一简多繁歧义错字；转换性能提升至毫秒级（$O(1)$ 查找，消灭长章翻页卡顿）；扩展支持通用繁体、台湾正体与香港繁体，动态更新 `html.lang` 激活原生地域异体字形渲染；划线笔记与目录全面实现简繁等价归一化保护。
+- **支持一键批量删除单书全部笔记**：在笔记主列表卡片支持左滑快捷删除，并在书籍笔记详情页顶部操作区提供清空全部笔记入口；配备防误触二次确认弹窗与桌面端分屏状态自愈机制。
 
 ### 优化
+- **听书硬件级 DSP 实时变速与断句早停健壮性加固（Real-Time Hardware DSP Playback Rate & Sentence Robustness）**：
+  - **硬件级 DSP 实时无感变速**：基于 Ping-Pong 双播放器实现底层播放速率瞬时切换，调速时不再丢弃已缓冲音频或重发网络请求，彻底消除调速导致的音频缓冲丢弃、网络洪峰、短句吞噬与 8 秒饥饿看门狗崩溃；
+  - **彻底杜绝误报 EOF 假阳性早停**：在切句前进判定中建立连续跳过插画页、封面及空白段落的异步重试机制，并严格守卫缓冲队列，彻底修复听书跨章节时因短暂空白误报「End of book reached」猝死早停的顽疾；并在分句引擎中加入中英文分号智能断句，防范长难句导致的本地模型合成超时。
 - **全局滚动体验现代化与跨平台自适应滚动条（Universal Scrollbar Modernization & Platform Adaptive Scrolling）**：
   - **平台自适应滚动物理（Platform-Adaptive Scroll Physics）**：废除硬编码的 `BouncingScrollPhysics`，引入全局 `AppScrollBehavior`，在 Windows 与 Linux 上采用符合桌面操作习惯的夹紧滚动 `ClampingScrollPhysics`，在 macOS、iOS 与 Android 上保持原生回弹滚动 `BouncingScrollPhysics`，支持全套鼠标、触屏与手写笔输入；
   - **沉浸式自适应滚动条样式（Unified Scrollbar Styling & Contrast Guard）**：全局统一 `ScrollbarThemeData`，实现悬停/拖动时 6dp 增宽至 8dp 交互动效，拖动时高亮主题色，针对墨水屏（E-ink）环境部署纯黑高对比度与纯白轨道防抖保护；
@@ -52,6 +110,13 @@
   - 建立确定性不可变唯一标识体系（基于 PostScript Name 与 SHA-256），根除目录变动引起的字体排版漂移，向下无损兼容存量用户的偏好配置；
   - 废除启动时向 Flutter 引擎全量载入所有字体的内存浪费行为，改为摘录分享卡片按需 JIT 懒加载，大幅降低应用启动耗时与内存驻留；
   - 完善运行时动态服务端口解析与内置默认字体的安全删除防护。
+
+## [0.1.0-preview.5] - 2026-09-02
+
+### 新增
+- **工业级 OpenCC 简繁转换引擎重构**：彻底废除旧的 2270 字符单字暴力线性替换，引入 OpenCC 分词字典与 Trie 前缀树匹配引擎，精准解决「頭髮/發展」、「皇后/前後」、「吃麵/表面」、「乾燥/幹活」等一简多繁歧义错字；转换性能提升至毫秒级（$O(1)$ 查找，消灭长章翻页卡顿）；扩展支持通用繁体、台湾正体与香港繁体，动态更新 `html.lang` 激活原生地域异体字形渲染；划线笔记与目录全面实现简繁等价归一化保护。
+
+### 优化
 - **AI 对话分屏历史原地平滑切换**：彻底移除阅读分屏模式下历史抽屉向左横穿遮挡书籍正文的动画，采用原地淡入淡出（Fade Transition）与边界裁剪，并优化 AppBar 图标语义与 Tooltip 规范。
 - **长思考过程智能手势滚动锁**：引入手势通知感知机制，在用户向上滑动浏览思考过程或历史内容时即刻挂起自动向下跟随，杜绝长文本流式输出时的屏幕抢占与跳闪；滑回底部即时恢复跟随。
 - **思考面板自适应高度约束**：动态约束思考面板最大高度并赋予独立滚动控制器生命周期，避免大模型长篇推理挤压主消息视口。

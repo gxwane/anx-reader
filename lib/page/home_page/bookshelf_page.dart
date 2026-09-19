@@ -458,7 +458,7 @@ class BookshelfPageState extends ConsumerState<BookshelfPage>
                             lockedIndices.add(i);
                           }
                         }
-                      },
+                      }
                     },
                     onDragEnd: (index) {
                       // remove all books from lockedIndices

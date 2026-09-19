@@ -15,7 +15,125 @@ void main() {
   });
 
   group('Idempotent Database Migration Spec', () {
-    test('Scenario: Upgrading from v7 to v8 when reading_status already exists does not throw', () async {
+    Future<Map<String, Object?>> schemaSignature(Database db) async {
+      Future<List<Map<String, Object?>>> columns(String table) async {
+        final rows = await db.rawQuery('PRAGMA table_info($table)');
+        return rows
+            .map((row) => <String, Object?>{
+                  'name': row['name'],
+                  'type': row['type'],
+                  'notnull': row['notnull'],
+                  'default': row['dflt_value'],
+                  'pk': row['pk'],
+                })
+            .toList();
+      }
+
+      Future<List<String>> uniqueIndexColumns(String table) async {
+        final indexes = await db.rawQuery('PRAGMA index_list($table)');
+        final result = <String>[];
+        for (final index in indexes.where((row) => row['unique'] == 1)) {
+          final name = index['name'] as String;
+          final details = await db.rawQuery('PRAGMA index_info($name)');
+          result.add(details.map((row) => row['name']).join(','));
+        }
+        return result..sort();
+      }
+
+      return {
+        'notes': await columns('tb_notes'),
+        'readingTimes': await columns('tb_reading_time'),
+        'noteIndices': await uniqueIndexColumns('tb_notes'),
+        'readingTimeIndices': await uniqueIndexColumns('tb_reading_time'),
+      };
+    }
+
+    Future<Database> createFreshV9() async {
+      return databaseFactory.openDatabase(
+        inMemoryDatabasePath,
+        options: OpenDatabaseOptions(
+          version: currentDbVersion,
+          singleInstance: false,
+          onCreate: (db, version) async {
+            DBHelper.setDatabaseForTesting(db);
+            await DBHelper().onUpgradeDatabase(db, 0, version);
+          },
+        ),
+      );
+    }
+
+    Future<Database> createCleanV8AndUpgrade() async {
+      final db = await databaseFactory.openDatabase(
+        inMemoryDatabasePath,
+        options: OpenDatabaseOptions(singleInstance: false),
+      );
+      await db.execute('''
+        CREATE TABLE tb_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          book_id INTEGER,
+          content TEXT,
+          cfi TEXT,
+          chapter TEXT,
+          type TEXT,
+          color TEXT,
+          reader_note TEXT,
+          create_time TEXT,
+          update_time TEXT
+        )
+      ''');
+      await db.execute(createReadingTimeSQL);
+      await DBHelper().onUpgradeDatabase(db, 8, currentDbVersion);
+      return db;
+    }
+
+    test('Scenario: fresh v9 and clean v8 upgrade have identical identity constraints',
+        () async {
+      final fresh = await createFreshV9();
+      final upgraded = await createCleanV8AndUpgrade();
+      addTearDown(() async {
+        DBHelper.setDatabaseForTesting(null);
+        await fresh.close();
+        await upgraded.close();
+      });
+
+      final freshSchema = await schemaSignature(fresh);
+      final upgradedSchema = await schemaSignature(upgraded);
+
+      expect(upgradedSchema, freshSchema);
+      expect(freshSchema['noteIndices'], contains('book_id,cfi'));
+      expect(freshSchema['readingTimeIndices'], contains('book_id,date'));
+    });
+
+    test('Scenario: v9 rejects duplicate note and reading-time identities',
+        () async {
+      final db = await createFreshV9();
+      addTearDown(() async {
+        DBHelper.setDatabaseForTesting(null);
+        await db.close();
+      });
+
+      await db.insert('tb_notes', {'book_id': 7, 'cfi': 'same'});
+      await expectLater(
+        db.insert('tb_notes', {'book_id': 7, 'cfi': 'same'}),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      await db.insert('tb_reading_time', {
+        'book_id': 7,
+        'date': '2026-09-16',
+        'reading_time': 10,
+      });
+      await expectLater(
+        db.insert('tb_reading_time', {
+          'book_id': 7,
+          'date': '2026-09-16',
+          'reading_time': 20,
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+    });
+
+    test('Scenario: upgrading v7 with reading_status already present reaches v9 idempotently', () async {
       final db = await databaseFactory.openDatabase(
         inMemoryDatabasePath,
         options: OpenDatabaseOptions(
@@ -45,12 +163,26 @@ void main() {
               INSERT INTO tb_books (id, title, cover_path, file_path, reading_percentage, author, is_deleted, create_time, update_time, reading_status)
               VALUES (1, 'Test Book', 'cover.png', 'test.epub', 0.96, 'Author', 0, '2026-08-30', '2026-08-30', 0)
             ''');
+            await db.execute('''
+              CREATE TABLE tb_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                book_id INTEGER,
+                content TEXT,
+                cfi TEXT,
+                chapter TEXT,
+                type TEXT,
+                color TEXT,
+                reader_note TEXT,
+                create_time TEXT,
+                update_time TEXT
+              )
+            ''');
+            await db.execute(createReadingTimeSQL);
           },
         ),
       );
 
-      // Now run onUpgradeDatabase from 7 to 8
-      await DBHelper().onUpgradeDatabase(db, 7, 8);
+      await DBHelper().onUpgradeDatabase(db, 7, currentDbVersion);
 
       final tableInfo = await db.rawQuery('PRAGMA table_info(tb_books)');
       final columnNames = tableInfo.map((c) => c['name'] as String).toList();
@@ -65,7 +197,7 @@ void main() {
       expect(books.first['read_count'], 1);
 
       // Upgrade again (idempotence verification)
-      await DBHelper().onUpgradeDatabase(db, 7, 8);
+      await DBHelper().onUpgradeDatabase(db, 7, currentDbVersion);
 
       await db.close();
     });

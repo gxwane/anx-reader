@@ -109,12 +109,6 @@ void main() {
         (tile) => tile.title is Text && (tile.title as Text).data == 'Sync Now',
       );
       expect(syncNowTile.tileType, equals(SettingsTileType.simpleTile));
-
-      // Export markdown is an immediate background action
-      final exportMdTile = tiles.firstWhere(
-        (tile) => tile.title is Text && (tile.title as Text).data == 'Mirror All Notes to WebDAV Now',
-      );
-      expect(exportMdTile.tileType, equals(SettingsTileType.simpleTile));
     });
 
     testWidgets('AdvancedSetting: ChapterSplit, Log, Changelog, and Onboarding have navigation tiles, MD5 and hints are simple tiles', (tester) async {

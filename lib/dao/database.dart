@@ -72,11 +72,21 @@ CREATE TABLE tb_notes (
   type TEXT,
   color TEXT,
   reader_note TEXT,
-  context_prefix TEXT,
-  context_suffix TEXT,
   create_time TEXT,
-  update_time TEXT
+  update_time TEXT,
+  context_prefix TEXT,
+  context_suffix TEXT
 )
+''';
+
+const createNoteIdentityIndexSQL = '''
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_book_cfi
+ON tb_notes(book_id, cfi)
+''';
+
+const createReadingTimeIdentityIndexSQL = '''
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reading_time_book_date
+ON tb_reading_time(book_id, date)
 ''';
 
 const createReadingTimeSQL = '''
@@ -505,6 +515,8 @@ class DBHelper {
             db, 'tb_notes', 'context_prefix', 'TEXT');
         await addColumnIfNotExists(
             db, 'tb_notes', 'context_suffix', 'TEXT');
+        await db.execute(createNoteIdentityIndexSQL);
+        await db.execute(createReadingTimeIdentityIndexSQL);
         continue case9;
       case9:
       case 9:

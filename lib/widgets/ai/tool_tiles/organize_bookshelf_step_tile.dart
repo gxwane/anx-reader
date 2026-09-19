@@ -1,10 +1,10 @@
 import 'dart:convert';
 
 import 'package:anx_reader/l10n/generated/L10n.dart';
+import 'package:anx_reader/providers/bookshelf_organize.dart';
 import 'package:anx_reader/providers/tb_groups.dart';
 import 'package:anx_reader/service/ai/tools/models/bookshelf_organize_plan.dart';
 import 'package:anx_reader/service/ai/tools/models/bookshelf_organize_plan_group.dart';
-import 'package:anx_reader/service/bookshelf/bookshelf_organize_service.dart';
 import 'package:anx_reader/utils/ai_reasoning_parser.dart';
 import 'package:anx_reader/utils/toast/common.dart';
 import 'package:anx_reader/widgets/ai/tool_tiles/tool_tile_base.dart';

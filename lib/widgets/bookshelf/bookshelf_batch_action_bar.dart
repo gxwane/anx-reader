@@ -2,9 +2,9 @@ import 'package:anx_reader/enums/reading_status.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/providers/book_list.dart';
+import 'package:anx_reader/providers/bookshelf_batch.dart';
 import 'package:anx_reader/providers/bookshelf_selection_provider.dart';
 import 'package:anx_reader/providers/tb_groups.dart';
-import 'package:anx_reader/service/bookshelf/bookshelf_batch_service.dart';
 import 'package:anx_reader/utils/toast/common.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -61,7 +61,7 @@ class BookshelfBatchActionBar extends ConsumerWidget {
                   title: Text(item.$2),
                   onTap: () async {
                     Navigator.pop(sheetContext);
-                    final service = BookshelfBatchService(ref);
+                    final service = ref.read(bookshelfBatchControllerProvider);
                     await service.batchChangeStatus(selectedBooks, item.$1);
                     ref.read(bookshelfSelectionProvider.notifier).exitSelectionMode();
                     if (context.mounted) {
@@ -106,7 +106,7 @@ class BookshelfBatchActionBar extends ConsumerWidget {
                   title: Text(L10n.of(context).bookshelfRemoveFromGroup),
                   onTap: () async {
                     Navigator.pop(dialogContext);
-                    final service = BookshelfBatchService(ref);
+                    final service = ref.read(bookshelfBatchControllerProvider);
                     await service.batchMoveGroup(
                       selectedBooks.map((b) => b.id).toList(),
                       0,
@@ -137,7 +137,7 @@ class BookshelfBatchActionBar extends ConsumerWidget {
                     title: Text(group.name),
                     onTap: () async {
                       Navigator.pop(dialogContext);
-                      final service = BookshelfBatchService(ref);
+                      final service = ref.read(bookshelfBatchControllerProvider);
                       await service.batchMoveGroup(
                         selectedBooks.map((b) => b.id).toList(),
                         group.id,
@@ -197,7 +197,7 @@ class BookshelfBatchActionBar extends ConsumerWidget {
                 final name = controller.text.trim();
                 if (name.isEmpty) return;
                 Navigator.pop(dialogContext);
-                final service = BookshelfBatchService(ref);
+                final service = ref.read(bookshelfBatchControllerProvider);
                 await service.batchCreateGroupAndMove(
                   selectedBooks.map((b) => b.id).toList(),
                   name,
@@ -225,7 +225,7 @@ class BookshelfBatchActionBar extends ConsumerWidget {
     WidgetRef ref,
     List<Book> selectedBooks,
   ) async {
-    final service = BookshelfBatchService(ref);
+    final service = ref.read(bookshelfBatchControllerProvider);
     final count = await service.batchReleaseSpace(selectedBooks);
     ref.read(bookshelfSelectionProvider.notifier).exitSelectionMode();
     if (context.mounted) {
@@ -257,7 +257,7 @@ class BookshelfBatchActionBar extends ConsumerWidget {
               ),
               onPressed: () async {
                 Navigator.pop(dialogContext);
-                final service = BookshelfBatchService(ref);
+                final service = ref.read(bookshelfBatchControllerProvider);
                 await service.batchDeleteBooks(selectedBooks);
                 ref
                     .read(bookshelfSelectionProvider.notifier)

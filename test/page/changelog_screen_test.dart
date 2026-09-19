@@ -403,24 +403,24 @@ void main() {
       // Must not be fallback default content
       expect(extracted, isNot(equals(defaultChangelogContent)));
 
-      // Must contain preview.7 items
-      expect(extracted, contains('DashScope'));
-      expect(extracted, contains('阿里云百炼'));
+      // Must contain preview.8 items
+      expect(extracted, contains('Roll back the custom WebDAV sync engines'));
+      expect(extracted, contains('数据库结构收敛'));
 
-      // Must stop before preview.6
-      expect(extracted, isNot(contains('## [0.1.0-preview.6]')));
-      expect(extracted, isNot(contains('addColumnIfNotExists')));
-      expect(extracted, isNot(contains('数据库迁移幂等性加固')));
+      // Must stop before preview.7
+      expect(extracted, isNot(contains('## [0.1.0-preview.7]')));
+      expect(extracted, isNot(contains('DashScope')));
+      expect(extracted, isNot(contains('阿里云百炼')));
 
       // Bilingual separation verification on real asset
       final zhNotes = processChangelogContent(extracted, isChinese: true);
       final enNotes = processChangelogContent(extracted, isChinese: false);
 
-      expect(zhNotes, contains('新增阿里云百炼'));
-      expect(zhNotes, isNot(contains('Support Alibaba Cloud DashScope')));
+      expect(zhNotes, contains('自研 WebDAV 同步'));
+      expect(zhNotes, isNot(contains('Roll back the custom WebDAV sync engines')));
 
-      expect(enNotes, contains('Support Alibaba Cloud DashScope'));
-      expect(enNotes, isNot(contains('新增阿里云百炼')));
+      expect(enNotes, contains('Roll back the custom WebDAV sync engines'));
+      expect(enNotes, isNot(contains('自研 WebDAV 同步')));
     });
 
     test('assets/CHANGELOG.md historical preview versions are non-empty and properly delimited', () {

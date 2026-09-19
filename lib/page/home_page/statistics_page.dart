@@ -1,7 +1,6 @@
 import 'package:anx_reader/dao/book.dart';
 import 'package:anx_reader/dao/reading_time.dart';
 import 'package:anx_reader/enums/chart_mode.dart';
-import 'package:anx_reader/enums/hint_key.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/page/book_detail.dart';
@@ -10,15 +9,12 @@ import 'package:anx_reader/utils/date/convert_seconds.dart';
 import 'package:anx_reader/utils/date/week_of_year.dart';
 import 'package:anx_reader/widgets/bookshelf/book_cover.dart';
 import 'package:anx_reader/widgets/common/container/filled_container.dart';
-import 'package:anx_reader/widgets/common/container/outlined_container.dart';
-import 'package:anx_reader/widgets/hint/hint_banner.dart';
 import 'package:anx_reader/widgets/statistic/statistic_card.dart';
 import 'package:anx_reader/widgets/statistic/statistics_dashboard_title.dart';
 import 'package:anx_reader/widgets/statistic/statistics_dashboard.dart';
 import 'package:anx_reader/widgets/tips/statistic_tips.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 
 class StatisticPage extends StatefulWidget {
   const StatisticPage({super.key, this.controller});
@@ -139,91 +135,9 @@ class _DateBooksState extends ConsumerState<DateBooks> {
     overflow: TextOverflow.ellipsis,
   );
 
-  List<int> deleteBookIds = [];
-
-  @override
-  void dispose() {
-    super.dispose();
-    if (deleteBookIds.isNotEmpty) {
-      readingTimeDao.deleteReadingTimeByBookId(deleteBookIds);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final statisticData = ref.watch(statisticDataProvider);
-
-    Widget dragToDelete(Widget child, int bookId) {
-      return StatefulBuilder(builder: (context, localSetState) {
-        if (deleteBookIds.contains(bookId)) {
-          return OutlinedContainer(
-            margin: const EdgeInsets.only(bottom: 10),
-            height: 146,
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.delete,
-                          size: 30,
-                        ),
-                        Text(
-                          L10n.of(context).statisticDeletedRecords,
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                    FilledButton(
-                        onPressed: () {
-                          localSetState(() {
-                            deleteBookIds.remove(bookId);
-                          });
-                        },
-                        child: Text(L10n.of(context).commonUndo)),
-                  ],
-                ),
-                const Spacer(),
-                const Divider(),
-                Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 18),
-                    Text(L10n.of(context).statisticDeletedRecordsTips),
-                  ],
-                ),
-              ],
-            ),
-          );
-        }
-        ActionPane actionPane = ActionPane(
-          motion: const StretchMotion(),
-          children: [
-            SlidableAction(
-              onPressed: (context) {
-                localSetState(() {
-                  deleteBookIds.add(bookId);
-                });
-              },
-              icon: Icons.delete,
-              label: L10n.of(context).commonDelete,
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            ),
-          ],
-        );
-        return Slidable(
-          key: ValueKey(bookId),
-          startActionPane: actionPane,
-          endActionPane: actionPane,
-          child: child,
-        );
-      });
-    }
 
     return statisticData.when(
       data: (data) {
@@ -257,22 +171,11 @@ class _DateBooksState extends ConsumerState<DateBooks> {
             else
               Column(
                 children: [
-                  HintBanner(
-                    icon: const Icon(Icons.swipe_left),
-                    hintKey: HintKey.statisticsSwipeToDelete,
-                    margin: const EdgeInsets.only(bottom: 10),
-                    child: Text(L10n.of(context).statisticsSwipeToDeleteHint),
-                  ),
                   ...books.map((bookMap) {
                     final book = bookMap.keys.first;
                     final readingTime = bookMap.values.first;
-                    return dragToDelete(
-                      BookStatisticItem(
-                        bookId: book.id,
-                        readingTime: readingTime,
-                      ),
-                      book.id,
-                    );
+                    return BookStatisticItem(
+                        bookId: book.id, readingTime: readingTime);
                   })
                 ],
               ),

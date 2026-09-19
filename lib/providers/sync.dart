@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' as io;
 import 'package:anx_reader/config/app_identity.dart';
 import 'package:anx_reader/config/shared_preference_provider.dart';
+import 'package:anx_reader/dao/database_restore.dart';
 import 'package:anx_reader/enums/sync_direction.dart';
 import 'package:anx_reader/enums/sync_trigger.dart';
 import 'package:anx_reader/l10n/generated/L10n.dart';
@@ -10,11 +11,14 @@ import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/remote_file.dart';
 import 'package:anx_reader/models/sync_state_model.dart';
 import 'package:anx_reader/providers/book_list.dart';
+import 'package:anx_reader/providers/notes_statistics.dart';
+import 'package:anx_reader/providers/statistic_data.dart';
 import 'package:anx_reader/providers/sync_status.dart';
 import 'package:anx_reader/providers/tb_groups.dart';
 import 'package:anx_reader/service/sync/sync_client_factory.dart';
 import 'package:anx_reader/service/sync/sync_client_base.dart';
 import 'package:anx_reader/service/database_sync_manager.dart';
+import 'package:anx_reader/service/local_database_backups.dart';
 import 'package:anx_reader/dao/database.dart';
 import 'package:anx_reader/utils/get_path/databases_path.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -701,7 +705,7 @@ class Sync extends _$Sync {
 
   /// Get available database backup list
   Future<List<String>> getAvailableBackups() async {
-    return await DatabaseSyncManager.getAvailableBackups();
+    return LocalDatabaseBackups.list();
   }
 
   /// Show database backup management dialog
@@ -769,10 +773,11 @@ class Sync extends _$Sync {
 
   /// Restore database from specified backup
   Future<void> _restoreFromBackup(String backupPath) async {
+    if (state.isSyncing) {
+      AnxToast.show(L10n.of(navigatorKey.currentContext!).webdavSyncing);
+      return;
+    }
     try {
-      final databasePath = await getAnxDataBasesPath();
-      final localDbPath = join(databasePath, 'app_database.db');
-
       // Confirmation dialog
       final confirmed = await SmartDialog.show<bool>(
         builder: (context) => AlertDialog(
@@ -793,17 +798,23 @@ class Sync extends _$Sync {
 
       if (confirmed != true) return;
 
-      // Execute restore
-      await DBHelper.close();
-      await io.File(backupPath).copy(localDbPath);
-      await DBHelper().initDB();
+      final live = await DBHelper().database;
+      await DatabaseRestore.restore(
+        live,
+        backupPath,
+        version: currentDbVersion,
+      );
 
       // Refresh related providers
       try {
-        ref.read(bookListProvider.notifier).refresh();
-        ref.read(groupDaoProvider.notifier).refresh();
+        ref.invalidate(statisticDataProvider);
+        ref.invalidate(notesStatisticsProvider);
+        ref.invalidate(bookIdAndNotesProvider);
+        ref.invalidate(syncStatusProvider);
+        await ref.read(bookListProvider.notifier).refresh();
+        await ref.read(groupDaoProvider.notifier).refresh();
       } catch (e) {
-        AnxLog.info('Failed to refresh providers after restore: $e');
+        AnxLog.warning('Database restored, but provider refresh failed: $e');
       }
 
       AnxToast.show(L10n.of(navigatorKey.currentContext!).restoreSuccess);

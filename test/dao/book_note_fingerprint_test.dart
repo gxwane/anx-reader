@@ -1,6 +1,6 @@
+import 'package:anx_reader/dao/book_note.dart';
 import 'package:anx_reader/dao/database.dart';
 import 'package:anx_reader/models/book_note.dart';
-import 'package:anx_reader/service/sync/record_merger.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -8,8 +8,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late Database db;
+  late BookNoteDao dao;
 
-  setUpAll(() async {
+  setUpAll(() {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   });
@@ -18,42 +19,63 @@ void main() {
     db = await databaseFactory.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 1,
+        singleInstance: false,
         onCreate: (db, version) async {
-          await db.execute('''
-            CREATE TABLE tb_notes (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              book_id INTEGER,
-              content TEXT,
-              cfi TEXT,
-              chapter TEXT,
-              type TEXT,
-              color TEXT,
-              reader_note TEXT,
-              create_time TEXT,
-              update_time TEXT,
-              is_deleted INTEGER DEFAULT 0,
-              context_prefix TEXT,
-              context_suffix TEXT
-            )
-          ''');
+          await db.execute(createNoteSQL);
+          await db.execute(createNoteIdentityIndexSQL);
         },
+        version: 1,
       ),
     );
+    DBHelper.setDatabaseForTesting(db);
+    dao = BookNoteDao();
   });
 
   tearDown(() async {
+    DBHelper.setDatabaseForTesting(null);
     await db.close();
   });
 
-  group('BookNote Context Fingerprint Model Tests', () {
-    test('serializes and deserializes contextPrefix and contextSuffix correctly', () {
-      final now = DateTime.utc(2026, 9, 3, 12, 0, 0);
+  Future<void> insertNote({
+    required int id,
+    required int bookId,
+    required String cfi,
+    required String content,
+  }) {
+    return db.insert('tb_notes', {
+      'id': id,
+      'book_id': bookId,
+      'content': content,
+      'cfi': cfi,
+      'chapter': 'chapter',
+      'type': 'highlight',
+      'color': 'FFD700',
+      'create_time': '2026-09-01T00:00:00.000Z',
+      'update_time': '2026-09-01T00:00:00.000Z',
+    }).then((_) {});
+  }
+
+  Future<List<Map<String, Object?>>> snapshot() =>
+      db.query('tb_notes', orderBy: 'id');
+
+  Map<String, Object?> move(int id, String oldCfi, String newCfi,
+          {String? prefix, String? suffix}) =>
+      {
+        'id': id,
+        'oldCfi': oldCfi,
+        'newCfi': newCfi,
+        if (prefix != null) 'prefix': prefix,
+        if (suffix != null) 'suffix': suffix,
+      };
+
+  group('BookNote context fingerprint', () {
+    test('serializes and deserializes context around the annotation', () {
+      final now = DateTime.utc(2026, 9, 3, 12);
       final note = BookNote(
         id: 42,
         bookId: 101,
         content: 'thesis statement',
-        cfi: 'epubcfi(/6/4!/4/2/1:0)',
+        cfi: 'old',
         chapter: 'Chapter 1',
         type: 'highlight',
         color: 'FFD700',
@@ -62,224 +84,176 @@ void main() {
         contextSuffix: ' context after',
         createTime: now,
         updateTime: now,
-        isDeleted: false,
       );
 
-      final map = note.toMap();
-      expect(map['context_prefix'], 'context before ');
-      expect(map['context_suffix'], ' context after');
-
-      final reconstructed = BookNote.fromDb(map);
+      final reconstructed = BookNote.fromDb(note.toMap());
       expect(reconstructed.id, 42);
-      expect(reconstructed.bookId, 101);
-      expect(reconstructed.content, 'thesis statement');
       expect(reconstructed.contextPrefix, 'context before ');
       expect(reconstructed.contextSuffix, ' context after');
-
-      final json = note.toJson();
-      expect(json['id'], 42);
-      expect(json['note'], 'thesis statement');
-      expect(json['value'], 'epubcfi(/6/4!/4/2/1:0)');
-      expect(json['contextPrefix'], 'context before ');
-      expect(json['contextSuffix'], ' context after');
+      expect(note.toJson()['contextPrefix'], 'context before ');
+      expect(note.toJson()['contextSuffix'], ' context after');
     });
 
-    test('handles null contextPrefix and contextSuffix safely (backward compatibility)', () {
-      final now = DateTime.utc(2026, 9, 3, 12, 0, 0);
-      final legacyMap = {
-        'id': 1,
-        'book_id': 10,
-        'content': 'old highlight',
-        'cfi': 'epubcfi(/6/2!/4:0)',
-        'chapter': 'Intro',
-        'type': 'highlight',
-        'color': 'FF0000',
-        'reader_note': null,
-        'is_deleted': 0,
-        'create_time': now.toIso8601String(),
-        'update_time': now.toIso8601String(),
-      };
+    test('save updates the unique identity in place regardless of note type',
+        () async {
+      await insertNote(id: 5, bookId: 7, cfi: 'same', content: 'old');
+      await db.update('tb_notes', {'type': 'book-review'},
+          where: 'id = 5');
+      final now = DateTime.utc(2026, 9, 16);
 
-      final note = BookNote.fromDb(legacyMap);
-      expect(note.contextPrefix, isNull);
-      expect(note.contextSuffix, isNull);
+      final id = await dao.save(BookNote(
+        bookId: 7,
+        content: 'new',
+        cfi: 'same',
+        chapter: 'chapter',
+        type: 'highlight',
+        color: 'FFD700',
+        updateTime: now,
+      ));
 
-      final json = note.toJson();
-      expect(json['contextPrefix'], isNull);
-      expect(json['contextSuffix'], isNull);
+      expect(id, 5);
+      final rows = await snapshot();
+      expect(rows, hasLength(1));
+      expect(rows.single['id'], 5);
+      expect(rows.single['content'], 'new');
     });
-  });
 
-  group('Database Migration v9 -> v10 Spec', () {
-    test('addColumnIfNotExists adds context_prefix and context_suffix idempotently', () async {
-      final testDb = await databaseFactory.openDatabase(
-        inMemoryDatabasePath,
-        options: OpenDatabaseOptions(
-          version: 9,
-          onCreate: (db, version) async {
-            await db.execute('''
-              CREATE TABLE tb_notes (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                book_id INTEGER,
-                content TEXT,
-                cfi TEXT,
-                chapter TEXT,
-                type TEXT,
-                color TEXT,
-                reader_note TEXT,
-                create_time TEXT,
-                update_time TEXT,
-                is_deleted INTEGER DEFAULT 0
-              )
-            ''');
-          },
-        ),
+    test('save rejects an empty identity', () async {
+      final now = DateTime.utc(2026, 9, 16);
+      await expectLater(
+        dao.save(BookNote(
+          bookId: 7,
+          content: 'new',
+          cfi: '   ',
+          chapter: 'chapter',
+          type: 'highlight',
+          color: 'FFD700',
+          updateTime: now,
+        )),
+        throwsArgumentError,
       );
-
-      await testDb.insert('tb_notes', {
-        'book_id': 1,
-        'content': 'v9 note',
-        'cfi': 'epubcfi(/6/2!/4:0)',
-        'update_time': DateTime.now().toIso8601String(),
-      });
-
-      await DBHelper.addColumnIfNotExists(testDb, 'tb_notes', 'context_prefix', 'TEXT');
-      await DBHelper.addColumnIfNotExists(testDb, 'tb_notes', 'context_suffix', 'TEXT');
-
-      final columns = await testDb.rawQuery('PRAGMA table_info(tb_notes)');
-      final columnNames = columns.map((c) => c['name'] as String).toSet();
-
-      expect(columnNames.contains('context_prefix'), isTrue);
-      expect(columnNames.contains('context_suffix'), isTrue);
-
-      final rows = await testDb.query('tb_notes');
-      expect(rows.length, 1);
-      expect(rows.first['content'], 'v9 note');
-      expect(rows.first['context_prefix'], isNull);
-
-      await testDb.close();
+      expect(await snapshot(), isEmpty);
     });
   });
 
-  group('Anti-Zombie Tombstone on Relocation Spec', () {
-    test('batchUpdateCfiWithTombstones updates active note and creates tombstone for old CFI', () async {
-      final initialTime = '2026-09-01T10:00:00.000Z';
-      await db.insert('tb_notes', {
-        'id': 100,
-        'book_id': 55,
-        'content': 'short phrase',
-        'cfi': 'epubcfi(/6/2[old]!/4/1:0)',
-        'chapter': 'Ch 1',
-        'type': 'highlight',
-        'color': 'FFD700',
-        'is_deleted': 0,
-        'create_time': initialTime,
-        'update_time': initialTime,
-      });
+  group('Atomic CFI relocation', () {
+    test('moves and refreshes context while retaining ID and content', () async {
+      await insertNote(id: 1, bookId: 7, cfi: 'old', content: 'keep me');
 
-      final relocatedItems = [
-        {
-          'id': 100,
-          'oldCfi': 'epubcfi(/6/2[old]!/4/1:0)',
-          'newCfi': 'epubcfi(/6/4[repaired]!/4/2:10)',
-          'prefix': 'leading words ',
-          'suffix': ' trailing words',
-        }
-      ];
+      final result = await dao.relocateCfis(7, [
+        move(1, 'old', 'new', prefix: 'before', suffix: 'after'),
+      ]);
 
-      final now = DateTime.now().toUtc().toIso8601String();
-      await db.transaction((txn) async {
-        for (final item in relocatedItems) {
-          final id = item['id'] as int;
-          final oldCfi = item['oldCfi'] as String;
-          final newCfi = item['newCfi'] as String;
-          final prefix = item['prefix'] as String?;
-          final suffix = item['suffix'] as String?;
+      expect(result.isSuccess, isTrue);
+      expect(result.updatedCount, 1);
+      final row = (await snapshot()).single;
+      expect(row['id'], 1);
+      expect(row['content'], 'keep me');
+      expect(row['cfi'], 'new');
+      expect(row['context_prefix'], 'before');
+      expect(row['context_suffix'], 'after');
+    });
 
-          final originalRows = await txn.query('tb_notes', where: 'id = ?', whereArgs: [id]);
-          final original = originalRows.first;
+    test('allows an in-place context refresh', () async {
+      await insertNote(id: 1, bookId: 7, cfi: 'same', content: 'keep me');
 
-          await txn.update(
-            'tb_notes',
-            {
-              'cfi': newCfi,
-              if (prefix != null) 'context_prefix': prefix,
-              if (suffix != null) 'context_suffix': suffix,
-              'update_time': now,
-            },
-            where: 'id = ?',
-            whereArgs: [id],
-          );
+      final result = await dao.relocateCfis(7, [
+        move(1, 'same', 'same', prefix: 'new context'),
+      ]);
 
-          if (oldCfi.isNotEmpty && oldCfi != newCfi) {
-            await txn.insert('tb_notes', {
-              'book_id': original['book_id'],
-              'content': original['content'],
-              'cfi': oldCfi,
-              'chapter': original['chapter'],
-              'type': original['type'],
-              'color': original['color'],
-              'is_deleted': 1,
-              'create_time': original['create_time'],
-              'update_time': now,
-            });
-          }
-        }
-      });
+      expect(result.isSuccess, isTrue);
+      expect((await snapshot()).single['context_prefix'], 'new context');
+    });
 
-      final activeNotes = await db.query(
-        'tb_notes',
-        where: 'id = ?',
-        whereArgs: [100],
+    Future<void> expectRejected(
+      List<Map<String, Object?>> commands,
+      BookNoteRelocationFailure failure,
+    ) async {
+      final before = await snapshot();
+      final result = await dao.relocateCfis(7, commands);
+      expect(result.isSuccess, isFalse);
+      expect(result.failure, failure);
+      expect(await snapshot(), before);
+    }
+
+    test('rejects a target occupied by a record outside the batch', () async {
+      await insertNote(id: 1, bookId: 7, cfi: 'one', content: 'first');
+      await insertNote(id: 2, bookId: 7, cfi: 'two', content: 'second');
+      await expectRejected(
+        [move(1, 'one', 'two')],
+        BookNoteRelocationFailure.occupiedTarget,
       );
-      expect(activeNotes.first['cfi'], 'epubcfi(/6/4[repaired]!/4/2:10)');
-      expect(activeNotes.first['context_prefix'], 'leading words ');
-      expect(activeNotes.first['is_deleted'], 0);
+    });
 
-      final tombstones = await db.query(
-        'tb_notes',
-        where: 'cfi = ?',
-        whereArgs: ['epubcfi(/6/2[old]!/4/1:0)'],
+    test('rejects swaps and occupied chains even when occupants also move',
+        () async {
+      await insertNote(id: 1, bookId: 7, cfi: 'one', content: 'first');
+      await insertNote(id: 2, bookId: 7, cfi: 'two', content: 'second');
+      await expectRejected(
+        [move(1, 'one', 'two'), move(2, 'two', 'one')],
+        BookNoteRelocationFailure.occupiedTarget,
       );
-      expect(tombstones.length, 1);
-      expect(tombstones.first['is_deleted'], 1);
+    });
 
-      final localAllNotes = await db.query('tb_notes');
-      final localNotesWithMd5 = localAllNotes.map((n) => {
-        ...n,
-        'file_md5': 'test_md5_hash',
-      }).toList();
-
-      final remoteNotes = [
-        {
-          'book_id': 55,
-          'file_md5': 'test_md5_hash',
-          'content': 'short phrase',
-          'cfi': 'epubcfi(/6/2[old]!/4/1:0)',
-          'chapter': 'Ch 1',
-          'type': 'highlight',
-          'color': 'FFD700',
-          'is_deleted': 0,
-          'create_time': initialTime,
-          'update_time': initialTime,
-        }
-      ];
-
-      final merged = RecordMerger.mergeNotes(
-        localNotes: localNotesWithMd5,
-        remoteNotes: remoteNotes,
-        md5ToLocalBookId: {'test_md5_hash': 55},
+    test('rejects different records targeting the same CFI', () async {
+      await insertNote(id: 1, bookId: 7, cfi: 'one', content: 'first');
+      await insertNote(id: 2, bookId: 7, cfi: 'two', content: 'second');
+      await expectRejected(
+        [move(1, 'one', 'new'), move(2, 'two', 'new')],
+        BookNoteRelocationFailure.duplicateTarget,
       );
+    });
 
-      final oldCfiMerged = merged.firstWhere(
-        (n) => n['cfi'] == 'epubcfi(/6/2[old]!/4/1:0)',
+    test('rejects contradictory instructions for one record', () async {
+      await insertNote(id: 1, bookId: 7, cfi: 'one', content: 'first');
+      await expectRejected(
+        [move(1, 'one', 'new-a'), move(1, 'one', 'new-b')],
+        BookNoteRelocationFailure.conflictingInstruction,
       );
-      expect(oldCfiMerged['is_deleted'], 1, reason: 'Remote oldCfi must be marked deleted by local tombstone');
+    });
 
-      final newCfiMerged = merged.firstWhere(
-        (n) => n['cfi'] == 'epubcfi(/6/4[repaired]!/4/2:10)',
+    test('rejects missing, cross-book, stale and malformed commands',
+        () async {
+      await insertNote(id: 1, bookId: 7, cfi: 'one', content: 'first');
+      await insertNote(id: 2, bookId: 8, cfi: 'other', content: 'other book');
+
+      await expectRejected(
+        [move(99, 'missing', 'new')],
+        BookNoteRelocationFailure.missingNote,
       );
-      expect(newCfiMerged['is_deleted'], 0, reason: 'Repaired newCfi must be preserved as active');
+      await expectRejected(
+        [move(2, 'other', 'new')],
+        BookNoteRelocationFailure.wrongBook,
+      );
+      await expectRejected(
+        [move(1, 'stale', 'new')],
+        BookNoteRelocationFailure.staleSource,
+      );
+      await expectRejected(
+        [move(1, 'one', '')],
+        BookNoteRelocationFailure.invalidInput,
+      );
+    });
+
+    test('rolls back earlier updates when a later SQL update fails', () async {
+      await insertNote(id: 1, bookId: 7, cfi: 'one', content: 'first');
+      await insertNote(id: 2, bookId: 7, cfi: 'two', content: 'second');
+      await db.execute('''
+        CREATE TRIGGER reject_second_relocation
+        BEFORE UPDATE ON tb_notes
+        WHEN OLD.id = 2
+        BEGIN SELECT RAISE(ABORT, 'blocked'); END
+      ''');
+      final before = await snapshot();
+
+      final result = await dao.relocateCfis(7, [
+        move(1, 'one', 'new-one'),
+        move(2, 'two', 'new-two'),
+      ]);
+
+      expect(result.isSuccess, isFalse);
+      expect(result.failure, BookNoteRelocationFailure.databaseFailure);
+      expect(await snapshot(), before);
     });
   });
 }

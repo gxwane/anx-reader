@@ -1,10 +1,7 @@
 import 'package:anx_reader/dao/base_dao.dart';
 import 'package:anx_reader/dao/book.dart';
-import 'package:anx_reader/enums/sync_direction.dart';
-import 'package:anx_reader/enums/sync_trigger.dart';
 import 'package:anx_reader/models/book.dart';
 import 'package:anx_reader/models/reading_time.dart';
-import 'package:anx_reader/providers/sync.dart';
 
 class ReadingTimeDao extends BaseDao {
   ReadingTimeDao();
@@ -15,10 +12,14 @@ class ReadingTimeDao extends BaseDao {
     ReadingTime readingTime, {
     DateTime? startedAt,
   }) async {
+    if (readingTime.readingTime < 0) {
+      throw ArgumentError.value(
+          readingTime.readingTime, 'readingTime', 'Duration cannot be negative');
+    }
     final db = await database;
     final resolvedDay = _resolveDayString(readingTime, startedAt);
 
-    readingTime.date ??= resolvedDay;
+    readingTime.date = resolvedDay;
 
     await db.transaction((txn) async {
       final existing = await txn.rawQuery(
@@ -32,7 +33,7 @@ class ReadingTimeDao extends BaseDao {
           table,
           {
             'reading_time': current + readingTime.readingTime,
-            // keep legacy date value unchanged to avoid churn
+            'date': resolvedDay,
           },
           where: 'id = ?',
           whereArgs: [existing.first['id']],
@@ -392,19 +393,6 @@ class ReadingTimeDao extends BaseDao {
       ''',
       mapper: (row) => row,
     );
-  }
-
-  Future<void> deleteReadingTimeByBookId(List<int> bookIds) async {
-    if (bookIds.isEmpty) return;
-
-    final placeholders = List.filled(bookIds.length, '?').join(',');
-    await delete(
-      table,
-      where: 'book_id IN ($placeholders)',
-      whereArgs: bookIds,
-    );
-
-    Sync().syncData(SyncDirection.both, null, trigger: SyncTrigger.auto);
   }
 
   Future<List<Map<String, dynamic>>> _aggregateByBook({

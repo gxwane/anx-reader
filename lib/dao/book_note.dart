@@ -1,6 +1,63 @@
 import 'package:anx_reader/dao/base_dao.dart';
 import 'package:anx_reader/models/book_note.dart';
 
+enum BookNoteRelocationFailure {
+  invalidInput,
+  missingNote,
+  wrongBook,
+  staleSource,
+  occupiedTarget,
+  duplicateTarget,
+  conflictingInstruction,
+  databaseFailure,
+}
+
+class BookNoteRelocationResult {
+  const BookNoteRelocationResult._({
+    required this.isSuccess,
+    required this.updatedCount,
+    this.failure,
+  });
+
+  const BookNoteRelocationResult.success(int updatedCount)
+      : this._(isSuccess: true, updatedCount: updatedCount);
+
+  const BookNoteRelocationResult.failure(BookNoteRelocationFailure failure)
+      : this._(isSuccess: false, updatedCount: 0, failure: failure);
+
+  final bool isSuccess;
+  final int updatedCount;
+  final BookNoteRelocationFailure? failure;
+
+  Map<String, Object?> toJson() => {
+        'success': isSuccess,
+        'updatedCount': updatedCount,
+        if (failure != null) 'failure': failure!.name,
+      };
+}
+
+class _RelocationCommand {
+  const _RelocationCommand({
+    required this.id,
+    required this.oldCfi,
+    required this.newCfi,
+    this.prefix,
+    this.suffix,
+  });
+
+  final int id;
+  final String oldCfi;
+  final String newCfi;
+  final String? prefix;
+  final String? suffix;
+
+  bool hasSameInstruction(_RelocationCommand other) =>
+      oldCfi == other.oldCfi &&
+      newCfi == other.newCfi &&
+      prefix == other.prefix &&
+      suffix == other.suffix;
+}
+
 class BookNoteDao extends BaseDao {
   BookNoteDao();
 
@@ -18,20 +75,42 @@ class BookNoteDao extends BaseDao {
       "type IN ('${annotationTypes.join("', '")}')";
 
   Future<int> save(BookNote bookNote) async {
-    if (bookNote.id != null) {
-      await updateBookNoteById(bookNote);
-      return bookNote.id!;
+    if (bookNote.cfi.trim().isEmpty) {
+      throw ArgumentError.value(bookNote.cfi, 'cfi', 'CFI cannot be empty');
     }
 
-    final duplicates =
-        await selectBookNoteByCfiAndBookId(bookNote.cfi, bookNote.bookId);
-    if (duplicates.isNotEmpty) {
-      bookNote.id = duplicates.last.id;
-      await updateBookNoteById(bookNote);
-      return bookNote.id!;
-    }
+    return transaction((txn) async {
+      if (bookNote.id != null) {
+        await txn.update(
+          table,
+          bookNote.toMap(),
+          where: 'id = ?',
+          whereArgs: [bookNote.id],
+        );
+        return bookNote.id!;
+      }
 
-    return insert(table, bookNote.toMap());
+      final existing = await txn.query(
+        table,
+        columns: const ['id'],
+        where: 'book_id = ? AND cfi = ?',
+        whereArgs: [bookNote.bookId, bookNote.cfi],
+        limit: 1,
+      );
+      if (existing.isNotEmpty) {
+        final id = existing.single['id'] as int;
+        bookNote.id = id;
+        await txn.update(
+          table,
+          bookNote.toMap(),
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        return id;
+      }
+
+      return txn.insert(table, bookNote.toMap());
+    });
   }
 
   Future<List<BookNote>> selectBookNoteByCfiAndBookId(
@@ -64,64 +143,120 @@ class BookNoteDao extends BaseDao {
     );
   }
 
-  /// Atomically updates relocated notes to new CFIs and creates tombstones
-  /// for old CFIs in a single transaction, preventing WebDAV zombie resurrection.
-  Future<void> batchUpdateCfiWithTombstones(
+  /// Relocates one book's annotations atomically after validating the full batch.
+  Future<BookNoteRelocationResult> relocateCfis(
     int bookId,
-    List<Map<String, dynamic>> items,
+    List<Map<String, Object?>> items,
   ) async {
-    if (items.isEmpty) return;
-    markDirty(bookId);
-    final now = DateTime.now().toUtc().toIso8601String();
+    if (bookId <= 0) {
+      return const BookNoteRelocationResult.failure(
+          BookNoteRelocationFailure.invalidInput);
+    }
+    if (items.isEmpty) {
+      return const BookNoteRelocationResult.success(0);
+    }
 
-    await transaction((txn) async {
-      for (final item in items) {
-        final id = (item['id'] as num?)?.toInt();
-        if (id == null) continue;
-        final oldCfi = item['oldCfi']?.toString() ?? '';
-        final newCfi = item['newCfi']?.toString() ?? '';
-        final prefix = item['prefix']?.toString();
-        final suffix = item['suffix']?.toString();
-        if (newCfi.isEmpty) continue;
+    final commandsById = <int, _RelocationCommand>{};
+    final targetOwners = <String, int>{};
+    for (final item in items) {
+      final numericId = item['id'];
+      final id = numericId is num ? numericId.toInt() : null;
+      final oldCfi = item['oldCfi'] is String ? item['oldCfi'] as String : '';
+      final newCfi = item['newCfi'] is String ? item['newCfi'] as String : '';
+      if (id == null || id <= 0 || oldCfi.isEmpty || newCfi.isEmpty) {
+        return const BookNoteRelocationResult.failure(
+            BookNoteRelocationFailure.invalidInput);
+      }
+      final command = _RelocationCommand(
+        id: id,
+        oldCfi: oldCfi,
+        newCfi: newCfi,
+        prefix: item['prefix']?.toString(),
+        suffix: item['suffix']?.toString(),
+      );
+      final previous = commandsById[id];
+      if (previous != null && !previous.hasSameInstruction(command)) {
+        return const BookNoteRelocationResult.failure(
+            BookNoteRelocationFailure.conflictingInstruction);
+      }
+      commandsById[id] = command;
 
-        final originalRows = await txn.query(
+      final targetOwner = targetOwners[newCfi];
+      if (targetOwner != null && targetOwner != id) {
+        return const BookNoteRelocationResult.failure(
+            BookNoteRelocationFailure.duplicateTarget);
+      }
+      targetOwners[newCfi] = id;
+    }
+
+    final commands = commandsById.values.toList(growable: false);
+
+    try {
+      return await transaction((txn) async {
+        final placeholders = List.filled(commands.length, '?').join(',');
+        final rows = await txn.query(
           table,
-          where: 'id = ?',
-          whereArgs: [id],
+          where: 'id IN ($placeholders)',
+          whereArgs: commands.map((command) => command.id).toList(),
         );
-        if (originalRows.isEmpty) continue;
-        final original = originalRows.first;
+        final rowsById = {for (final row in rows) row['id'] as int: row};
 
-        await txn.update(
-          table,
-          {
-            'cfi': newCfi,
-            if (prefix != null) 'context_prefix': prefix,
-            if (suffix != null) 'context_suffix': suffix,
-            'update_time': now,
-          },
-          where: 'id = ?',
-          whereArgs: [id],
-        );
+        for (final command in commands) {
+          final row = rowsById[command.id];
+          if (row == null) {
+            return const BookNoteRelocationResult.failure(
+                BookNoteRelocationFailure.missingNote);
+          }
+          if (row['book_id'] != bookId) {
+            return const BookNoteRelocationResult.failure(
+                BookNoteRelocationFailure.wrongBook);
+          }
+          if (row['cfi'] != command.oldCfi) {
+            return const BookNoteRelocationResult.failure(
+                BookNoteRelocationFailure.staleSource);
+          }
+        }
 
-        if (oldCfi.isNotEmpty && oldCfi != newCfi) {
-          await txn.insert(
+        for (final command in commands) {
+          final occupied = await txn.query(
+            table,
+            columns: const ['id'],
+            where: 'book_id = ? AND cfi = ? AND id <> ?',
+            whereArgs: [bookId, command.newCfi, command.id],
+            limit: 1,
+          );
+          if (occupied.isNotEmpty) {
+            return const BookNoteRelocationResult.failure(
+                BookNoteRelocationFailure.occupiedTarget);
+          }
+        }
+
+        final now = DateTime.now().toUtc().toIso8601String();
+        for (final command in commands) {
+          final changed = await txn.update(
             table,
             {
-              'book_id': original['book_id'] ?? bookId,
-              'content': original['content'] ?? '',
-              'cfi': oldCfi,
-              'chapter': original['chapter'] ?? '',
-              'type': original['type'] ?? 'highlight',
-              'color': original['color'] ?? '',
-              'is_deleted': 1,
-              'create_time': original['create_time'],
+              'cfi': command.newCfi,
+              if (command.prefix != null)
+                'context_prefix': command.prefix,
+              if (command.suffix != null)
+                'context_suffix': command.suffix,
               'update_time': now,
             },
+            where: 'id = ? AND book_id = ? AND cfi = ?',
+            whereArgs: [command.id, bookId, command.oldCfi],
           );
+          if (changed != 1) {
+            throw StateError('Annotation changed during relocation');
+          }
         }
-      }
-    });
+
+        return BookNoteRelocationResult.success(commands.length);
+      });
+    } catch (_) {
+      return const BookNoteRelocationResult.failure(
+          BookNoteRelocationFailure.databaseFailure);
+    }
   }
 
   Future<BookNote> selectBookNoteById(int id) async {
@@ -250,7 +385,6 @@ class BookNoteDao extends BaseDao {
       where: 'book_id = ?',
       whereArgs: [-1],
     );
-    markDirty(newBookId);
   }
 
   Future<void> clearTemporaryNotes() async {
@@ -260,7 +394,6 @@ class BookNoteDao extends BaseDao {
       where: 'book_id = ?',
       whereArgs: [-1],
     );
-    BookNoteDao.markClean(-1);
   }
 }
 

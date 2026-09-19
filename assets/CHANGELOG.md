@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.0-preview.8] - 2026-09-19
+
+- Change(sync): Roll back the custom WebDAV sync engines (v1 sidecar micro-sync and v2 immutable-object engine) to the upstream whole-database snapshot behavior; cloud micro-sync, group UUID mapping, Markdown notes mirroring and conflict-copy protection are removed, legacy sync metadata must be archived out of the sync namespace, and published changelog entries remain unchanged
+- Change(db): Converge the database schema to v9, keeping the reader context fingerprint columns and adding `(book_id, cfi)` note and `(book_id, date)` reading-time unique indexes; legacy production databases must be converted by a one-time out-of-app tool before use
+- Feat(sync): Replace the restore entry with a local transactional restore that swaps the six business tables in one SQLite write transaction, rejecting wrong versions, duplicate identities, noncanonical dates, negative durations, dangling groups and cycles with the live database unchanged, and requiring WebDAV off plus a full app restart first
+- Fix(statistics): Remove the statistics delete UI and DAO hard-delete endpoint; leaving the statistics page and removing books never delete reading records, note saves keep their identity, and reading time accumulates as plain seconds
+
+- Change(sync): 自研 WebDAV 同步（v1 边车微同步与 v2 不可变对象引擎）整体回退为上游原版整库快照同步；云端微同步、分组 UUID 映射、Markdown 笔记镜像与冲突副本保护一并移除，旧同步元数据需人工移出同步命名空间归档，已发布版本条目保持不变
+- Change(db): 数据库结构收敛至 v9，保留阅读器上下文指纹列并新增 `(book_id, cfi)` 笔记与 `(book_id, date)` 阅读时长唯一索引；生产旧库须经应用外一次性工具离线转换后接入
+- Feat(sync): 恢复入口改为本地事务恢复，在单个 SQLite 写事务内替换六张业务表；错误版本、重复身份、非规范日期、负时长、悬空分组与环路一律拒绝且原库不变，执行前须关闭 WebDAV 并完全退出应用
+- Fix(statistics): 移除统计删除 UI 与 DAO 硬删除端点，退出统计页、移除书籍不再删除阅读记录；笔记保存保持唯一身份，阅读时长按普通秒数累加
+
 ## [0.1.0-preview.7] - 2026-09-07
 
 - Feat(tts): Implement decoupled reader viewport and morphing FAB during TTS listening, allowing users to freely browse pages and chapters without violent snap-backs, featuring smooth return-to-voice navigation, headless background cross-chapter playback (Option 1B), contextual reconvergence (Option 1C), and progress preservation guards
@@ -53,15 +65,9 @@
 - Feat(font): Support cross-platform system font discovery, pinning UX, direct CSS rendering, and monospace code protection (Phase 2)
 - Feat(font): Modernize font subsystem with random-access stream parser, stable PostScript IDs, and JIT lazy loading (Phase 1)
 - Feat(reader): Add W3C Web Annotation context fingerprinting and fuzzy relocation to auto-heal broken note coordinates across book layout changes and editions
-- Feat(sync): Support auto-mirroring reading notes to WebDAV in Markdown format with YAML frontmatter for Obsidian and PKM tools
-- Feat(sync): Optimize WebDAV traffic with single-request micro-sync, note dirty-checking, and debounced background index worker
-- Feat(sync): Add bookshelf global progress index and pull-to-refresh to instantly sync reading progress across all books in a single request
-- Feat(sync): Add offline sync queue and resilience engine to automatically enqueue failed micro-syncs and seamlessly drain on network recovery
 - Feat(notes): Decouple notes from local book files, seamlessly preserve and present notes for removed books with graceful missing file guards
-- Feat(notes): Support batch deleting all notes for a single book with confirmation dialog, slidable shortcuts, and WebDAV tombstone sync
-- Feat(sync): Redesign WebDAV sync with per-book micro-sync, non-destructive record merge, and non-blocking progress hints
+- Feat(notes): Support batch deleting all notes for a single book with confirmation dialog and slidable shortcuts
 - Fix(statistics): Fix dashboard grid packing cavity and blank void on wide and fullscreen layouts
-- Fix(sync): Eliminate WebDAV bi-directional sync ping-pong loop after downloading remote database
 
 - Feat(ui): 全局滚动体验现代化与平台自适应滚动条，支持桌面/移动自适应滚动物理、双重滚动条防重、未挂载控制器崩溃保护、阅读目录防重影与纯净手势交互，以及统一主题样式
 - Fix(reader): 全面规范书籍目录树（TOC）与朗读设置折叠箭头方向（折叠为向右箭头，展开为向下箭头，自适应 RTL），并彻底消除当前章节误导性的向右箭头与突增行高，统一单行规整排版
@@ -81,16 +87,10 @@
 - Feat(font): 打造“我的字体 / 系统字体库 / 在线字体库”三合一综合字体中心，支持即时预览与设置联动
 - Feat(font): 支持跨平台系统字体发现、收藏机制、Direct CSS 原生渲染与代码块等宽字体保护（第二阶段）
 - Feat(font): 重构字体子系统，引入 4KB 头部随机寻址流式解析器、PostScript 稳定标识与 JIT 懒加载（第一阶段）
-- Feat(reader): 引入 W3C 规范上下文指纹与模糊自愈重定位算法，在电子书重新排版或版本更新导致 CFI 坐标失效时毫秒级自动纠偏，并配备 WebDAV 防僵尸墓碑机制
-- Feat(sync): 支持将划线笔记自动镜像导出为 Markdown 格式（含 YAML Frontmatter）至 WebDAV，无缝联动 Obsidian 与 PKM 知识库
-- Feat(sync): 优化 WebDAV 流量开销，实现单请求极速微同步、笔记脏检查与后台索引防抖聚合，彻底消除并发冲突
-- Feat(sync): 新增书架全局聚合进度索引与下拉刷新，单次轻量请求即可秒级对齐书架所有书籍最新阅读进度
-- Feat(sync): 新增离线阅读与弱网自愈重试队列，在离线/弱网微同步失败时自动入队，网络恢复或应用唤醒时自动后台无感知补发
+- Feat(reader): 引入 W3C 规范上下文指纹与模糊自愈重定位算法，在电子书重新排版或版本更新导致 CFI 坐标失效时毫秒级自动纠偏
 - Feat(notes): 解耦笔记与本地书架文件，持久保留并平权呈现历史书籍笔记资产，对本地物理文件缺失增加防崩溃安全保护
-- Feat(notes): 支持一键批量删除单书全部笔记，配备二次确认弹窗、左滑快捷操作与 WebDAV 墓碑同步
-- Feat(sync): 全面重构 WebDAV 同步引擎，支持单书毫秒级微同步、多端记录无损合流与非阻塞进度提示
+- Feat(notes): 支持一键批量删除单书全部笔记，配备二次确认弹窗与左滑快捷操作
 - Fix(statistics): 修复统计面板在宽屏与全屏布局下的网格排布空洞与镂空白斑问题
-- Fix(sync): 修复 WebDAV 双向同步在下载远端数据库后反复触发误上传的乒乓循环问题
 
 ## [0.1.0-preview.5] - 2026-09-02
 

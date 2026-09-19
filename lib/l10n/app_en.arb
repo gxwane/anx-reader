@@ -550,7 +550,7 @@
   "noBackupsAvailable": "No backups available",
   "restore": "Restore",
   "confirmRestore": "Confirm Restore",
-  "restoreWarning": "This operation will replace the current database with the backup file. Current unsynced data may be lost. Do you want to continue?",
+  "restoreWarning": "Continue only after saving a current backup, turning off WebDAV, fully exiting and restarting the app, and leaving reading and TTS closed. This restores records from a current-version local backup in one transaction. Missing book files are not restored and cloud data is unchanged.",
   "restoreSuccess": "Database restored successfully",
   "downloadFailed": "Download Failed",
   "downloadFailedContent": "Unable to download database file from server. Please check network connection and server status.",
@@ -995,29 +995,6 @@
     "placeholders": {
       "title": {
         "type": "String"
-      }
-    }
-  },
-  "settingsSyncMarkdownNotesSection": "Markdown Notes Mirroring",
-  "settingsSyncAutoExportMarkdown": "Auto-Mirror Markdown Notes to WebDAV",
-  "settingsSyncAutoExportMarkdownSubtitle": "Automatically generate formatted Markdown notes in sync/markdown_notes/ for Obsidian, Logseq, and PKM tools",
-  "settingsSyncExportAllMarkdownNow": "Mirror All Notes to WebDAV Now",
-  "settingsSyncExportingMarkdown": "Mirroring Markdown notes ({current}/{total})...",
-  "@settingsSyncExportingMarkdown": {
-    "placeholders": {
-      "current": {
-        "type": "int"
-      },
-      "total": {
-        "type": "int"
-      }
-    }
-  },
-  "settingsSyncExportAllMarkdownSuccess": "Successfully mirrored {count} books' notes to WebDAV",
-  "@settingsSyncExportAllMarkdownSuccess": {
-    "placeholders": {
-      "count": {
-        "type": "int"
       }
     }
   },
