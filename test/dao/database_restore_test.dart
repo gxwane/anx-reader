@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:anx_reader/dao/book.dart';
+import 'package:anx_reader/dao/book_group.dart';
 import 'package:anx_reader/dao/database.dart';
 import 'package:anx_reader/dao/database_restore.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -275,6 +277,97 @@ void main() {
 
     await expectLater(restore(), throwsA(isA<FormatException>()));
     expect((await live.query('tb_books')).single['title'], 'original');
+  });
+
+  test('a historical book may keep a soft-deleted group reference', () async {
+    final source = await databaseFactoryFfi.openDatabase(backupPath);
+    await source.insert('tb_groups', {
+      'id': 5,
+      'name': 'archived',
+      'parent_id': 0,
+      'is_deleted': 1,
+      'create_time': '2026-09-01T00:00:00.000Z',
+      'update_time': '2026-09-01T00:00:00.000Z',
+    });
+    await source.update(
+      'tb_books',
+      {'group_id': 5, 'is_deleted': 1},
+      where: 'id = 2',
+    );
+    await source.close();
+
+    await restore();
+
+    final restored = (await live.query('tb_books')).single;
+    expect(restored['group_id'], 5);
+    expect(restored['is_deleted'], 1);
+    expect(
+      (await live.query('tb_groups', where: 'id = 5')).single['is_deleted'],
+      1,
+    );
+    await expectIdentityIndices(live);
+  });
+
+  test('a live book referencing a soft-deleted group is rejected', () async {
+    final source = await databaseFactoryFfi.openDatabase(backupPath);
+    await source.insert('tb_groups', {
+      'id': 5,
+      'name': 'archived',
+      'parent_id': 0,
+      'is_deleted': 1,
+      'create_time': '2026-09-01T00:00:00.000Z',
+      'update_time': '2026-09-01T00:00:00.000Z',
+    });
+    await source.update('tb_books', {'group_id': 5}, where: 'id = 2');
+    await source.close();
+    final before = await live.query('tb_books');
+
+    await expectLater(restore(), throwsA(isA<FormatException>()));
+
+    expect(await live.query('tb_books'), before);
+    await expectIdentityIndices(live);
+  });
+
+  test(
+      'a backup produced after removing a book and cleaning its empty group still restores',
+      () async {
+    final workflowPath = '${directory.path}/workflow.db';
+    final workflow = await openTarget(workflowPath);
+    DBHelper.setDatabaseForTesting(workflow);
+    try {
+      await workflow.insert('tb_groups', {
+        'id': 5,
+        'name': 'temporary',
+        'parent_id': 0,
+        'is_deleted': 0,
+        'create_time': '2026-09-01T00:00:00.000Z',
+        'update_time': '2026-09-01T00:00:00.000Z',
+      });
+      await workflow.insert('tb_books', book(10, 'removed', groupId: 5));
+      await workflow.insert('tb_books', book(11, 'moved', groupId: 5));
+
+      await bookDao.batchSoftDelete([10]);
+      await bookDao.batchUpdateGroup([11], 0);
+      await BookGroupDao().softDeleteIfEmpty(5);
+    } finally {
+      DBHelper.setDatabaseForTesting(null);
+    }
+    await workflow.close();
+    await File(workflowPath).copy(backupPath);
+
+    await restore();
+
+    final restoredBooks = await live.query('tb_books', orderBy: 'id');
+    expect(restoredBooks, hasLength(2));
+    expect(restoredBooks.first['is_deleted'], 1);
+    expect(restoredBooks.first['group_id'], 5);
+    expect(restoredBooks.last['is_deleted'], 0);
+    expect(restoredBooks.last['group_id'], 0);
+    expect(
+      (await live.query('tb_groups', where: 'id = 5')).single['is_deleted'],
+      1,
+    );
+    await expectIdentityIndices(live);
   });
 
   test('corrupt and wrong-version backups leave live data unchanged', () async {

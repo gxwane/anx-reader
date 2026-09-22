@@ -112,7 +112,10 @@ class DatabaseRestore {
           throw const FormatException('Duplicate book identity');
         }
         final group = groups[book.groupId];
-        if (group == null || (group['is_deleted'] as int? ?? 0) != 0) {
+        if (group == null) {
+          throw const FormatException('Book references a missing group');
+        }
+        if (!book.isDeleted && (group['is_deleted'] as int? ?? 0) != 0) {
           throw const FormatException('Book references an invalid group');
         }
       }
