@@ -102,6 +102,27 @@ class BookGroupDao {
     );
   }
 
+  /// Dissolves one local folder without orphaning retained books or children.
+  Future<void> dissolve(int id) async {
+    if (id <= 0) throw ArgumentError.value(id, 'id', 'Invalid group ID');
+    final db = await DBHelper().database;
+    await db.transaction((txn) async {
+      final root = await txn.query('tb_groups',
+          where: 'id = 0 AND parent_id IS NULL AND is_deleted = 0');
+      if (root.isEmpty) throw StateError('Root group is missing or invalid');
+      final now = DateTime.now().toIso8601String();
+      await txn.rawUpdate(
+        'UPDATE tb_books SET group_id = 0, update_time = ? WHERE group_id = ?',
+        [now, id],
+      );
+      await txn.rawUpdate(
+        'UPDATE tb_groups SET parent_id = 0, update_time = ? WHERE parent_id = ?',
+        [now, id],
+      );
+      await txn.delete('tb_groups', where: 'id = ?', whereArgs: [id]);
+    });
+  }
+
   TbGroup _fromRow(Map<String, Object?> row) => TbGroup(
         id: row['id'] as int,
         name: row['name'] as String? ?? '',

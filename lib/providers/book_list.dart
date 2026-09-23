@@ -145,13 +145,14 @@ class BookList extends _$BookList {
     refresh();
   }
 
-  void dissolveGroup(List<Book> books) {
-    for (var book in books) {
-      updateBook(book.copyWith(groupId: 0));
+  Future<void> dissolveGroup(List<Book> books) async {
+    if (books.isEmpty) return;
+    final groupId = books.first.groupId;
+    if (groupId <= 0 || books.any((book) => book.groupId != groupId)) {
+      throw ArgumentError('Expected books from one non-root group');
     }
-    // delete the group
-    ref.read(groupDaoProvider.notifier).hardDeleteGroup(books.first.groupId);
-    refresh();
+    await ref.read(groupDaoProvider.notifier).hardDeleteGroup(groupId);
+    await refresh();
   }
 
   void removeFromGroup(Book book) {

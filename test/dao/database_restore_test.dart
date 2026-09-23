@@ -1,10 +1,16 @@
 import 'dart:io';
 
+import 'package:anx_reader/config/shared_preference_provider.dart';
 import 'package:anx_reader/dao/book.dart';
 import 'package:anx_reader/dao/book_group.dart';
 import 'package:anx_reader/dao/database.dart';
 import 'package:anx_reader/dao/database_restore.dart';
+import 'package:anx_reader/models/book.dart';
+import 'package:anx_reader/providers/book_list.dart';
+import 'package:anx_reader/providers/tb_groups.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class RestoreProbe implements Database {
@@ -271,8 +277,7 @@ void main() {
       'parent_id': 3,
       'is_deleted': 0,
     });
-    await source.update('tb_groups', {'parent_id': 4},
-        where: 'id = 3');
+    await source.update('tb_groups', {'parent_id': 4}, where: 'id = 3');
     await source.close();
 
     await expectLater(restore(), throwsA(isA<FormatException>()));
@@ -368,6 +373,168 @@ void main() {
       1,
     );
     await expectIdentityIndices(live);
+  });
+
+  group('atomic folder dissolution', () {
+    late ProviderContainer container;
+    late ProviderSubscription<AsyncValue<List<List<Book>>>> subscription;
+
+    Future<void> addGroup(int id, {int parent = 0, int deleted = 0}) =>
+        live.insert('tb_groups', {
+          'id': id,
+          'name': 'group-$id',
+          'parent_id': parent,
+          'is_deleted': deleted,
+          'create_time': '2026-09-01T00:00:00.000Z',
+          'update_time': '2026-09-01T00:00:00.000Z',
+        }).then((_) {});
+
+    Future<Map<String, List<Map<String, Object?>>>> snapshot() async => {
+          for (final table in DatabaseRestore.tables)
+            table: await live.query(table, orderBy: 'id'),
+        };
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues(
+          {'bookshelfReadingStatusFilter': 'reading'});
+      await Prefs().initPrefs();
+      DBHelper.setDatabaseForTesting(live);
+      await addGroup(5);
+      for (final id in [10, 11, 12, 13]) {
+        await live.insert('tb_books', book(id, 'book-$id', groupId: 5));
+      }
+      await bookDao.batchSoftDelete([10]);
+      await live.update('tb_books', {'reading_status': 0}, where: 'id = 13');
+      container = ProviderContainer();
+      subscription = container.listen(bookListProvider, (_, __) {});
+      await container.read(bookListProvider.future);
+    });
+
+    tearDown(() {
+      subscription.close();
+      container.dispose();
+      DBHelper.setDatabaseForTesting(null);
+    });
+
+    test(
+        'real provider dissolves removed and filtered books into a restorable backup',
+        () async {
+      await live.insert('tb_notes',
+          {'book_id': 10, 'cfi': 'retained', 'content': 'personal knowledge'});
+      await live.insert('tb_reading_time',
+          {'book_id': 10, 'date': '2026-09-23', 'reading_time': 42});
+      final visible = (await container.read(bookListProvider.future))
+          .singleWhere((books) => books.first.groupId == 5);
+      expect(visible.map((book) => book.id).toSet(), {11, 12});
+      // A stale UI book must not overwrite newer reading data during dissolution.
+      await live.update('tb_books', {'reading_percentage': 0.9},
+          where: 'id = 11');
+      final before = await snapshot();
+      await Future<void>.sync(() =>
+          container.read(bookListProvider.notifier).dissolveGroup(visible));
+      final after = await snapshot();
+      expect(await live.query('tb_groups', where: 'id = 5'), isEmpty);
+      for (final row in after['tb_books']!) {
+        final original =
+            before['tb_books']!.singleWhere((b) => b['id'] == row['id']);
+        if (row['id'] == 1) {
+          expect(row, original);
+        } else {
+          expect(row['group_id'], 0,
+              reason:
+                  'Book ${row['id']} still references the dissolved folder');
+          expect({...row}..remove('update_time'),
+              {...original, 'group_id': 0}..remove('update_time'));
+        }
+      }
+      expect(after['tb_notes'], before['tb_notes']);
+      expect(after['tb_reading_time'], before['tb_reading_time']);
+      final closedBackup = '${directory.path}/dissolved.db';
+      await live.execute('VACUUM INTO ?', [closedBackup]);
+      await DatabaseRestore.restore(live, closedBackup,
+          version: currentDbVersion);
+      expect(await snapshot(), after);
+    });
+
+    test(
+        'direct group deletion reparents live and deleted children, not grandchildren',
+        () async {
+      await addGroup(6, parent: 5);
+      await addGroup(7, parent: 5, deleted: 1);
+      await addGroup(8, parent: 6);
+      await addGroup(9);
+      final before = await snapshot();
+      await container.read(groupDaoProvider.notifier).hardDeleteGroup(5);
+      final after = await snapshot();
+      for (final id in [6, 7]) {
+        final original = before['tb_groups']!.singleWhere((g) => g['id'] == id);
+        final row = after['tb_groups']!.singleWhere((g) => g['id'] == id);
+        expect(row['parent_id'], 0);
+        expect({...row}..remove('update_time'),
+            {...original, 'parent_id': 0}..remove('update_time'));
+      }
+      for (final id in [0, 8, 9]) {
+        expect(after['tb_groups']!.singleWhere((g) => g['id'] == id),
+            before['tb_groups']!.singleWhere((g) => g['id'] == id));
+      }
+      await container.read(groupDaoProvider.notifier).hardDeleteGroup(5);
+      expect(await snapshot(), after,
+          reason: 'Repeated dissolution is idempotent');
+    });
+
+    test('a final delete failure rolls back both book and child updates',
+        () async {
+      await addGroup(6, parent: 5);
+      await live.execute(
+          "CREATE TRIGGER reject_dissolve BEFORE DELETE ON tb_groups WHEN OLD.id = 5 BEGIN SELECT RAISE(ABORT, 'blocked'); END");
+      final before = await snapshot();
+      await expectLater(
+          container.read(groupDaoProvider.notifier).hardDeleteGroup(5),
+          throwsA(isA<DatabaseException>()));
+      expect(await snapshot(), before);
+    });
+
+    for (final id in [0, -1]) {
+      test('root and invalid group $id are rejected without mutation',
+          () async {
+        final before = await snapshot();
+        await expectLater(
+            container.read(groupDaoProvider.notifier).hardDeleteGroup(id),
+            throwsArgumentError);
+        expect(await snapshot(), before);
+      });
+    }
+
+    for (final invalidRoot in ['missing', 'deleted', 'parented']) {
+      test('$invalidRoot root rejects dissolution without changing data',
+          () async {
+        if (invalidRoot == 'missing') {
+          await live.delete('tb_groups', where: 'id = 0');
+        } else {
+          await live.update('tb_groups',
+              invalidRoot == 'deleted' ? {'is_deleted': 1} : {'parent_id': 5},
+              where: 'id = 0');
+        }
+        final before = await snapshot();
+        await expectLater(
+            container.read(groupDaoProvider.notifier).hardDeleteGroup(5),
+            throwsStateError);
+        expect(await snapshot(), before);
+      });
+    }
+
+    test('empty or mixed provider input never deletes a folder', () async {
+      final notifier = container.read(bookListProvider.notifier);
+      final before = await snapshot();
+      await Future<void>.sync(() => notifier.dissolveGroup([]));
+      await expectLater(
+          Future<void>.sync(() => notifier.dissolveGroup([
+                Book.fromDb(book(11, 'member', groupId: 5)),
+                Book.fromDb(book(1, 'root')),
+              ])),
+          throwsArgumentError);
+      expect(await snapshot(), before);
+    });
   });
 
   test('corrupt and wrong-version backups leave live data unchanged', () async {

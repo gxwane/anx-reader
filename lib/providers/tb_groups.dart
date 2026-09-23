@@ -1,3 +1,4 @@
+import 'package:anx_reader/dao/book_group.dart';
 import 'package:anx_reader/dao/database.dart';
 import 'package:anx_reader/models/tb_group.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -126,12 +127,7 @@ class GroupDao extends _$GroupDao {
   }
 
   Future<void> hardDeleteGroup(int id) async {
-    final db = await DBHelper().database;
-    await db.delete(
-      'tb_groups',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await bookGroupDao.dissolve(id);
     ref.invalidateSelf();
   }
 

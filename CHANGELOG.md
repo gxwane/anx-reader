@@ -9,6 +9,9 @@
 
 ## [0.1.0-preview.8] - 2026-09-19
 
+- Fix(bookshelf): Dissolve folders atomically, including removed and filtered-out books and child-group references, so normal bookshelf operations keep local backups restorable; retain notes and reading statistics and allow retry on failure.
+- Fix(bookshelf): 解散文件夹改为原子事务，同时处理已移除、被筛选隐藏的书籍及子分组引用，避免正常书架操作导致本地备份无法恢复；保留笔记与阅读统计，失败时可重试。
+
 ### 新增
 - **听书视口解耦与单一变形 FAB（Decoupled Reader Viewport & Morphing FAB during TTS Listening）**：彻底重构听书时手动翻页的交互体验。当用户在听书朗读期间翻阅前后页面或浏览跨章节内容时，视口不再因音频播放下一句而被强行暴力拉回（Snap-Back）；右下角原有悬浮按钮智能变形为 `[🎯 回到朗读处]`（英文 `Return to Voice`）药丸胶囊，点击一键精准平滑翻页回到当前正在发音的句子并绘制高亮；内核深度落实 **1B 后台无头静默连播** 与 **1C 上下文情境重合自愈**：用户浏览其他章节时，音频通过内存无头文档静默连读下一章，永不断播、绝不误判读完猝死；当用户手动浏览的章节与音频跨章自然切入的章节重合时，视口自愈吸附并恢复跟随；严密筑牢阅读进度防线，杜绝自由浏览期间切后台导致听书进度被意外覆盖。
 

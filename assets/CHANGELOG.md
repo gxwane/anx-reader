@@ -9,6 +9,7 @@
 - Change(db): Converge the database schema to v9, keeping the reader context fingerprint columns and adding `(book_id, cfi)` note and `(book_id, date)` reading-time unique indexes; legacy production databases must be converted by a one-time out-of-app tool before use
 - Feat(sync): Replace the restore entry with a local transactional restore that swaps the six business tables in one SQLite write transaction, rejecting wrong versions, duplicate identities, noncanonical dates, negative durations, dangling groups and cycles with the live database unchanged, and requiring WebDAV off plus a full app restart first
 - Fix(statistics): Remove the statistics delete UI and DAO hard-delete endpoint; leaving the statistics page and removing books never delete reading records, note saves keep their identity, and reading time accumulates as plain seconds
+- Fix(bookshelf): Dissolve folders atomically, including removed and filtered-out books and child-group references, so local backups remain restorable; retain notes and reading statistics and allow retry on failure
 
 - Feat(tts): 重构听书视口解耦与单一变形 FAB，支持听书过程中自由翻页与浏览前后章节而不再被强行拉回，提供优雅的「回到朗读处」一键平滑跳转、后台无感跨章连播（1B）、情境重合自愈（1C）与阅读进度安全保护
 - Fix(tts): 基于 Ping-Pong 双播放器实现硬件级 DSP 实时无感变速，调速时不再丢弃已缓冲音频或重发网络请求，彻底消除调速卡顿与饥饿超时
@@ -17,6 +18,7 @@
 - Change(db): 数据库结构收敛至 v9，保留阅读器上下文指纹列并新增 `(book_id, cfi)` 笔记与 `(book_id, date)` 阅读时长唯一索引；生产旧库须经应用外一次性工具离线转换后接入
 - Feat(sync): 恢复入口改为本地事务恢复，在单个 SQLite 写事务内替换六张业务表；错误版本、重复身份、非规范日期、负时长、悬空分组与环路一律拒绝且原库不变，执行前须关闭 WebDAV 并完全退出应用
 - Fix(statistics): 移除统计删除 UI 与 DAO 硬删除端点，退出统计页、移除书籍不再删除阅读记录；笔记保存保持唯一身份，阅读时长按普通秒数累加
+- Fix(bookshelf): 解散文件夹改为原子事务，涵盖已移除、被筛选隐藏的书籍及子分组引用，确保本地备份可恢复；保留笔记与阅读统计，失败时可重试
 
 ## [0.1.0-preview.7] - 2026-09-07
 
